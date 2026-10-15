@@ -143,14 +143,14 @@ struct CaptionPromptTests {
     }
 
     @Test(arguments: [
-        ("http://192.168.1.2", LocalEndpointPolicy.Rejection.nonLoopbackHost),
+        ("http://192.0.2.10", LocalEndpointPolicy.Rejection.nonLoopbackHost),
         ("https://example.com", .nonLoopbackHost),
         ("http://localhost.evil.com", .nonLoopbackHost),
         ("http://127.0.0.1.nip.io:8080", .nonLoopbackHost),
         ("http://127.1:8080", .nonLoopbackHost),
         ("http://2130706433", .nonLoopbackHost),
         ("http://0.0.0.0:8080", .nonLoopbackHost),
-        ("http://[::2]:8080", .nonLoopbackHost),
+        ("http://[2001:db8::2]:8080", .nonLoopbackHost),
         ("http://[::ffff:8.8.8.8]:8080", .nonLoopbackHost),
         ("file:///etc/passwd", .unsupportedScheme),
         ("ftp://127.0.0.1", .unsupportedScheme),

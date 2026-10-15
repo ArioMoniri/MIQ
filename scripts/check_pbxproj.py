@@ -111,9 +111,20 @@ class Parser:
         return m.group(0)
 
 
+def _confined(arg):
+    """Resolve a command-line path and require it to stay inside the current
+    directory tree (the script is run from the repository root)."""
+    cwd = os.path.realpath(os.getcwd())
+    path = os.path.realpath(os.path.join(cwd, arg))
+    if os.path.commonpath([cwd, path]) != cwd:
+        sys.exit("refusing path outside %s: %s" % (cwd, arg))
+    return path
+
+
 def main():
-    path, root = sys.argv[1], sys.argv[2]
-    text = open(path, encoding="utf-8").read()
+    path, root = _confined(sys.argv[1]), _confined(sys.argv[2])
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
     errors = []
 
     if not text.startswith("// !$*UTF8*$!"):

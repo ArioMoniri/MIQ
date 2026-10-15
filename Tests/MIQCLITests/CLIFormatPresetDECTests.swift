@@ -132,7 +132,7 @@ struct CLIFormatPresetDECTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         // Extensionless, written out of order; the values identify each slice.
         for (name, z, value) in [("IM0002", 2.0, Int16(1064)), ("IM0001", 0.0, Int16(1024)), ("IM0003", 4.0, Int16(1124))] {
-            try Self.dicomSlice(z: z, value: value, seriesUID: "1.2.3.4").write(to: dir.appendingPathComponent(name))
+            try Self.dicomSlice(z: z, value: value, seriesUID: "2.25.1001").write(to: dir.appendingPathComponent(name))
         }
         try Data("readme".utf8).write(to: dir.appendingPathComponent("README.txt"))
 

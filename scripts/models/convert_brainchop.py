@@ -29,13 +29,34 @@ def _layers(model):
     return conf["layers"] if isinstance(conf, dict) else conf
 
 
+def _inside(base, *parts):
+    """Resolve ``parts`` under ``base`` and refuse anything that lands outside it
+    (``..``, absolute paths or symlinks in a model.json's shard list)."""
+    root = os.path.realpath(base)
+    path = os.path.realpath(os.path.join(root, *parts))
+    if os.path.commonpath([root, path]) != root:
+        raise SystemExit(f"refusing path outside {root}: {os.path.join(*parts)}")
+    return path
+
+
+def _user_path(arg):
+    """A path given on the command line, confined to the current directory tree."""
+    return _inside(os.getcwd(), arg)
+
+
 def _read_weights(model_path):
     """Return {name: (shape, flat list or bytes)} from the weightsManifest."""
-    model = json.load(open(model_path))
-    base = os.path.dirname(os.path.abspath(model_path))
+    model_path = _user_path(model_path)
+    with open(model_path, encoding="utf-8") as fh:
+        model = json.load(fh)
+    base = os.path.dirname(model_path)
     out = {}
     for group in model["weightsManifest"]:
-        blob = b"".join(open(os.path.join(base, p), "rb").read() for p in group["paths"])
+        chunks = []
+        for shard in group["paths"]:
+            with open(_inside(base, shard), "rb") as fh:
+                chunks.append(fh.read())
+        blob = b"".join(chunks)
         offset = 0
         for spec in group["weights"]:
             if spec.get("dtype", "float32") != "float32" or "quantization" in spec:
@@ -52,6 +73,7 @@ def _read_weights(model_path):
 
 
 def cmd_inspect(model_path):
+    model_path = _user_path(model_path)
     model, weights = _read_weights(model_path)
     total = 0
     for layer in _layers(model):
@@ -61,15 +83,17 @@ def cmd_inspect(model_path):
     for name, (shape, _) in weights.items():
         total += math.prod(shape)
     print(f"parameters: {total}")
-    base = os.path.dirname(os.path.abspath(model_path))
+    base = os.path.dirname(model_path)
     files = [os.path.basename(model_path)] + [p for g in model["weightsManifest"] for p in g["paths"]]
     for f in files:
-        data = open(os.path.join(base, f), "rb").read()
+        with open(_inside(base, f), "rb") as fh:
+            data = fh.read()
         print(f"sha256 {hashlib.sha256(data).hexdigest()}  {len(data):>8}  {f}")
 
 
 def cmd_tiny(out_dir):
     """Two 3x3x3 convs (dilation 1 and 2) + ReLU + 1x1x1 head, deterministic weights."""
+    out_dir = _user_path(out_dir)
     os.makedirs(out_dir, exist_ok=True)
     def vals(n, seed):
         return [((i * 37 + seed * 11) % 17 - 8) / 16.0 for i in range(n)]
@@ -88,9 +112,9 @@ def cmd_tiny(out_dir):
     model = {"format": "layers-model", "generatedBy": "MIQ convert_brainchop.py tiny",
              "modelTopology": {"model_config": {"class_name": "Functional", "config": {"layers": layers}}},
              "weightsManifest": [{"paths": ["tiny.bin"], "weights": [{"name": n, "shape": s, "dtype": "float32"} for n, s, _ in specs]}]}
-    with open(os.path.join(out_dir, "model.json"), "w") as f:
+    with open(_inside(out_dir, "model.json"), "w", encoding="utf-8") as f:
         json.dump(model, f, indent=1)
-    with open(os.path.join(out_dir, "tiny.bin"), "wb") as f:
+    with open(_inside(out_dir, "tiny.bin"), "wb") as f:
         for _, _, v in specs:
             f.write(struct.pack(f"<{len(v)}f", *v))
     print(f"wrote {out_dir}/model.json and tiny.bin")

@@ -77,7 +77,8 @@ class Case:
 
     def value(self, x, y, z, t):
         raw = float(self.raw(x, y, z, t))
-        if self.slope == 1.0 and self.inter == 0.0:
+        # Exact identity scaling (no rounding steps): compared exactly on purpose.
+        if math.isclose(self.slope, 1.0, rel_tol=0.0, abs_tol=0.0) and math.isclose(self.inter, 0.0, abs_tol=0.0):
             return f32(raw)
         # Two float32 roundings, as the readers compute it (no fused multiply-add).
         return f32(f32(f32(raw) * f32(self.slope)) + f32(self.inter))
@@ -357,8 +358,11 @@ def build_cases():
 
 
 def main():
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    out_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "Tests", "Fixtures", "conformance")
+    root = os.path.realpath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    out_dir = os.path.realpath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "Tests", "Fixtures", "conformance"))
+    # Only ever write inside the repository.
+    if os.path.commonpath([root, out_dir]) != root:
+        sys.exit("refusing to write outside the repository: %s" % out_dir)
     total = 0
     names = []
     for case, data in build_cases():

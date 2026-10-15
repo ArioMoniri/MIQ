@@ -549,7 +549,7 @@ struct DICOMTests {
 
     @Test func seriesAssemblerStacksSiblingsByPosition() throws {
         let folder = Self.tempURL("x").deletingLastPathComponent()
-        let uid = "1.2.3.4.5.6"
+        let uid = "2.25.4242"
         // Written out of order; values identify each slice.
         for (name, z, value) in [("b.dcm", 10.0, Int16(30)), ("a.dcm", 0.0, Int16(10)), ("c.dcm", 5.0, Int16(20))] {
             let data = Self.ctSlice(position: [0, 0, z], intercept: "0", pixels: Array(repeating: value, count: 12), seriesUID: uid)
