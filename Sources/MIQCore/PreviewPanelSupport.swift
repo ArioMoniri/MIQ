@@ -60,22 +60,28 @@ extension MIQHeader {
     /// crosshair position readout, or `nil` when the header carries no complete
     /// affine for the index space the preview's cursor uses.
     ///
-    /// Only transforms whose `srow` rows *are* that affine qualify: a NIfTI sform
-    /// (and the DICOM / OME-Zarr headers built the same way) and a NRRD anatomical
-    /// space. MGH rows hold direction cosines only (no voxel size, no `c_ras`),
-    /// MIF stores its transform per image axis before `layout:` permutes them, and
-    /// a qform-only NIfTI keeps no rows at all — those show indices alone rather
-    /// than a wrong coordinate.
+    /// A NIfTI sform (and the DICOM / OME-Zarr headers built the same way) and a
+    /// NRRD or MetaImage anatomical space store that affine directly. MGH rows hold unit
+    /// direction cosines plus the FreeSurfer origin (`c_ras`-derived P0), so the
+    /// columns are scaled by the voxel size here; MIF rows already combine
+    /// `transform`, the `layout:` permutation and the voxel size. A qform-only
+    /// NIfTI keeps no rows at all and shows indices alone rather than a wrong
+    /// coordinate.
     public var positionAffine: [[Float]]? {
+        let rows = [srowX, srowY, srowZ]
+        guard rows.allSatisfy({ $0.count >= 4 && $0.prefix(4).allSatisfy(\.isFinite) }) else { return nil }
         switch orientationDiagnostics.transformSource {
-        case .sform, .nrrdSpace:
-            break
+        case .sform, .nrrdSpace, .metaImage, .mifTransform, .mifDefault:
+            return rows
+        case .mghVox2ras:
+            let scale = (1...3).map { index -> Float in
+                let value = pixdim[safe: index] ?? 1
+                return value.isFinite && value > 0 ? value : 1
+            }
+            return rows.map { row in [row[0] * scale[0], row[1] * scale[1], row[2] * scale[2], row[3]] }
         default:
             return nil
         }
-        let rows = [srowX, srowY, srowZ]
-        guard rows.allSatisfy({ $0.count >= 4 && $0.prefix(4).allSatisfy(\.isFinite) }) else { return nil }
-        return rows
     }
 
     /// Unit suffix for world coordinates: the NIfTI spatial unit when stated,

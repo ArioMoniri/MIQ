@@ -89,6 +89,21 @@ struct CorrectnessRegressionTests {
         #expect(abs(p.x - 1) < 1e-5 && abs(p.y - 2) < 1e-5 && abs(p.z - 3) < 1e-5)
     }
 
+    /// The crosshair readout's mm coordinates agree with `voxelToWorld` for MGH
+    /// (scaled cosines + c_ras origin) and MIF (transform · layout · vox).
+    @Test func positionReadoutMatchesWorldAffineForMghAndMif() throws {
+        let mgh = MIQVolume(image: try MIQParser().parseMgh(Self.mghBytes(spacing: 2)))
+        let mif = MIQVolume(image: try Self.mif(layout: "-0,+1,+2", transform: ["0,-1,0,10", "1,0,0,20", "0,0,1,30"]))
+        for volume in [mgh, mif] {
+            let rows = try #require(volume.image.header.positionAffine)
+            let world = volume.voxelToWorld.apply(1, 2, 3)
+            let x = Double(rows[0][0] * 1 + rows[0][1] * 2 + rows[0][2] * 3 + rows[0][3])
+            let y = Double(rows[1][0] * 1 + rows[1][1] * 2 + rows[1][2] * 3 + rows[1][3])
+            let z = Double(rows[2][0] * 1 + rows[2][1] * 2 + rows[2][2] * 3 + rows[2][3])
+            #expect(abs(x - world.x) < 1e-4 && abs(y - world.y) < 1e-4 && abs(z - world.z) < 1e-4)
+        }
+    }
+
     // MARK: - DEC
 
     @Test func decObliqueFslVectorUndoesXFlip() {
