@@ -41,6 +41,12 @@ final class MIQPreviewAppKitView: NSView {
         // like `isFourD` flipping — the value *text* itself is pushed separately
         // and never participates in this gate.
         let showsValue: Bool
+        // Same structural role for the crosshair-position line.
+        let showsPosition: Bool
+        // Warnings / appendix rows / the 4D window-mode row: compared by the
+        // model's revision counter rather than row by row.
+        let panelRevision: Int
+        let volumesWindowText: String?
     }
 
     var onSliceScrollGestureBegan: (@MainActor () -> Void)?
@@ -89,6 +95,17 @@ final class MIQPreviewAppKitView: NSView {
     // without touching the throttled metadata rebuild.
     private var showsVoxelValue = false
     private var voxelValueText: String?
+    // Live crosshair position, structured exactly like the value readout.
+    private var showsVoxelPosition = false
+    private var voxelPositionText: String?
+    // Panel content beyond the header rows; see `MIQPreviewModel.panelRevision`.
+    private var panelWarnings: [String] = []
+    private var panelAppendix: [MetadataPanelText.Section] = []
+    private var panelRevision = -1
+    private var volumesWindowText: String?
+    /// Always-visible display-mode badge ("As stored" / "Neurological" /
+    /// "Radiological") over the slice area's bottom-leading corner.
+    private let displayModeBadge = PassthroughLabel(labelWithString: "")
 
     // MARK: Interaction state (ui-interaction)
     /// View features (presets, colour maps, overlays, alternate views). See
@@ -133,6 +150,7 @@ final class MIQPreviewAppKitView: NSView {
         let c = MIQConfig.axisLabelColor
         let labelNSColor = NSColor(calibratedRed: c.red, green: c.green, blue: c.blue, alpha: c.alpha)
         applyCanvasUpdates(from: model, labelColor: labelNSColor)
+        updateDisplayModeBadge(model.displayMode, visible: model.axial != nil)
         applyInteractionLayout(labelColor: labelNSColor)
         if !areMetadataEntriesEqual(metadataEntries, model.metadataEntries) {
             metadataEntries = model.metadataEntries
@@ -172,12 +190,34 @@ final class MIQPreviewAppKitView: NSView {
         voxelValueText = model.crosshairVoxelText
         metadata.setVoxelValue(voxelValueText)
 
+        // Position line: same one-time structural change, per-frame text push.
+        if model.showsVoxelPosition != showsVoxelPosition {
+            showsVoxelPosition = model.showsVoxelPosition
+            lastMetadataRenderInputs = nil
+            needsLayout = true
+        }
+        voxelPositionText = model.crosshairPositionText
+        metadata.setVoxelPosition(voxelPositionText)
+
+        // Warnings, DICOM / Data QC rows and the 4D window row arrive with the
+        // load or later (background QC); any change is a structural rebuild.
+        if model.panelRevision != panelRevision || model.volumeWindowModeText != volumesWindowText {
+            panelRevision = model.panelRevision
+            panelWarnings = model.panelWarnings
+            panelAppendix = model.panelAppendix
+            volumesWindowText = model.volumeWindowModeText
+            lastMetadataRenderInputs = nil
+            needsLayout = true
+        }
+
         switch model.state {
         case .deferred(let name, let sizeBytes):
-            showDeferredPlaceholder(name: name, sizeBytes: sizeBytes)
+            showDeferredPlaceholder(name: name, sizeBytes: sizeBytes, isDataless: model.deferredIsDataless)
         case .failed(let message):
+            // The model's message is display-ready ("Preview failed: …", or an
+            // unsupported-feature reason verbatim).
             deferredPlaceholder.isHidden = true
-            status.stringValue = "Preview failed: \(message)"
+            status.stringValue = message
             status.isHidden = false
         case .noFiniteVoxels:
             // Not phrased as a failure — the file parsed fine. The metadata panel
@@ -254,6 +294,7 @@ final class MIQPreviewAppKitView: NSView {
         // by the overlay; it participates in ordering only while the crosshair is
         // visible and the field is enabled.
         let showValueLine = showsVoxelValue && MIQConfig.showMetadataField(.value)
+        let showPositionLine = showsVoxelPosition && MIQConfig.showMetadataField(.voxelPosition)
         let inputs = MetadataRenderInputs(
             entries: metadataEntries,
             order: order,
@@ -262,7 +303,10 @@ final class MIQPreviewAppKitView: NSView {
             fontSize: fontSize,
             inset: inset,
             isFourD: isFourD,
-            showsValue: showValueLine
+            showsValue: showValueLine,
+            showsPosition: showPositionLine,
+            panelRevision: panelRevision,
+            volumesWindowText: volumesWindowText
         )
 
         // Skip metadata sort/rebuild unless metadata inputs or panel metrics changed.
@@ -285,11 +329,16 @@ final class MIQPreviewAppKitView: NSView {
             order: order,
             isVisible: MIQConfig.showMetadataField,
             isFourD: isFourD,
-            showsValue: showValueLine
+            showsValue: showValueLine,
+            showsPosition: showPositionLine,
+            warnings: panelWarnings,
+            volumesWindowText: isFourD ? volumesWindowText : nil,
+            appendix: panelAppendix
         )
         let rows = layout.rows
         let volumesLineIndex = layout.volumesLineIndex
         let valueLineIndex = layout.valueLineIndex
+        let positionLineIndex = layout.positionLineIndex
 
         let rowFont = NSFont.systemFont(ofSize: fontSize, weight: .regular)
         // Overlay-drawn labels are blank in `rows`, so measure them explicitly.
@@ -298,6 +347,7 @@ final class MIQPreviewAppKitView: NSView {
         var columnLabels = rows.map(\.label)
         if volumesLineIndex != nil { columnLabels.append(MetadataPanelText.volumesRowLabel) }
         if MIQConfig.showMetadataField(.value) { columnLabels.append(MetadataPanelText.valueRowLabel) }
+        if MIQConfig.showMetadataField(.voxelPosition) { columnLabels.append(MetadataPanelText.positionRowLabel) }
         let labelColumnX = MetadataPanelText.labelColumnOrigin(for: columnLabels, font: rowFont)
 
         if abs(metadata.inset - inset) > 0.001 {
@@ -305,8 +355,10 @@ final class MIQPreviewAppKitView: NSView {
         }
         metadata.volumesLineIndex = volumesLineIndex
         metadata.valueLineIndex = valueLineIndex
+        metadata.positionLineIndex = positionLineIndex
         metadata.totalLineCount = rows.count
-        metadata.lineFont = (volumesLineIndex == nil && valueLineIndex == nil) ? nil : rowFont
+        metadata.lineFont = (volumesLineIndex == nil && valueLineIndex == nil && positionLineIndex == nil) ? nil : rowFont
+        metadata.accessibilityRows = rows
         metadata.labelColumnX = labelColumnX
         // The metadata panel shares the sagittal panel's x-range, so the
         // sagittal image's right edge is usable verbatim as the scrubber limit.
@@ -326,6 +378,17 @@ final class MIQPreviewAppKitView: NSView {
             overlayColor: metadataOverlayColor
         )
         metadata.setVoxelValue(voxelValueText)
+        metadata.setVoxelPosition(voxelPositionText)
+    }
+
+    private func updateDisplayModeBadge(_ mode: ViewOrientation, visible: Bool) {
+        let text = mode.badgeLabel
+        if displayModeBadge.stringValue != text {
+            displayModeBadge.stringValue = text
+            displayModeBadge.setAccessibilityLabel("Display mode: \(text)")
+        }
+        // Only once there is an image to qualify (not over the loading text).
+        if displayModeBadge.isHidden == visible { displayModeBadge.isHidden = !visible }
     }
 
     private func buildUI() {
@@ -471,7 +534,15 @@ final class MIQPreviewAppKitView: NSView {
 
         buildDeferredPlaceholder()
 
+        displayModeBadge.translatesAutoresizingMaskIntoConstraints = false
+        displayModeBadge.font = .systemFont(ofSize: 10, weight: .medium)
+        displayModeBadge.textColor = NSColor(calibratedWhite: 0.75, alpha: 1.0)
+        displayModeBadge.drawsBackground = true
+        displayModeBadge.backgroundColor = NSColor(calibratedWhite: 0.0, alpha: 0.6)
+        displayModeBadge.isHidden = true
+
         addSubview(gridLikeLayout)
+        addSubview(displayModeBadge)
         addSubview(status)
         addSubview(deferredPlaceholder)
 
@@ -480,6 +551,8 @@ final class MIQPreviewAppKitView: NSView {
             gridLikeLayout.trailingAnchor.constraint(equalTo: trailingAnchor),
             gridLikeLayout.topAnchor.constraint(equalTo: topAnchor),
             gridLikeLayout.bottomAnchor.constraint(equalTo: bottomAnchor),
+            displayModeBadge.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            displayModeBadge.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
             status.centerXAnchor.constraint(equalTo: centerXAnchor),
             status.centerYAnchor.constraint(equalTo: centerYAnchor),
             status.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.86),
@@ -554,9 +627,9 @@ final class MIQPreviewAppKitView: NSView {
         onLoadAnyway?()
     }
 
-    private func showDeferredPlaceholder(name: String, sizeBytes: Int) {
+    private func showDeferredPlaceholder(name: String, sizeBytes: Int, isDataless: Bool) {
         let size = ByteCountFormatter.string(fromByteCount: Int64(sizeBytes), countStyle: .file)
-        deferredLabel.stringValue = "\(name) is \(size) on a network volume.\nLoading it now could make Finder unresponsive while it transfers."
+        deferredLabel.stringValue = PreviewStatusText.deferredMessage(name: name, sizeText: size, isDataless: isDataless)
         deferredPlaceholder.isHidden = false
         status.isHidden = true
     }
@@ -619,7 +692,10 @@ final class MIQPreviewAppKitView: NSView {
         abs(lhs.fontSize - rhs.fontSize) <= 0.001 &&
         abs(lhs.inset - rhs.inset) <= 0.001 &&
         lhs.isFourD == rhs.isFourD &&
-        lhs.showsValue == rhs.showsValue
+        lhs.showsValue == rhs.showsValue &&
+        lhs.showsPosition == rhs.showsPosition &&
+        lhs.panelRevision == rhs.panelRevision &&
+        lhs.volumesWindowText == rhs.volumesWindowText
     }
 
     private func applyLabelFontSize(_ size: CGFloat) {
@@ -806,7 +882,11 @@ extension MIQPreviewAppKitView {
     /// Slice images (decorated when a colour map / overlay / DEC is active),
     /// crosshairs, W/L badges and accessibility labels.
     fileprivate func applyCanvasUpdates(from model: MIQPreviewModel, labelColor: NSColor) {
-        let showLabels = MIQConfig.showAxisLabels
+        let configuredShowLabels = MIQConfig.showAxisLabels
+        // "As stored" keeps the patient L/R letters even with axis labels off:
+        // without them the stored left/right is ambiguous.
+        let forceLeftRight = !configuredShowLabels && model.displayMode.requiresLeftRightLabels
+        let showLabels = configuredShowLabels || forceLeftRight
         let badge = interaction.windowBadgeText
         let windowText = interaction.windowAccessibilityText
         let entries: [(MIQSliceCanvas, SlicePlane, NSImage?, SliceOrientationLabels)] = [
@@ -818,7 +898,7 @@ extension MIQPreviewAppKitView {
             applyCanvasUpdate(
                 to: canvas,
                 image: interaction.decoratedImage(for: plane) ?? modelImage,
-                orientation: orientation,
+                orientation: forceLeftRight ? orientation.leftRightOnly() : orientation,
                 crosshair: model.crosshairPoint(for: plane),
                 showAxisLabels: showLabels,
                 labelColor: labelColor
@@ -1008,8 +1088,8 @@ extension MIQPreviewAppKitView {
         }
 
         // Colour map
-        if interaction.colormapAvailable, let traits {
-            let maps = traits.colormapOptions.map { map in
+        if interaction.colormapAvailable {
+            let maps = interaction.colormapOptions.map { map in
                 item(ColormapCycle.displayName(map), .colormap(map), checked: map == interaction.colormap)
             }
             menu.addItem(submenu("Colormap (C)", maps))
@@ -1163,6 +1243,12 @@ private final class MetadataView: NSView {
     /// `volumesLineIndex`; both can be set at once (a 4D file with the value field
     /// enabled), which is why `reservedLineFragmentRect` is index-aware.
     var valueLineIndex: Int? { didSet { needsLayout = true } }
+    /// Line reserved blank for the live crosshair-position readout; reserved and
+    /// positioned exactly like `valueLineIndex`.
+    var positionLineIndex: Int? { didSet { needsLayout = true } }
+    /// The rows behind `attributedText`, for the VoiceOver value (reserved rows
+    /// are filled in from the overlays' live text).
+    var accessibilityRows: [MetadataPanelText.Row] = []
     /// Total number of drawn metadata lines (excluding the disclaimer). Lets
     /// `reservedLineFragmentRect` tell whether a given reserved index is the
     /// trailing line — the only one TextKit may represent as the *extra* line
@@ -1187,6 +1273,7 @@ private final class MetadataView: NSView {
 
     private let scrubber = MIQVolumeScrubber()
     private let valueReadout = MIQValueReadout()
+    private let positionReadout = MIQValueReadout(rowLabel: MetadataPanelText.positionRowLabel)
 
     override var isFlipped: Bool { true }
 
@@ -1229,19 +1316,43 @@ private final class MetadataView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         configureTextKit()
-        scrubber.isHidden = true
-        valueReadout.isHidden = true
-        addSubview(scrubber)
-        addSubview(valueReadout)
+        configureOverlays()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         configureTextKit()
-        scrubber.isHidden = true
-        valueReadout.isHidden = true
-        addSubview(scrubber)
-        addSubview(valueReadout)
+        configureOverlays()
+    }
+
+    private func configureOverlays() {
+        for overlay in [scrubber, valueReadout, positionReadout] as [NSView] {
+            overlay.isHidden = true
+            addSubview(overlay)
+        }
+    }
+
+    // MARK: Accessibility
+    // The panel is drawn glyphs plus overlays, so VoiceOver gets it as one
+    // static-text element whose value is the rows as plain text, live values
+    // included.
+
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .staticText }
+    override func accessibilityLabel() -> String? { "Image information" }
+    override func accessibilityValue() -> Any? {
+        MetadataPanelText.accessibilityText(rows: accessibilityRows) { [self] index in
+            if index == volumesLineIndex, !scrubber.isHidden {
+                return "\(MetadataPanelText.volumesRowLabel): \(scrubber.spokenText)"
+            }
+            if index == valueLineIndex, !valueReadout.isHidden {
+                return valueReadout.spokenText
+            }
+            if index == positionLineIndex, !positionReadout.isHidden {
+                return positionReadout.spokenText
+            }
+            return nil
+        }
     }
 
     private func configureTextKit() {
@@ -1325,24 +1436,34 @@ private final class MetadataView: NSView {
         valueReadout.isHidden = valueLineIndex == nil
     }
 
+    /// Per-frame update of the crosshair-position readout; see `setVoxelValue`.
+    func setVoxelPosition(_ text: String?) {
+        positionReadout.setText(text)
+        positionReadout.isHidden = positionLineIndex == nil
+    }
+
     override func layout() {
         super.layout()
         guard textStorage.length > 0 else {
             scrubber.isHidden = true
             valueReadout.isHidden = true
+            positionReadout.isHidden = true
             return
         }
         syncContainer()
         if let font = lineFont {
             scrubber.font = font
             valueReadout.font = font
+            positionReadout.font = font
         }
         scrubber.labelColumnX = labelColumnX
         valueReadout.labelColumnX = labelColumnX
+        positionReadout.labelColumnX = labelColumnX
         // Visibility is owned by setVolumeState / setVoxelValue; here we only place
         // the overlays on their reserved line fragments.
         positionReservedOverlay(scrubber, lineIndex: volumesLineIndex, rightLimit: scrubberRightLimit)
         positionReservedOverlay(valueReadout, lineIndex: valueLineIndex, rightLimit: nil)
+        positionReservedOverlay(positionReadout, lineIndex: positionLineIndex, rightLimit: nil)
     }
 
     private func positionReservedOverlay(_ overlay: NSView, lineIndex: Int?, rightLimit: CGFloat?) {
@@ -1393,7 +1514,20 @@ private final class MetadataView: NSView {
 /// `setText`, change-gated so a static crosshair never repaints.
 private final class MIQValueReadout: NSView {
     /// Also measured by the metadata builder when it sizes the value column.
-    static let rowLabel = MetadataPanelText.valueRowLabel
+    let rowLabel: String
+
+    init(rowLabel: String = MetadataPanelText.valueRowLabel) {
+        self.rowLabel = rowLabel
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        self.rowLabel = MetadataPanelText.valueRowLabel
+        super.init(coder: coder)
+    }
+
+    /// "Label: value" for the panel's VoiceOver text.
+    var spokenText: String { "\(rowLabel): \(text ?? "\u{2014}")" }
 
     var font: NSFont = .systemFont(ofSize: 13, weight: .regular) { didSet { needsDisplay = true } }
     var labelColumnX: CGFloat = 0 {
@@ -1420,7 +1554,7 @@ private final class MIQValueReadout: NSView {
         // Draw at y = 0 (the frame top): the frame top is already the sibling
         // line's fragment top, and NSString.draw(at:) shares the default line
         // metrics of NSAttributedString.draw(in:), so the baseline matches.
-        (Self.rowLabel as NSString).draw(at: .zero, withAttributes: labelAttrs)
+        (rowLabel as NSString).draw(at: .zero, withAttributes: labelAttrs)
         let value = (text ?? "—") as NSString
         value.draw(at: CGPoint(x: labelColumnX, y: 0), withAttributes: valueAttrs)
     }
@@ -1501,8 +1635,14 @@ private final class MIQVolumeScrubber: NSView {
         let minX = labelColumnX + widestValue + Self.valueToTrackGap + knobHalfW
         let maxX = bounds.width - Self.trackTrailingInset - knobHalfW
         guard maxX - minX >= Self.minTrackWidth, count > 1 else { return nil }
+        // Over the decompression budget volumes > 0 are unavailable, and the
+        // message needs the track's room: no track (and no seeking) then.
+        if case .tooLarge = expansion { return nil }
         return (minX, maxX)
     }
+
+    /// "n / N" plus any status, for the panel's VoiceOver text.
+    var spokenText: String { valueString() }
 
     private func valueString() -> String {
         let base = "\(index + 1) / \(count)"
@@ -1532,6 +1672,17 @@ private final class MIQVolumeScrubber: NSView {
         // metrics of NSAttributedString.draw(in:), so y = 0 lands exactly where
         // TextKit drew the lines above and below.
         (Self.rowLabel as NSString).draw(at: .zero, withAttributes: labelAttrs)
+        if case .tooLarge = expansion {
+            // The message replaces the track; truncate rather than overrun the
+            // panel at small sizes.
+            let style = NSMutableParagraphStyle()
+            style.lineBreakMode = .byTruncatingTail
+            var truncating = valueAttrs
+            truncating[.paragraphStyle] = style
+            let rect = CGRect(x: labelColumnX, y: 0, width: max(0, bounds.width - labelColumnX - Self.trackTrailingInset), height: bounds.height)
+            (valueString() as NSString).draw(with: rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: truncating)
+            return
+        }
         (valueString() as NSString).draw(at: CGPoint(x: labelColumnX, y: 0), withAttributes: valueAttrs)
 
         guard let track = trackRange() else { return }
@@ -1664,4 +1815,10 @@ extension MIQVolumeScrubber {
         onScrub?(index - 1)
         return true
     }
+}
+
+/// A label that never takes mouse events, so an overlay badge on the slice area
+/// doesn't swallow the canvas's clicks and drags beneath it.
+private final class PassthroughLabel: NSTextField {
+    override func hitTest(_: NSPoint) -> NSView? { nil }
 }

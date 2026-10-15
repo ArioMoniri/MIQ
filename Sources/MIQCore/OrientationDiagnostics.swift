@@ -23,6 +23,8 @@ public struct OrientationDiagnostics: Sendable, Equatable {
         case mifDefault
         /// FreeSurfer MGH/MGZ direction cosines (`goodRASFlag != 0`).
         case mghVox2ras
+        /// ITK MetaImage `TransformMatrix` + `Offset` (LPS, converted to RAS).
+        case metaImage
         /// No usable transform: orientation is unknown and labels read "?".
         case none
 
@@ -35,6 +37,7 @@ public struct OrientationDiagnostics: Sendable, Equatable {
             case .mifTransform: return "MIF transform"
             case .mifDefault: return "MIF default"
             case .mghVox2ras: return "vox2ras"
+            case .metaImage: return "MetaImage transform"
             case .none: return "no transform"
             }
         }
@@ -48,6 +51,7 @@ public struct OrientationDiagnostics: Sendable, Equatable {
             case .mifLayout: self = .mifTransform
             case .mghDirectionCosines: self = .mghVox2ras
             case .nrrdSpaceDirections: self = .nrrdSpace
+            case .metaImageTransform: self = .metaImage
             }
         }
     }

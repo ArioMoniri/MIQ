@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Sample configuration profile for MIQ (see docs/DEPLOYMENT.md, "Managed settings").
+
+  Forces a conservative set of MIQ settings on managed Macs:
+    - App Group domain (group.net.marco-duering.miq), read by the app AND the
+      Quick Look extensions: disclaimer always shown in previews, Finder
+      thumbnails off, free-text metadata rows (description, provenance) off.
+    - App domain (net.marco-duering.miq), read by the app only: no automatic
+      update checks or installs (Sparkle), "Describe file" off.
+
+  Forced keys show as disabled in MIQ's Settings window with "Managed by your
+  organisation". Delete any key you don't want to enforce; every other MIQ
+  setting stays user-editable. The full key list is in docs/DEPLOYMENT.md.
+
+  Before deploying: replace the PayloadUUIDs with fresh ones (`uuidgen`), and
+  set PayloadIdentifier / PayloadOrganization to your organisation's. Verify on
+  a pilot group first.
+-->
+<plist version="1.0">
+<dict>
+	<key>PayloadDisplayName</key>
+	<string>MIQ – managed settings</string>
+	<key>PayloadDescription</key>
+	<string>Fixes privacy-relevant MIQ settings and turns off automatic updates.</string>
+	<key>PayloadIdentifier</key>
+	<string>org.example.miq.managed-settings</string>
+	<key>PayloadOrganization</key>
+	<string>Example Organisation</string>
+	<key>PayloadScope</key>
+	<string>System</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>B56FB52C-49AC-48F5-8CAD-4B201F28A694</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadDisplayName</key>
+			<string>MIQ preferences</string>
+			<key>PayloadIdentifier</key>
+			<string>org.example.miq.managed-settings.preferences</string>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadUUID</key>
+			<string>B3698A74-E532-4D80-80F0-816BF47B4002</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadEnabled</key>
+			<true/>
+			<key>PayloadContent</key>
+			<dict>
+				<!-- Shared settings: the app's Settings window and both Quick Look
+				     extensions read this App Group domain. -->
+				<key>group.net.marco-duering.miq</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<!-- Keep the "not a medical device" footer in every preview. -->
+								<key>hideDisclaimerInPreview</key>
+								<false/>
+								<!-- No slice thumbnails in Finder (and so none in the system thumbnail cache). -->
+								<key>showThumbnails</key>
+								<false/>
+								<!-- Free-text header rows that may contain identifying text. -->
+								<key>showMetadataDescription</key>
+								<false/>
+								<key>showMetadataProvenance</key>
+								<false/>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+				<!-- App-only settings: Sparkle and the caption feature live in the
+				     app's own preference domain. -->
+				<key>net.marco-duering.miq</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>SUEnableAutomaticChecks</key>
+								<false/>
+								<key>SUAutomaticallyUpdate</key>
+								<false/>
+								<!-- Settings › Features › "Describe file (experimental)". -->
+								<key>captionFeatureEnabled</key>
+								<false/>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

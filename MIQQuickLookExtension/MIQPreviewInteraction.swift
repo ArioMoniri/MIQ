@@ -234,6 +234,10 @@ final class MIQInteractionController {
     private var traitsGeneration: Int?
     private var traitsTask: Task<Void, Never>?
     private var appliedInitialPreset = false
+    private var appliedInitialColormap = false
+    /// The configured default map when it isn't in the standard cycle
+    /// (e.g. "cool"), so "C" can come back to it.
+    private var configuredExtraColormap: Colormap?
 
     /// The preset behind the current manual window, for the badge and menu
     /// check marks; `nil` for auto or a free W/L drag.
@@ -296,6 +300,8 @@ final class MIQInteractionController {
         traits = nil
         traitsGeneration = nil
         appliedInitialPreset = false
+        appliedInitialColormap = false
+        configuredExtraColormap = nil
         activePreset = nil
         isAdjustingWindow = false
         colormap = .grayscale
@@ -325,14 +331,35 @@ final class MIQInteractionController {
             guard let self, !Task.isCancelled else { return }
             self.traitsTask = nil
             self.traits = result
-            if !result.colormapOptions.contains(self.colormap) { self.colormap = .grayscale }
-            if !result.availableViewModes.contains(self.layout.viewMode) { self.layout.setViewMode(.slices) }
+            self.applyInitialColormapIfNeeded(result)
+            if !self.colormapOptions.contains(self.colormap) { self.colormap = .grayscale }
+            if !self.availableViewModes.contains(self.layout.viewMode) { self.layout.setViewMode(.slices) }
             self.applyInitialPresetIfNeeded(result)
             self.lookUpOverlayCandidatesIfNeeded()
             self.restartDecorations()
             self.refreshAlternate()
             self.onChange?()
         }
+    }
+
+    /// The first colour map for a file: `MIQConfig.defaultColormap`, or with
+    /// "Auto" (nil) `Colormap.suggested` (diverging for signed statistics, hot
+    /// for positive ones, grayscale otherwise). Scalar data only.
+    private func applyInitialColormapIfNeeded(_ traits: MIQVolumeTraits) {
+        guard !appliedInitialColormap else { return }
+        appliedInitialColormap = true
+        guard traits.isScalar else { return }
+        let initial = MIQConfig.defaultColormap ?? traits.suggestedColormap
+        configuredExtraColormap = traits.colormapOptions.contains(initial) ? nil : initial
+        colormap = initial
+    }
+
+    /// Maps "C" cycles through for this file.
+    var colormapOptions: [Colormap] {
+        guard let traits else { return [.grayscale] }
+        var options = traits.colormapOptions
+        if let extra = configuredExtraColormap, !options.contains(extra) { options.append(extra) }
+        return options
     }
 
     private func applyInitialPresetIfNeeded(_ traits: MIQVolumeTraits) {
@@ -378,7 +405,11 @@ final class MIQInteractionController {
         onChange?()
     }
 
-    var availableViewModes: [PreviewViewMode] { traits?.availableViewModes ?? [.slices] }
+    /// MIP / MinIP / 3D only when enabled in Settings (`MIQConfig.volumeRenderingEnabled`).
+    var availableViewModes: [PreviewViewMode] {
+        guard MIQConfig.volumeRenderingEnabled else { return [.slices] }
+        return traits?.availableViewModes ?? [.slices]
+    }
 
     func cycleViewMode() {
         layout.cycleViewMode(available: availableViewModes)
@@ -451,8 +482,8 @@ final class MIQInteractionController {
     var colormapAvailable: Bool { traits?.isScalar == true && decVolume == nil }
 
     func cycleColormap() {
-        guard colormapAvailable, let traits else { return }
-        setColormap(ColormapCycle.next(after: colormap, in: traits.colormapOptions))
+        guard colormapAvailable else { return }
+        setColormap(ColormapCycle.next(after: colormap, in: colormapOptions))
     }
 
     func setColormap(_ map: Colormap) {
@@ -477,6 +508,11 @@ final class MIQInteractionController {
 
     private func lookUpOverlayCandidatesIfNeeded() {
         guard overlayCandidates == nil, candidatesTask == nil, let model else { return }
+        // Off in Settings: no directory listing at all.
+        guard MIQConfig.overlayAutoDiscovery else {
+            overlayCandidates = []
+            return
+        }
         let url = model.interactionFileURL
         let limit = Self.maxCandidates
         candidatesTask = Task { [weak self] in

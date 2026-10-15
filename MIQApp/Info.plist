@@ -30,6 +30,10 @@
 				<string>org.mrtrix.mif</string>
 				<string>org.mrtrix.mif-gz</string>
 				<string>org.teem.nrrd</string>
+				<string>org.teem.nhdr</string>
+				<string>org.mrtrix.mih</string>
+				<string>org.itk.metaimage</string>
+				<string>org.itk.metaimage-header</string>
 				<string>org.nema.dicom</string>
 			</array>
 		</dict>
@@ -245,6 +249,86 @@
 				<key>public.mime-type</key>
 				<array>
 					<string>application/x-nrrd</string>
+				</array>
+			</dict>
+		</dict>
+		<!-- Detached NRRD header: a text-only header whose data file field names the payload next to it. The Quick Look sandbox may grant only the header itself; see README troubleshooting. -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>NRRD Detached Header</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.teem.nhdr</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://teem.sourceforge.net/nrrd/format.html</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>nhdr</string>
+				</array>
+			</dict>
+		</dict>
+		<!-- MRtrix detached header (file: name offset points at the payload). -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>MRtrix Image Header</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.mrtrix.mih</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://mrtrix.readthedocs.io/en/latest/getting_started/image_data.html</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mih</string>
+				</array>
+			</dict>
+		</dict>
+		<!-- ITK MetaImage with an attached payload (ElementDataFile = LOCAL). -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>MetaImage</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.itk.metaimage</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://itk.org/Wiki/ITK/MetaIO/Documentation</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mha</string>
+				</array>
+			</dict>
+		</dict>
+		<!-- ITK MetaImage detached header (ElementDataFile names the payload). -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>MetaImage Header</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.itk.metaimage-header</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://itk.org/Wiki/ITK/MetaIO/Documentation</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mhd</string>
 				</array>
 			</dict>
 		</dict>

@@ -9,9 +9,9 @@ extension ViewOrientation {
 
     var label: String {
         switch self {
-        case .stored:        return "As Stored"
-        case .neurological:  return "Neurological"
-        case .radiological:  return "Radiological"
+        case .stored:        return String(localized: "As Stored")
+        case .neurological:  return String(localized: "Neurological")
+        case .radiological:  return String(localized: "Radiological")
         }
     }
 }
@@ -22,10 +22,72 @@ extension SegmentationColoring {
 
     var label: String {
         switch self {
-        case .off:    return "Off"
-        case .auto:   return "Auto"
-        case .random: return "Random"
+        case .off:    return String(localized: "Off")
+        case .auto:   return String(localized: "Auto")
+        case .random: return String(localized: "Random")
         }
+    }
+}
+
+/// The Preview pane's colour-map menu: `auto` (stored as the string "auto",
+/// i.e. `MIQConfig.Defaults.defaultColormap`) plus every `Colormap`.
+enum ColormapChoice: Hashable, CaseIterable {
+    case auto
+    case map(Colormap)
+
+    static var allCases: [ColormapChoice] { [.auto] + Colormap.allCases.map(ColormapChoice.map) }
+
+    init(rawValue: String) {
+        self = Colormap(rawValue: rawValue).map(ColormapChoice.map) ?? .auto
+    }
+
+    var rawValue: String {
+        switch self {
+        case .auto:         return MIQConfig.Defaults.defaultColormap
+        case .map(let map): return map.rawValue
+        }
+    }
+
+    /// The map the example renders with (`nil` = auto, greyscale for anatomy).
+    var colormap: Colormap? {
+        if case .map(let map) = self { return map }
+        return nil
+    }
+
+    var label: String {
+        switch self {
+        case .auto: return String(localized: "Auto")
+        case .map(let map):
+            switch map {
+            case .grayscale: return String(localized: "Greyscale")
+            case .hot:       return String(localized: "Hot")
+            case .cool:      return String(localized: "Cool")
+            case .winter:    return String(localized: "Winter")
+            case .viridis:   return "Viridis"
+            case .inferno:   return "Inferno"
+            case .diverging: return String(localized: "Diverging (blue–red)")
+            }
+        }
+    }
+}
+
+extension WindowPreset {
+    static let defaultValue = WindowPreset(rawValue: MIQConfig.Defaults.ctWindowPreset) ?? .auto
+
+    /// Menu title with the window it applies ("Brain · W 80 / L 40").
+    var settingsLabel: String {
+        let name: String
+        switch self {
+        case .auto:       return String(localized: "Percentile window (no preset)")
+        case .brain:      name = String(localized: "Brain")
+        case .subdural:   name = String(localized: "Subdural")
+        case .stroke:     name = String(localized: "Stroke")
+        case .bone:       name = String(localized: "Bone")
+        case .lung:       name = String(localized: "Lung")
+        case .softTissue: name = String(localized: "Soft tissue")
+        }
+        guard let bounds else { return name }
+        return "\(name) \u{00B7} \(bounds.widthLevelLabel)"
     }
 }
 
@@ -80,38 +142,59 @@ struct StoredMetadataOrder: RawRepresentable, Equatable {
     static let defaultValue = StoredMetadataOrder(rawValue: MIQConfig.Defaults.metadataOrder)!
 }
 
+/// Settings' name for a metadata row. Localised here; the panel itself draws
+/// `MetadataField.displayLabel` (MIQCore, English) — technical abbreviations
+/// such as TR and BIDS read the same in every language.
 private func metadataLabel(_ field: MetadataField) -> String {
     switch field {
-    case .format:      return "Format"
-    case .dimensions:  return "Dimensions"
-    case .spacing:     return "Spacing"
-    case .orientation: return "Orientation"
-    case .datatype:    return "Datatype"
-    case .volumes:     return "Volumes"
-    case .scaling:     return "Scaling"
-    case .value:       return "Voxel value"
-    default:           return field.displayLabel // newer fields: label owned by MIQCore
+    case .format:         return String(localized: "Format")
+    case .dimensions:     return String(localized: "Dimensions")
+    case .spacing:        return String(localized: "Spacing")
+    case .orientation:    return String(localized: "Orientation")
+    case .datatype:       return String(localized: "Datatype")
+    case .volumes:        return String(localized: "Volumes")
+    case .scaling:        return String(localized: "Scaling")
+    case .value:          return String(localized: "Voxel value")
+    case .repetitionTime: return String(localized: "Repetition time (TR)")
+    case .intent:         return String(localized: "Intent")
+    case .diffusion:      return String(localized: "Diffusion shells")
+    case .sidecar:        return String(localized: "BIDS sidecar")
+    case .voxelPosition:  return String(localized: "Crosshair position")
+    case .description:    return String(localized: "Description")
+    case .provenance:     return String(localized: "Provenance")
     }
 }
 
-private func metadataHelpText(_ field: MetadataField) -> String? {
+private func metadataHelpText(_ field: MetadataField) -> LocalizedStringKey? {
     switch field {
     case .scaling:
         return "Shows the intensity scaling from the file header as x slope +/- intercept, or just x slope when the intercept is zero. Hidden when the scaling is identity (x 1 + 0, meaning voxel values are used as stored) or unavailable."
     case .value:
         return "Shows the image intensity at the crosshair voxel, updating live as you move the crosshair. Appears only while interacting (when the crosshair is visible), not on the initial preview."
+    case .repetitionTime:
+        return "Repetition time from the header, with echo time, inversion time and flip angle when the format stores them. Hidden when the file has no timing."
+    case .intent:
+        return "What a NIfTI file says its values are, such as a label map or a t-statistic. Hidden for ordinary images."
+    case .diffusion:
+        return "The b-value shells of a diffusion series, from an MRtrix gradient table or a .bval file next to the image."
+    case .sidecar:
+        return "Selected acquisition parameters from a BIDS .json file next to the image, with a warning when they disagree with the header. Only where macOS lets the preview read the folder."
+    case .voxelPosition:
+        return "The crosshair's voxel indices and world coordinates in millimetres, updating live. Appears only while interacting."
+    case .description:
+        return "The free-text description stored in the header. Scanners and converters sometimes put names, dates or IDs here, so it is off by default."
+    case .provenance:
+        return "The last processing command or the header extensions. Command lines can contain folder names with subject IDs, so it is off by default."
     default:
         return nil
     }
 }
 
-
-
 /// An (i) button that shows a short explanation in a popover. Explanations
 /// live here rather than in captions under each row, so rows stay one line and
 /// nothing shifts when a selection changes.
 private struct InfoButton: View {
-    let text: String
+    let text: LocalizedStringKey
     @State private var isPresented = false
 
     var body: some View {
@@ -137,8 +220,8 @@ private struct InfoButton: View {
 
 /// A row title with an optional info button beside it.
 private struct RowTitle: View {
-    let title: String
-    var info: String? = nil
+    let title: LocalizedStringKey
+    var info: LocalizedStringKey? = nil
 
     var body: some View {
         HStack(spacing: 4) {
@@ -217,15 +300,17 @@ private enum SettingsTab: String, CaseIterable, Hashable {
     case preview
     case metadata
     case thumbnails
+    case features
     case controls
 
     var label: String {
         switch self {
-        case .general:    return "General"
-        case .preview:    return "Preview"
-        case .metadata:   return "Metadata"
-        case .thumbnails: return "Thumbnails"
-        case .controls:   return "Controls"
+        case .general:    return String(localized: "General")
+        case .preview:    return String(localized: "Preview")
+        case .metadata:   return String(localized: "Metadata")
+        case .thumbnails: return String(localized: "Thumbnails")
+        case .features:   return String(localized: "Features")
+        case .controls:   return String(localized: "Controls")
         }
     }
 
@@ -235,6 +320,7 @@ private enum SettingsTab: String, CaseIterable, Hashable {
         case .preview:    return "eye"
         case .metadata:   return "list.bullet.rectangle"
         case .thumbnails: return "photo.on.rectangle"
+        case .features:   return "switch.2"
         case .controls:   return "computermouse"
         }
     }
@@ -243,7 +329,7 @@ private enum SettingsTab: String, CaseIterable, Hashable {
     var hasSideColumn: Bool {
         switch self {
         case .preview, .metadata, .thumbnails: return true
-        case .general, .controls:              return false
+        case .general, .features, .controls:   return false
         }
     }
 
@@ -268,6 +354,136 @@ private extension View {
             self
         }
     }
+
+    /// Liquid Glass buttons on macOS 26+; the standard bordered look before.
+    @ViewBuilder
+    func adaptiveGlassButtonStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self
+        }
+    }
+
+    /// A bar background that lets macOS 26's glass show through instead of
+    /// covering it with the opaque `.bar` material used before.
+    @ViewBuilder
+    func adaptiveBarBackground() -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: Rectangle())
+        } else {
+            self.background(.bar)
+        }
+    }
+
+    /// Disables a control an administrator fixed with a configuration profile
+    /// and says so underneath. See `ManagedPreferences` (MIQCore).
+    func managedSetting(_ isManaged: Bool) -> some View {
+        modifier(ManagedSettingModifier(isManaged: isManaged))
+    }
+}
+
+private struct ManagedSettingModifier: ViewModifier {
+    let isManaged: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isManaged {
+            VStack(alignment: .leading, spacing: 3) {
+                content.disabled(true)
+                ManagedNote()
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// "Managed by your organisation", under a control a profile has fixed.
+private struct ManagedNote: View {
+    var body: some View {
+        Label("Managed by your organisation", systemImage: "building.2")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .help("An administrator set this with a configuration profile, so it can\u{2019}t be changed here.")
+    }
+}
+
+/// Metadata-row visibility for every `MetadataField`, over the App Group
+/// store. Replaces one hand-written `@AppStorage` per field: rows added to
+/// MIQCore are covered automatically, every change redraws (the panel example
+/// and the Restore button follow along), restoring removes the stored values,
+/// and values an administrator forces (or changes made outside this window)
+/// are picked up via `UserDefaults.didChangeNotification`.
+@MainActor
+final class MetadataVisibilityModel: ObservableObject {
+    @Published private(set) var visibility: [MetadataField: Bool] = [:]
+    private let store: UserDefaults
+    /// Kept for the model's lifetime (the Settings window's); a block observer
+    /// holding only a weak reference is harmless if never removed.
+    private var observer: NSObjectProtocol?
+
+    init(store: UserDefaults) {
+        self.store = store
+        reload()
+        observer = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: store,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reload() }
+        }
+    }
+
+    func isVisible(_ field: MetadataField) -> Bool {
+        visibility[field] ?? MIQConfig.defaultVisibility(field)
+    }
+
+    func isManaged(_ field: MetadataField) -> Bool {
+        MIQConfig.isManaged(MIQConfig.metadataVisibilityKey(field))
+    }
+
+    func binding(for field: MetadataField) -> Binding<Bool> {
+        Binding(
+            get: { [weak self] in self?.isVisible(field) ?? MIQConfig.defaultVisibility(field) },
+            set: { [weak self] newValue in self?.setVisible(newValue, for: field) }
+        )
+    }
+
+    func setVisible(_ isVisible: Bool, for field: MetadataField) {
+        store.set(isVisible, forKey: MIQConfig.metadataVisibilityKey(field))
+        reload()
+    }
+
+    /// Every row at its default, counting a managed row as settled (Restore
+    /// cannot change it).
+    var isAtDefaults: Bool {
+        MetadataField.allCases.allSatisfy { field in
+            isManaged(field) || isVisible(field) == MIQConfig.defaultVisibility(field)
+        }
+    }
+
+    func restoreDefaults() {
+        for field in MetadataField.allCases {
+            store.removeObject(forKey: MIQConfig.metadataVisibilityKey(field))
+        }
+        reload()
+    }
+
+    /// Reads through `MIQConfig.showMetadataField`, i.e. the same resolution
+    /// (managed value → stored value → default) the preview extension uses.
+    private func reload() {
+        let fresh = Dictionary(uniqueKeysWithValues: MetadataField.allCases.map {
+            ($0, MIQConfig.showMetadataField($0))
+        })
+        if fresh != visibility { visibility = fresh }
+    }
+}
+
+/// A file picked for "Describe file", for `.sheet(item:)`.
+private struct DescribedFile: Identifiable {
+    let id = UUID()
+    let url: URL
 }
 
 private struct SettingsToolbarInstaller: NSViewRepresentable {
@@ -427,10 +643,14 @@ private struct SettingsToolbarInstaller: NSViewRepresentable {
 }
 
 struct ContentView: View {
-    private static let store = UserDefaults(suiteName: MIQConfig.appGroupID)
+    /// The exact store `MIQConfig`'s getters read (App Group suite, or
+    /// `.standard` without an App Group ID), so Settings and the extensions can
+    /// never disagree about where a value lives.
+    private static let store = MIQConfig.sharedStore
 
-    /// One fixed size for every pane: panes don't resize the window, and none
-    /// of them scrolls — a pane that outgrows this gets trimmed, not a scroller.
+    /// One fixed size for every pane: panes don't resize the window. A pane
+    /// that outgrows it (Metadata, with every row; Preview; Features) scrolls,
+    /// with `.basedOnSize` bounce so panes that fit stay perfectly still.
     private static let windowSize = CGSize(width: 640, height: 520)
     private static let sideColumnWidth: CGFloat = 180
     /// Header for the first section of each Form pane: on panes with a side
@@ -452,22 +672,8 @@ struct ContentView: View {
     private var showAxisLabels: Bool = MIQConfig.Defaults.showAxisLabels
     @AppStorage(MIQConfig.Keys.axisLabelColor, store: Self.store)
     private var axisLabelColor: StoredColor = StoredColor.defaultValue
-    @AppStorage(MIQConfig.Keys.showMetadataFormat, store: Self.store)
-    private var showMetadataFormat: Bool = MIQConfig.Defaults.showMetadataFormat
-    @AppStorage(MIQConfig.Keys.showMetadataDimensions, store: Self.store)
-    private var showMetadataDimensions: Bool = MIQConfig.Defaults.showMetadataDimensions
-    @AppStorage(MIQConfig.Keys.showMetadataSpacing, store: Self.store)
-    private var showMetadataSpacing: Bool = MIQConfig.Defaults.showMetadataSpacing
-    @AppStorage(MIQConfig.Keys.showMetadataOrientation, store: Self.store)
-    private var showMetadataOrientation: Bool = MIQConfig.Defaults.showMetadataOrientation
-    @AppStorage(MIQConfig.Keys.showMetadataDatatype, store: Self.store)
-    private var showMetadataDatatype: Bool = MIQConfig.Defaults.showMetadataDatatype
-    @AppStorage(MIQConfig.Keys.showMetadataVolumes, store: Self.store)
-    private var showMetadataVolumes: Bool = MIQConfig.Defaults.showMetadataVolumes
-    @AppStorage(MIQConfig.Keys.showMetadataScaling, store: Self.store)
-    private var showMetadataScaling: Bool = MIQConfig.Defaults.showMetadataScaling
-    @AppStorage(MIQConfig.Keys.showMetadataValue, store: Self.store)
-    private var showMetadataValue: Bool = MIQConfig.Defaults.showMetadataValue
+    /// Visibility of every metadata row (see `MetadataVisibilityModel`).
+    @StateObject private var metadataVisibility = MetadataVisibilityModel(store: Self.store)
     @AppStorage(MIQConfig.Keys.metadataOrder, store: Self.store)
     private var metadataOrder: StoredMetadataOrder = StoredMetadataOrder.defaultValue
     @AppStorage(MIQConfig.Keys.deferLargeNetworkPreviews, store: Self.store)
@@ -489,6 +695,20 @@ struct ContentView: View {
     private var thumbnailLowerPercentile: Double = MIQConfig.Defaults.thumbnailWindowLowerPercentile
     @AppStorage(MIQConfig.Keys.thumbnailWindowUpperPercentile, store: Self.store)
     private var thumbnailUpperPercentile: Double = MIQConfig.Defaults.thumbnailWindowUpperPercentile
+    @AppStorage(MIQConfig.Keys.ctPresetAutoDetect, store: Self.store)
+    private var ctPresetAutoDetect: Bool = MIQConfig.Defaults.ctPresetAutoDetect
+    @AppStorage(MIQConfig.Keys.ctWindowPreset, store: Self.store)
+    private var ctWindowPreset: WindowPreset = WindowPreset.defaultValue
+    @AppStorage(MIQConfig.Keys.defaultColormap, store: Self.store)
+    private var defaultColormap: String = MIQConfig.Defaults.defaultColormap
+    @AppStorage(MIQConfig.Keys.volumeRenderingEnabled, store: Self.store)
+    private var volumeRenderingEnabled: Bool = MIQConfig.Defaults.volumeRenderingEnabled
+    @AppStorage(MIQConfig.Keys.overlayAutoDiscovery, store: Self.store)
+    private var overlayAutoDiscovery: Bool = MIQConfig.Defaults.overlayAutoDiscovery
+    @AppStorage(MIQConfig.Keys.qcPanelEnabled, store: Self.store)
+    private var qcPanelEnabled: Bool = MIQConfig.Defaults.qcPanelEnabled
+    @AppStorage(MIQConfig.Keys.temporalSummaryEnabled, store: Self.store)
+    private var temporalSummaryEnabled: Bool = MIQConfig.Defaults.temporalSummaryEnabled
 
     @State private var showHideDisclaimerConfirm = false
     @State private var showResetAllConfirm = false
@@ -498,6 +718,8 @@ struct ContentView: View {
     @State private var didCopyRefreshCommand = false
     @State private var inputDevice: InputDevice = .mouse
     @State private var sampleMetadata: SampleRenderer.SampleMetadata?
+    @State private var describedFile: DescribedFile?
+    @State private var showUnsupportedFileAlert = false
     /// Supplied by `MIQApp`. Sparkle owns the check → download → install →
     /// relaunch flow; this view only offers the entry points.
     @EnvironmentObject private var updater: UpdaterController
@@ -506,11 +728,11 @@ struct ContentView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
     }
 
-    private static let disclaimerText = """
+    private static let disclaimerText = String(localized: """
         MIQ is **not a medical device** and is **not intended for diagnostic use**. It is a developer and researcher convenience tool only; do not use it for clinical decisions.
 
         MIQ is provided "as is" under the MIT License, without warranty. The authors and contributors accept no liability for any damages arising from its use or inability to use it, including data loss, incorrect image rendering, or decisions based on its previews.
-        """
+        """)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -526,11 +748,13 @@ struct ContentView: View {
                 case .preview:    previewPane
                 case .metadata:   metadataPane
                 case .thumbnails: thumbnailsPane
+                case .features:   featuresPane
                 case .controls:   EmptyView()
                 }
             }
             .formStyle(.grouped)
-            .scrollDisabled(true)
+            .scrollDisabled(selectedTab == .controls)
+            .scrollBounceBehavior(.basedOnSize)
             .contentMargins(.trailing, selectedTab.hasSideColumn ? Self.sideColumnWidth + 20 : 0, for: .scrollContent)
             .pinnedTopScrollEdge()
             .overlay(alignment: .topTrailing) { sideColumn }
@@ -551,7 +775,8 @@ struct ContentView: View {
             }
         } message: {
             // Alerts render plain text, so drop the Markdown emphasis.
-            Text(Self.disclaimerText.replacingOccurrences(of: "**", with: "") + "\n\nBy hiding the disclaimer in previews, you confirm that you understand and accept these terms.")
+            Text(Self.disclaimerText.replacingOccurrences(of: "**", with: "") + "\n\n"
+                 + String(localized: "By hiding the disclaimer in previews, you confirm that you understand and accept these terms."))
         }
         .alert("Reset all settings?", isPresented: $showResetAllConfirm) {
             Button("Cancel", role: .cancel) { /* role: .cancel dismisses the alert */ }
@@ -559,7 +784,15 @@ struct ContentView: View {
                 restoreDefaults()
             }
         } message: {
-            Text("Every setting returns to its default, including automatic update checks.")
+            Text("Every setting returns to its default, including automatic update checks. Settings managed by your organisation stay as they are.")
+        }
+        .alert("MIQ can\u{2019}t describe this file", isPresented: $showUnsupportedFileAlert) {
+            Button("OK", role: .cancel) { /* dismisses */ }
+        } message: {
+            Text("Choose a NIfTI, MGH/MGZ, MRtrix MIF, NRRD, DICOM or Zarr file.")
+        }
+        .sheet(item: $describedFile) { file in
+            describeFileSheet(file)
         }
         .task {
             sampleMetadata = await SampleRenderer.metadata(.intensity)
@@ -573,16 +806,16 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 Divider()
                 HStack {
-                    Text("App built: \(appDate)")
+                    Text(verbatim: "App built: \(appDate)")
                     Spacer()
-                    Text("Extension built: \(extDate)")
+                    Text(verbatim: "Extension built: \(extDate)")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
             }
-            .background(.bar)
+            .adaptiveBarBackground()
         }
         #endif
     }
@@ -598,11 +831,14 @@ struct ContentView: View {
                 VStack(spacing: 6) {
                     SampleSliceView(sample: .intensity, options: previewOptions,
                                     overlayColor: axisLabelColor.color,
-                                    showsLabels: showAxisLabels, showsCrosshair: true)
+                                    showsLabels: showAxisLabels, showsCrosshair: true,
+                                    colormap: ColormapChoice(rawValue: defaultColormap).colormap,
+                                    forcesLeftRightLabels: imageOrientation == .stored)
                     sampleCaption(.intensity)
                     SampleSliceView(sample: .labels, options: previewOptions,
                                     overlayColor: axisLabelColor.color,
-                                    showsLabels: showAxisLabels, showsCrosshair: false)
+                                    showsLabels: showAxisLabels, showsCrosshair: false,
+                                    forcesLeftRightLabels: imageOrientation == .stored)
                         .padding(.top, 6)
                     sampleCaption(.labels)
                 }
@@ -625,12 +861,12 @@ struct ContentView: View {
                 .background(.background, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(.separator, lineWidth: 0.5))
             }
-        case .general, .controls:
+        case .general, .features, .controls:
             EmptyView()
         }
     }
 
-    private func sideColumn<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func sideColumn<Content: View>(title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
@@ -644,7 +880,7 @@ struct ContentView: View {
     }
 
     private func sampleCaption(_ sample: SettingsSample) -> some View {
-        Text(sample.displayName)
+        Text(verbatim: sample.displayName)
             .font(.caption)
             .foregroundStyle(Color(white: 0.78))
     }
@@ -667,10 +903,14 @@ struct ContentView: View {
             case .thumbnails:
                 Button("Restore Thumbnail Defaults") { restoreThumbnailDefaults() }
                     .disabled(thumbnailsAreDefault)
+            case .features:
+                Button("Restore Feature Defaults") { restoreFeatureDefaults() }
+                    .disabled(featuresAreDefault)
             case .controls:
                 EmptyView()
             }
         }
+        .adaptiveGlassButtonStyle()
         .frame(height: 22)
         .padding(.horizontal, 20)
         .padding(.bottom, 16)
@@ -691,6 +931,7 @@ struct ContentView: View {
                         HStack(spacing: 4) {
                             Text("Version \(Self.currentVersion) · MIT License ·")
                                 .foregroundStyle(.secondary)
+                                .accessibilityLabel(String(localized: "Version \(Self.currentVersion), MIT License"))
                             Link("GitHub", destination: Self.repositoryURL)
                                 .foregroundStyle(.tint)
                         }
@@ -699,7 +940,7 @@ struct ContentView: View {
                             .padding(.top, 6)
                         HStack(spacing: 5) {
                             ForEach(["NIfTI", "FreeSurfer MGH", "MRtrix MIF", "NRRD"], id: \.self) { format in
-                                Text(format)
+                                Text(verbatim: format)
                                     .font(.callout)
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 2)
@@ -707,7 +948,7 @@ struct ContentView: View {
                             }
                         }
                         .accessibilityElement(children: .combine)
-                        .accessibilityLabel("Supported formats: NIfTI, FreeSurfer MGH, MRtrix MIF, NRRD")
+                        .accessibilityLabel(String(localized: "Supported formats: NIfTI, FreeSurfer MGH, MRtrix MIF, NRRD"))
                     }
                 }
                 .padding(.vertical, 10)
@@ -728,6 +969,10 @@ struct ContentView: View {
                     Text("Check for updates automatically")
                     Text("You can also choose MIQ › Check for Updates… at any time.")
                 }
+                // Sparkle reads SUEnableAutomaticChecks through the app's own
+                // defaults, where a profile's forced value already wins; the
+                // toggle only has to stop pretending it can change it.
+                .managedSetting(Self.automaticChecksAreManaged)
             } header: {
                 // Sets the app's identity apart from the settings below; the
                 // star banner already does that while it is shown.
@@ -765,6 +1010,7 @@ struct ContentView: View {
                         }
                     }
                 ))
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.hideDisclaimerInPreview))
             }
         }
     }
@@ -844,14 +1090,37 @@ struct ContentView: View {
         Group {
             Section {
                 orientationPicker(selection: $imageOrientation)
+                    .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.imageOrientation))
                 segmentationPicker(selection: $segmentationColoring)
+                    .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.segmentationColoring))
+                Picker(selection: Binding(
+                    get: { ColormapChoice(rawValue: defaultColormap) },
+                    set: { defaultColormap = $0.rawValue }
+                )) {
+                    ForEach(ColormapChoice.allCases, id: \.self) { choice in
+                        Text(choice.label).tag(choice)
+                    }
+                } label: {
+                    RowTitle(title: "Colour map",
+                             info: "For scalar images. Auto shows anatomy in greyscale and statistical maps in Hot (positive) or a blue–red diverging map (signed). Label files keep their segmentation colours.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.defaultColormap))
                 ColorPicker(selection: Binding(
                     get: { axisLabelColor.color },
                     set: { axisLabelColor = StoredColor($0) }
                 )) {
                     Text("Axis labels & crosshair colour")
                 }
-                Toggle("Show axis labels", isOn: $showAxisLabels)
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.axisLabelColor))
+                // As Stored can look neurological or radiological depending
+                // on the file, so the preview keeps R/L on in that mode. Said
+                // in the popover, not a caption, so the row never changes
+                // height when the orientation changes.
+                Toggle(isOn: $showAxisLabels) {
+                    RowTitle(title: "Show axis labels",
+                             info: "In As Stored mode, the R and L letters always stay on, because nothing else on screen tells left from right. This setting then shows or hides the other edge letters.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.showAxisLabels))
             } header: {
                 // Invisible: drops the first group level with the side
                 // column's box, below that column's title.
@@ -863,10 +1132,35 @@ struct ContentView: View {
                     RowTitle(title: "Intensity window",
                              info: "The initial grey range, as percentiles of the non-zero voxels (default \(Int(MIQConfig.Defaults.windowLowerPercentile))–\(Int(MIQConfig.Defaults.windowUpperPercentile))%). In the preview, secondary-click and drag to adjust it live.")
                 }
-                Toggle(isOn: $perVolumeIntensityWindow) {
-                    RowTitle(title: "Recompute window for each volume",
-                             info: "For 4D series. When off, the window from the first volume is kept while you change volumes.")
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.windowLowerPercentile)
+                                || MIQConfig.isManaged(MIQConfig.Keys.windowUpperPercentile))
+                Picker(selection: $perVolumeIntensityWindow) {
+                    Text("Per volume").tag(true)
+                    Text("Shared").tag(false)
+                } label: {
+                    RowTitle(title: "4D window",
+                             info: "For 4D series. Per volume recomputes the window for each volume you show. Shared keeps one window for the whole series, so intensity changes over time stay visible.")
                 }
+                .pickerStyle(.segmented)
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.perVolumeIntensityWindow))
+            }
+
+            Section {
+                Toggle(isOn: $ctPresetAutoDetect) {
+                    RowTitle(title: "Detect CT and offer window presets",
+                             info: "When an image looks like CT in Hounsfield units, the preview offers brain, bone, lung and other windows. Detection is a guess from the stored values, so it is off by default.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.ctPresetAutoDetect))
+                Picker(selection: $ctWindowPreset) {
+                    ForEach(WindowPreset.allCases, id: \.self) { preset in
+                        Text(preset.settingsLabel).tag(preset)
+                    }
+                } label: {
+                    RowTitle(title: "Initial CT window",
+                             info: "The window a detected CT opens with. Window values are common conventions, not calibrated settings; adjust them live in the preview.")
+                }
+                .disabled(!ctPresetAutoDetect)
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.ctWindowPreset))
             }
 
             Section {
@@ -874,6 +1168,7 @@ struct ContentView: View {
                     RowTitle(title: "Ask before loading large files on network volumes",
                              info: "Files over \(Int(MIQConfig.Defaults.networkPreviewThresholdMB)) MB show a Load Preview button instead of loading automatically: loading a large file over a slow share can stall Finder. NIfTI files are always loaded, because MIQ reads only their first volume.")
                 }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.deferLargeNetworkPreviews))
             }
         }
     }
@@ -886,9 +1181,18 @@ struct ContentView: View {
         } header: {
             Self.sideColumnAlignmentSpacer
         } footer: {
-            Text("Drag rows to reorder, or use the arrows.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Drag rows to reorder, or use the arrows.")
+                Label {
+                    Text("May contain identifying text; off by default")
+                } icon: {
+                    Image(systemName: "lock.fill")
+                        .accessibilityHidden(true)
+                }
+                .accessibilityElement(children: .combine)
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -896,6 +1200,7 @@ struct ContentView: View {
         Group {
             Section {
                 Toggle("Show slice thumbnails in Finder", isOn: $showThumbnails)
+                    .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.showThumbnails))
             } header: {
                 Self.sideColumnAlignmentSpacer
             }
@@ -903,10 +1208,14 @@ struct ContentView: View {
             if showThumbnails {
                 Section {
                     orientationPicker(selection: $thumbnailImageOrientation)
+                        .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.thumbnailImageOrientation))
                     segmentationPicker(selection: $thumbnailSegmentationColoring)
+                        .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.thumbnailSegmentationColoring))
                     PercentileRangeControl(lower: $thumbnailLowerPercentile, upper: $thumbnailUpperPercentile) {
                         Text("Intensity window")
                     }
+                    .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.thumbnailWindowLowerPercentile)
+                                    || MIQConfig.isManaged(MIQConfig.Keys.thumbnailWindowUpperPercentile))
                 } header: {
                     HStack {
                         Text("Appearance")
@@ -927,25 +1236,131 @@ struct ContentView: View {
                         RowTitle(title: "Include network volumes",
                                  info: "Off by default: generating thumbnails reads each file over the network, which is slow on remote shares.")
                     }
-                    HStack {
-                        RowTitle(title: "Refresh existing thumbnails",
-                                 info: "Finder caches thumbnails. New files pick up changes automatically; existing ones refresh when the file changes, or right away with this Terminal command.\n\nIf they still look stale, also run:\nrm -rf \"$(getconf DARWIN_USER_CACHE_DIR)com.apple.iconservices.store\" && killall Dock Finder\n\nTo stop generating thumbnails, disable the extension in System Settings › General › Login Items & Extensions.")
-                        Spacer()
-                        Button {
-                            copyThumbnailRefreshCommand()
-                        } label: {
-                            Label(didCopyRefreshCommand ? "Copied" : "Copy Command",
-                                  systemImage: didCopyRefreshCommand ? "checkmark" : "doc.on.doc")
-                        }
-                    }
+                    .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.showThumbnailsOnNetworkVolumes))
+                    thumbnailCacheRow
+                } footer: {
+                    thumbnailCacheDisclosure
                 }
             } else {
                 Section {
                     Text("Thumbnails are off. Finder shows its standard document icons.")
                         .foregroundStyle(.secondary)
+                    // Thumbnails made while the setting was on stay in the
+                    // system cache, so the reset stays reachable.
+                    thumbnailCacheRow
+                } footer: {
+                    thumbnailCacheDisclosure
                 }
             }
         }
+    }
+
+    /// "Reset thumbnail cache". MIQ is sandboxed, and a sandboxed app — and
+    /// anything it launches, which inherits the sandbox — cannot reset the
+    /// system's Quick Look cache (`qlmanage -r cache` needs the per-user
+    /// cache directory and the Quick Look agents). So the row copies the
+    /// Terminal command rather than running it.
+    private var thumbnailCacheRow: some View {
+        HStack {
+            RowTitle(title: "Reset thumbnail cache",
+                     info: "Finder caches thumbnails. New files pick up changes automatically; existing ones refresh when the file changes, or right away with this Terminal command, which also clears thumbnails of files you have since moved or deleted.\n\nIf they still look stale, also run:\nrm -rf \"$(getconf DARWIN_USER_CACHE_DIR)com.apple.iconservices.store\" && killall Dock Finder\n\nTo stop generating thumbnails, disable the extension in System Settings › General › Login Items & Extensions.")
+            Spacer()
+            Button {
+                copyThumbnailRefreshCommand()
+            } label: {
+                Label(didCopyRefreshCommand ? "Copied" : "Copy Command",
+                      systemImage: didCopyRefreshCommand ? "checkmark" : "doc.on.doc")
+            }
+            .help("Copies a Terminal command that resets the Quick Look thumbnail cache. MIQ can\u{2019}t run it itself from its sandbox.")
+        }
+    }
+
+    private var thumbnailCacheDisclosure: some View {
+        Text("macOS keeps rendered thumbnails in its own cache (com.apple.QuickLook.thumbnailcache), including for files on encrypted volumes.")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Optional preview features, and the app-only "Describe file" tool.
+    private var featuresPane: some View {
+        Group {
+            Section {
+                Toggle(isOn: $volumeRenderingEnabled) {
+                    RowTitle(title: "3D and projection views",
+                             info: "Offers maximum- and minimum-intensity projections and a 3D rendering in the preview. They are computed only when you choose them.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.volumeRenderingEnabled))
+                Toggle(isOn: $overlayAutoDiscovery) {
+                    RowTitle(title: "Find overlays next to the file",
+                             info: "Lists masks, segmentations and statistical maps in the same folder that fit the image, so you can overlay one. Nothing is overlaid until you choose. Only where macOS lets the preview read the folder.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.overlayAutoDiscovery))
+                Toggle(isOn: $qcPanelEnabled) {
+                    RowTitle(title: "Quality-check summary",
+                             info: "Adds a few rows to the metadata panel: the likely sequence, head-mask coverage, a defacing check and data sanity checks. Computed on this Mac from the image alone; a hint, not an assessment.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.qcPanelEnabled))
+                Toggle(isOn: $temporalSummaryEnabled) {
+                    RowTitle(title: "Temporal summary for 4D series",
+                             info: "For time series such as fMRI: median temporal SNR and the volumes with intensity spikes.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.temporalSummaryEnabled))
+            } header: {
+                Self.sideColumnAlignmentSpacer
+            }
+
+            Section("Describe file (on-device)") {
+                CaptionSettingsSection()
+                if Self.captionFeatureIsManaged {
+                    // The section's own master toggle is disabled while forced
+                    // (`CaptionSettings.enabledIsManaged`).
+                    ManagedNote()
+                }
+                HStack {
+                    Text("Describe a file")
+                    Spacer()
+                    Button("Choose File\u{2026}") { chooseFileToDescribe() }
+                        .help("Pick a volume to describe. MIQ reads only its header facts.")
+                }
+            }
+        }
+    }
+
+    private func describeFileSheet(_ file: DescribedFile) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(verbatim: file.url.lastPathComponent)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            CaptionPanel(fileURL: file.url)
+            HStack {
+                Spacer()
+                Button("Done") { describedFile = nil }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 440)
+    }
+
+    /// The open panel grants the sandboxed app read access to the chosen file
+    /// (`com.apple.security.files.user-selected.read-only`). Unsupported files
+    /// are declined here, before the caption model sees them.
+    private func chooseFileToDescribe() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false
+        panel.prompt = String(localized: "Describe")
+        panel.message = String(localized: "Choose a volume to describe. Only header facts are used.")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard MIQFileKind(url: url) != nil else {
+            showUnsupportedFileAlert = true
+            return
+        }
+        describedFile = DescribedFile(url: url)
     }
 
     /// The single reference for the preview's input model — keep it in sync
@@ -1100,16 +1515,32 @@ struct ContentView: View {
     private func metadataRow(_ field: MetadataField) -> some View {
         let fields = metadataOrder.fields
         let index = fields.firstIndex(of: field) ?? 0
+        let isManaged = metadataVisibility.isManaged(field)
         return HStack(spacing: 8) {
-            Toggle(isOn: visibilityBinding(for: field)) {
+            Toggle(isOn: metadataVisibility.binding(for: field)) {
                 HStack(spacing: 4) {
                     Text(metadataLabel(field))
+                    if field.mayContainPHI {
+                        Image(systemName: "lock.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .help("May contain identifying text; off by default")
+                            .accessibilityLabel("May contain identifying text")
+                    }
                     if let helpText = metadataHelpText(field) {
                         InfoButton(text: helpText)
+                    }
+                    if isManaged {
+                        Image(systemName: "building.2")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .help("Managed by your organisation")
+                            .accessibilityLabel("Managed by your organisation")
                     }
                 }
             }
             .toggleStyle(.checkbox)
+            .disabled(isManaged)
             Spacer()
             Button {
                 moveMetadataField(field, by: -1)
@@ -1118,7 +1549,8 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .disabled(index == 0)
-            .accessibilityLabel("Move \(metadataLabel(field)) up")
+            .accessibilityLabel(String(localized: "Move \(metadataLabel(field)) up"))
+            .help("Move up")
             Button {
                 moveMetadataField(field, by: 1)
             } label: {
@@ -1126,7 +1558,8 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .disabled(index == fields.count - 1)
-            .accessibilityLabel("Move \(metadataLabel(field)) down")
+            .accessibilityLabel(String(localized: "Move \(metadataLabel(field)) down"))
+            .help("Move down")
             Image(systemName: "line.3.horizontal")
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
@@ -1148,7 +1581,9 @@ struct ContentView: View {
     /// extension) for the sample, in the user's order and visibility. The
     /// voxel value — shown in the preview only while interacting — appears as
     /// the value under a centred crosshair, and the disclaimer footer follows
-    /// the General pane's setting.
+    /// the General pane's setting. Rows the sample can't supply get
+    /// illustrative values (see `SampleRenderer.SampleMetadata`), so every
+    /// toggle visibly does something.
     @ViewBuilder
     private var metadataPanelPreview: some View {
         if let sampleMetadata {
@@ -1156,7 +1591,7 @@ struct ContentView: View {
             let layout = MetadataPanelText.layout(
                 entries: sampleMetadata.entries,
                 order: metadataOrder.fields,
-                isVisible: { visibilityBinding(for: $0).wrappedValue },
+                isVisible: { metadataVisibility.isVisible($0) },
                 isFourD: false,
                 showsValue: false,
                 staticValueText: sampleMetadata.centreValue
@@ -1194,31 +1629,65 @@ struct ContentView: View {
             && thumbnailUpperPercentile == upperPercentile
     }
 
+    // MARK: Managed preferences
+
+    /// Sparkle's own key, in the app's standard defaults (see UpdaterController).
+    private static let sparkleAutomaticChecksKey = "SUEnableAutomaticChecks"
+
+    private static var automaticChecksAreManaged: Bool {
+        MIQConfig.isManaged(sparkleAutomaticChecksKey, in: UserDefaults.standard)
+    }
+
+    private static var captionFeatureIsManaged: Bool {
+        CaptionSettings.enabledIsManaged
+    }
+
+    /// `true` when `key` is at its default — or managed, since Restore can't
+    /// change a managed value and must not stay enabled forever because of it.
+    private func settled(_ key: String, _ isAtDefault: Bool) -> Bool {
+        isAtDefault || MIQConfig.isManaged(key)
+    }
+
     private var previewIsDefault: Bool {
-        imageOrientation == .defaultValue
-            && segmentationColoring == .defaultValue
-            && lowerPercentile == MIQConfig.Defaults.windowLowerPercentile
-            && upperPercentile == MIQConfig.Defaults.windowUpperPercentile
-            && perVolumeIntensityWindow == MIQConfig.Defaults.perVolumeIntensityWindow
-            && showAxisLabels == MIQConfig.Defaults.showAxisLabels
-            && axisLabelColor.isApproximately(.defaultValue)
-            && deferLargeNetworkPreviews == MIQConfig.Defaults.deferLargeNetworkPreviews
+        settled(MIQConfig.Keys.imageOrientation, imageOrientation == .defaultValue)
+            && settled(MIQConfig.Keys.segmentationColoring, segmentationColoring == .defaultValue)
+            && settled(MIQConfig.Keys.windowLowerPercentile, lowerPercentile == MIQConfig.Defaults.windowLowerPercentile)
+            && settled(MIQConfig.Keys.windowUpperPercentile, upperPercentile == MIQConfig.Defaults.windowUpperPercentile)
+            && settled(MIQConfig.Keys.perVolumeIntensityWindow,
+                       perVolumeIntensityWindow == MIQConfig.Defaults.perVolumeIntensityWindow)
+            && settled(MIQConfig.Keys.showAxisLabels, showAxisLabels == MIQConfig.Defaults.showAxisLabels)
+            && settled(MIQConfig.Keys.axisLabelColor, axisLabelColor.isApproximately(.defaultValue))
+            && settled(MIQConfig.Keys.deferLargeNetworkPreviews,
+                       deferLargeNetworkPreviews == MIQConfig.Defaults.deferLargeNetworkPreviews)
+            && settled(MIQConfig.Keys.defaultColormap, defaultColormap == MIQConfig.Defaults.defaultColormap)
+            && settled(MIQConfig.Keys.ctPresetAutoDetect, ctPresetAutoDetect == MIQConfig.Defaults.ctPresetAutoDetect)
+            && settled(MIQConfig.Keys.ctWindowPreset, ctWindowPreset == .defaultValue)
     }
 
     private var metadataIsDefault: Bool {
-        metadataOrder == .defaultValue
-            && MetadataField.allCases.allSatisfy { field in
-                visibilityBinding(for: field).wrappedValue == Self.defaultVisibility(field)
-            }
+        settled(MIQConfig.Keys.metadataOrder, metadataOrder == .defaultValue)
+            && metadataVisibility.isAtDefaults
     }
 
     private var thumbnailsAreDefault: Bool {
-        showThumbnails == MIQConfig.Defaults.showThumbnails
-            && showThumbnailsOnNetworkVolumes == MIQConfig.Defaults.showThumbnailsOnNetworkVolumes
-            && thumbnailImageOrientation == .thumbnailDefaultValue
-            && thumbnailSegmentationColoring == .thumbnailDefaultValue
-            && thumbnailLowerPercentile == MIQConfig.Defaults.thumbnailWindowLowerPercentile
-            && thumbnailUpperPercentile == MIQConfig.Defaults.thumbnailWindowUpperPercentile
+        settled(MIQConfig.Keys.showThumbnails, showThumbnails == MIQConfig.Defaults.showThumbnails)
+            && settled(MIQConfig.Keys.showThumbnailsOnNetworkVolumes,
+                       showThumbnailsOnNetworkVolumes == MIQConfig.Defaults.showThumbnailsOnNetworkVolumes)
+            && settled(MIQConfig.Keys.thumbnailImageOrientation, thumbnailImageOrientation == .thumbnailDefaultValue)
+            && settled(MIQConfig.Keys.thumbnailSegmentationColoring,
+                       thumbnailSegmentationColoring == .thumbnailDefaultValue)
+            && settled(MIQConfig.Keys.thumbnailWindowLowerPercentile,
+                       thumbnailLowerPercentile == MIQConfig.Defaults.thumbnailWindowLowerPercentile)
+            && settled(MIQConfig.Keys.thumbnailWindowUpperPercentile,
+                       thumbnailUpperPercentile == MIQConfig.Defaults.thumbnailWindowUpperPercentile)
+    }
+
+    private var featuresAreDefault: Bool {
+        settled(MIQConfig.Keys.volumeRenderingEnabled, volumeRenderingEnabled == MIQConfig.Defaults.volumeRenderingEnabled)
+            && settled(MIQConfig.Keys.overlayAutoDiscovery, overlayAutoDiscovery == MIQConfig.Defaults.overlayAutoDiscovery)
+            && settled(MIQConfig.Keys.qcPanelEnabled, qcPanelEnabled == MIQConfig.Defaults.qcPanelEnabled)
+            && settled(MIQConfig.Keys.temporalSummaryEnabled,
+                       temporalSummaryEnabled == MIQConfig.Defaults.temporalSummaryEnabled)
     }
 
     private func copyPreviewSettingsToThumbnails() {
@@ -1252,42 +1721,6 @@ struct ContentView: View {
         }
     }
 
-    private func visibilityBinding(for field: MetadataField) -> Binding<Bool> {
-        switch field {
-        case .format:      return $showMetadataFormat
-        case .dimensions:  return $showMetadataDimensions
-        case .spacing:     return $showMetadataSpacing
-        case .orientation: return $showMetadataOrientation
-        case .datatype:    return $showMetadataDatatype
-        case .volumes:     return $showMetadataVolumes
-        case .scaling:     return $showMetadataScaling
-        case .value:       return $showMetadataValue
-        default:
-            // Newer fields (MIQCore `MetadataField`) have no @AppStorage here yet;
-            // read/write their key directly until Settings gets dedicated rows.
-            let key = MIQConfig.metadataVisibilityKey(field)
-            let store = Self.store ?? .standard
-            return Binding(
-                get: { store.object(forKey: key) as? Bool ?? MIQConfig.defaultVisibility(field) },
-                set: { store.set($0, forKey: key) }
-            )
-        }
-    }
-
-    private static func defaultVisibility(_ field: MetadataField) -> Bool {
-        switch field {
-        case .format:      return MIQConfig.Defaults.showMetadataFormat
-        case .dimensions:  return MIQConfig.Defaults.showMetadataDimensions
-        case .spacing:     return MIQConfig.Defaults.showMetadataSpacing
-        case .orientation: return MIQConfig.Defaults.showMetadataOrientation
-        case .datatype:    return MIQConfig.Defaults.showMetadataDatatype
-        case .volumes:     return MIQConfig.Defaults.showMetadataVolumes
-        case .scaling:     return MIQConfig.Defaults.showMetadataScaling
-        case .value:       return MIQConfig.Defaults.showMetadataValue
-        default:           return MIQConfig.defaultVisibility(field)
-        }
-    }
-
     private func restorePreviewDefaults() {
         imageOrientation  = ViewOrientation.defaultValue
         segmentationColoring = SegmentationColoring.defaultValue
@@ -1297,18 +1730,14 @@ struct ContentView: View {
         showAxisLabels    = MIQConfig.Defaults.showAxisLabels
         axisLabelColor    = StoredColor.defaultValue
         deferLargeNetworkPreviews = MIQConfig.Defaults.deferLargeNetworkPreviews
+        defaultColormap   = MIQConfig.Defaults.defaultColormap
+        ctPresetAutoDetect = MIQConfig.Defaults.ctPresetAutoDetect
+        ctWindowPreset    = WindowPreset.defaultValue
     }
 
     private func restoreMetadataDefaults() {
-        showMetadataFormat      = MIQConfig.Defaults.showMetadataFormat
-        showMetadataDimensions  = MIQConfig.Defaults.showMetadataDimensions
-        showMetadataSpacing     = MIQConfig.Defaults.showMetadataSpacing
-        showMetadataOrientation = MIQConfig.Defaults.showMetadataOrientation
-        showMetadataDatatype    = MIQConfig.Defaults.showMetadataDatatype
-        showMetadataVolumes     = MIQConfig.Defaults.showMetadataVolumes
-        showMetadataScaling     = MIQConfig.Defaults.showMetadataScaling
-        showMetadataValue       = MIQConfig.Defaults.showMetadataValue
-        metadataOrder           = StoredMetadataOrder.defaultValue
+        metadataVisibility.restoreDefaults()
+        metadataOrder = StoredMetadataOrder.defaultValue
     }
 
     private func restoreThumbnailDefaults() {
@@ -1320,15 +1749,29 @@ struct ContentView: View {
         thumbnailUpperPercentile  = MIQConfig.Defaults.thumbnailWindowUpperPercentile
     }
 
+    private func restoreFeatureDefaults() {
+        volumeRenderingEnabled = MIQConfig.Defaults.volumeRenderingEnabled
+        overlayAutoDiscovery   = MIQConfig.Defaults.overlayAutoDiscovery
+        qcPanelEnabled         = MIQConfig.Defaults.qcPanelEnabled
+        temporalSummaryEnabled = MIQConfig.Defaults.temporalSummaryEnabled
+    }
+
+    /// Writing a managed key is harmless — the forced value keeps winning — so
+    /// the restores above don't special-case them; only Sparkle's setter is
+    /// skipped, because each assignment also resets its check schedule.
     private func restoreDefaults() {
         restorePreviewDefaults()
         restoreMetadataDefaults()
         restoreThumbnailDefaults()
+        restoreFeatureDefaults()
         hideDisclaimerInPreview = MIQConfig.Defaults.hideDisclaimerInPreview
         starBannerDismissed = MIQConfig.Defaults.starBannerDismissed
+        CaptionSettings.restoreDefaults()
         // The default is SUEnableAutomaticChecks in Info.plist (on); see
         // the Sparkle convention in CLAUDE.md for why it ships on.
-        updater.automaticallyChecksForUpdates = true
+        if !Self.automaticChecksAreManaged {
+            updater.automaticallyChecksForUpdates = true
+        }
     }
 }
 

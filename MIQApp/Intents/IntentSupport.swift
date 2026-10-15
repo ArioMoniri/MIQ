@@ -27,6 +27,10 @@ enum MIQIntentSupport {
         UTType(importedAs: "org.mrtrix.mif"),
         UTType(importedAs: "org.mrtrix.mif-gz"),
         UTType(importedAs: "org.teem.nrrd"),
+        UTType(importedAs: "org.teem.nhdr"),
+        UTType(importedAs: "org.mrtrix.mih"),
+        UTType(importedAs: "org.itk.metaimage"),
+        UTType(importedAs: "org.itk.metaimage-header"),
         .gzip,
     ]
 
@@ -117,7 +121,7 @@ enum MIQIntentError: Error, CustomLocalizedStringResourceConvertible {
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .unsupportedFile(let name):
-            return "\(name) is not a supported volume. MIQ reads .nii, .nii.gz, .mgh, .mgz, .mif, .mif.gz and .nrrd files."
+            return "\(name) is not a supported volume. MIQ reads .nii, .nii.gz, .mgh, .mgz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha and .mhd files."
         case .renderFailed:
             return "MIQ could not render an image from this volume."
         }

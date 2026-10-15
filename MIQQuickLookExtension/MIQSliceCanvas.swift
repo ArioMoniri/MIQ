@@ -98,7 +98,7 @@ final class MIQSliceCanvas: NSView {
         didSet { if viewport != oldValue { needsDisplay = true } }
     }
 
-    /// Window/level text ("W 80 / L 40") drawn in the bottom-left corner, or
+    /// Window/level text ("W 80 / L 40") drawn in the top-left corner, or
     /// `nil` to hide it.
     var windowBadge: String? {
         didSet { if windowBadge != oldValue { needsDisplay = true } }
@@ -467,18 +467,20 @@ final class MIQSliceCanvas: NSView {
             }
 
             if !viewport.isIdentity {
-                drawBadge(String(format: "%.1f×", viewport.zoom), trailing: true)
+                drawBadge(String(format: "%.1f×", viewport.zoom), trailing: true, top: false)
             }
         }
 
+        // Top-left: the root view's display-mode badge owns the window's
+        // bottom-left corner (the axial / maximised panel's bottom-left).
         if let windowBadge {
-            drawBadge(windowBadge, trailing: false)
+            drawBadge(windowBadge, trailing: false, top: true)
         }
     }
 
-    /// Small legible text in a bottom corner of the panel, on a dark pill so
-    /// it reads over bright anatomy.
-    private func drawBadge(_ text: String, trailing: Bool) {
+    /// Small legible text in a corner of the panel, on a dark pill so it reads
+    /// over bright anatomy.
+    private func drawBadge(_ text: String, trailing: Bool, top: Bool) {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: max(9, labelFontSize), weight: .medium),
             .foregroundColor: labelColor
@@ -488,7 +490,9 @@ final class MIQSliceCanvas: NSView {
         let inset: CGFloat = 4
         let width = size.width + 2 * padding
         let x = trailing ? bounds.maxX - inset - width : bounds.minX + inset
-        let pill = NSRect(x: x, y: bounds.minY + inset, width: width, height: size.height + padding)
+        let height = size.height + padding
+        let y = top ? bounds.maxY - inset - height : bounds.minY + inset
+        let pill = NSRect(x: x, y: y, width: width, height: height)
         NSColor.black.withAlphaComponent(0.6).setFill()
         NSBezierPath(roundedRect: pill, xRadius: 3, yRadius: 3).fill()
         (text as NSString).draw(at: NSPoint(x: pill.minX + padding, y: pill.minY + padding / 2), withAttributes: attrs)

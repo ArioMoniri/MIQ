@@ -114,9 +114,19 @@ public struct MIQMetadata: Sendable {
     /// Multiplication sign, not the letter x.
     private static let separator = "\u{00D7}"
 
-    /// - Parameter sidecar: BIDS sidecar data found beside the image
-    ///   (`SidecarMetadata.load(forImageAt:)`), if the caller looked for one.
-    public init(header: MIQHeader, orientation: String? = nil, sidecar: SidecarMetadata? = nil) {
+    /// - Parameters:
+    ///   - sidecar: BIDS sidecar data found beside the image
+    ///     (`SidecarMetadata.load(forImageAt:)`), if the caller looked for one.
+    ///   - sidecarWarningsInRow: whether the `.sidecar` row also carries the
+    ///     header/sidecar consistency warnings. The preview passes `false` and
+    ///     shows `MIQMetadata.panelWarnings(header:sidecar:)` as always-visible
+    ///     warning lines instead, so a hidden BIDS row cannot hide a mismatch.
+    public init(
+        header: MIQHeader,
+        orientation: String? = nil,
+        sidecar: SidecarMetadata? = nil,
+        sidecarWarningsInRow: Bool = true
+    ) {
         let sep = " \(Self.separator) "
         dimensions = "\(header.width)\(sep)\(header.height)\(sep)\(header.depth)"
 
@@ -151,7 +161,7 @@ public struct MIQMetadata: Sendable {
         provenance = Self.provenanceText(acquisition)
         sidecarSummary = sidecar.flatMap { sidecar in
             let summary = sidecar.summary()
-            let warnings = sidecar.consistencyWarnings(against: header)
+            let warnings = sidecarWarningsInRow ? sidecar.consistencyWarnings(against: header) : []
             let parts = (summary.map { [$0] } ?? []) + warnings
             return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
         }

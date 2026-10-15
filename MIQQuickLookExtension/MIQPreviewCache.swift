@@ -8,6 +8,10 @@ final class MIQPreviewBundle: NSObject {
     let slices: [SlicePlane: NSImage]
     let orientations: [SlicePlane: SliceOrientationLabels]
     let metadataEntries: [MetadataEntry]
+    /// Always-visible panel warnings (orientation caution, sidecar mismatch).
+    let panelWarnings: [String]
+    /// Format-specific rows after the configurable ones (DICOM technical rows).
+    let extraEntries: [MetadataEntry]
     /// Volumes along the 4th axis, so a cache hit shows the Volumes scrubber at
     /// once rather than only after the interactive state is re-read.
     let volumeCount: Int
@@ -18,10 +22,14 @@ final class MIQPreviewBundle: NSObject {
     init(slices: [SlicePlane: NSImage],
          orientations: [SlicePlane: SliceOrientationLabels],
          metadataEntries: [MetadataEntry],
+         panelWarnings: [String] = [],
+         extraEntries: [MetadataEntry] = [],
          volumeCount: Int) {
         self.slices = slices
         self.orientations = orientations
         self.metadataEntries = metadataEntries
+        self.panelWarnings = panelWarnings
+        self.extraEntries = extraEntries
         self.volumeCount = volumeCount
         self.costBytes = slices.values.reduce(0) { $0 + Self.approximateBytes(of: $1) }
     }

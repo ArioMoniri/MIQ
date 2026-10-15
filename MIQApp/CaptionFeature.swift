@@ -50,6 +50,20 @@ enum CaptionSettings {
         static let endpointModel = ""
         static let includeSliceImage = false
     }
+
+    /// Whether a configuration profile forces the master opt-in (in the app's
+    /// own preference domain). The Settings toggle is then disabled.
+    static var enabledIsManaged: Bool {
+        MIQConfig.isManaged(Keys.enabled, in: store)
+    }
+
+    /// "Reset All Settings…": drops every stored caption setting (managed
+    /// values are unaffected — they live in a layer above).
+    static func restoreDefaults() {
+        for key in [Keys.enabled, Keys.engine, Keys.endpointURL, Keys.endpointModel, Keys.includeSliceImage] {
+            store.removeObject(forKey: key)
+        }
+    }
 }
 
 enum CaptionEngineKind: String, CaseIterable, Identifiable, Sendable {
@@ -419,6 +433,7 @@ struct CaptionSettingsSection: View {
 
     var body: some View {
         Toggle("Describe file (experimental)", isOn: $enabled)
+            .disabled(CaptionSettings.enabledIsManaged)
         Text("Writes a one-sentence technical description (likely modality, dimensions, resolution, coverage) using a model on this Mac. Only header facts are used \u{2014} never the file name or free-text fields. Not a medical interpretation.")
             .font(.caption)
             .foregroundStyle(.secondary)

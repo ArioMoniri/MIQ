@@ -72,6 +72,12 @@ public enum MIQConfig {
         // MARK: Rendering workstream (CT presets, shared 4D window)
         public static let ctWindowPreset          = "ctWindowPreset"
         public static let ctPresetAutoDetect      = "ctPresetAutoDetect"
+        // MARK: UI settings workstream (feature availability, colormap)
+        public static let defaultColormap         = "defaultColormap"
+        public static let volumeRenderingEnabled  = "volumeRenderingEnabled"
+        public static let overlayAutoDiscovery    = "overlayAutoDiscovery"
+        public static let qcPanelEnabled          = "qcPanelEnabled"
+        public static let temporalSummaryEnabled  = "temporalSummaryEnabled"
         #if DEBUG
         public static let debugShowLayoutBorders  = "debugShowLayoutBorders"
         #endif
@@ -129,6 +135,22 @@ public enum MIQConfig {
         /// offering/applying presets). Off by default: the heuristic is a guess,
         /// and the default display must not change silently.
         public static let ctPresetAutoDetect      = false
+        // MARK: UI settings workstream (feature availability, colormap)
+        /// `Colormap.rawValue` for scalar (non-label) volumes, or `auto` to let
+        /// `Colormap.suggested(intentCode:…)` choose (greyscale for anatomy).
+        public static let defaultColormap         = "auto"
+        /// Whether the preview offers its 3D / MIP / MinIP views. They render only
+        /// on request, so offering them changes nothing until the user asks.
+        public static let volumeRenderingEnabled  = true
+        /// Whether the preview looks beside the file for overlay candidates
+        /// (`SiblingFiles.overlayCandidates`). It only lists them; nothing is
+        /// overlaid until the user picks one. Silently empty where the sandbox
+        /// denies the directory listing.
+        public static let overlayAutoDiscovery    = true
+        /// Whether the preview shows the QC rows (`QCSummary.displayLines`).
+        public static let qcPanelEnabled          = true
+        /// Whether 4D previews show the temporal summary (tSNR, spike frames).
+        public static let temporalSummaryEnabled  = true
     }
 
     public struct MIQColor: Sendable {
@@ -162,18 +184,15 @@ public enum MIQConfig {
     }()
 
     public static var showAxisLabels: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.showAxisLabels) as? Bool ?? Defaults.showAxisLabels
+        return value(Keys.showAxisLabels, default: Defaults.showAxisLabels)
     }
 
     public static var windowLowerPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.windowLowerPercentile) as? Double ?? Defaults.windowLowerPercentile
+        return value(Keys.windowLowerPercentile, default: Defaults.windowLowerPercentile)
     }
 
     public static var windowUpperPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.windowUpperPercentile) as? Double ?? Defaults.windowUpperPercentile
+        return value(Keys.windowUpperPercentile, default: Defaults.windowUpperPercentile)
     }
 
     /// When `true`, 4D previews re-derive the percentile window from each
@@ -184,17 +203,16 @@ public enum MIQConfig {
     /// model-layer choice of *which* bounds to feed `MIQVolume.slice`, consumed
     /// only by the extension's interactive render path.
     public static var perVolumeIntensityWindow: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.perVolumeIntensityWindow) as? Bool ?? Defaults.perVolumeIntensityWindow
+        return value(Keys.perVolumeIntensityWindow, default: Defaults.perVolumeIntensityWindow)
     }
 
     public static var imageOrientation: ViewOrientation {
-        let raw = defaults.string(forKey: Keys.imageOrientation) ?? Defaults.imageOrientation
+        let raw = value(Keys.imageOrientation, default: Defaults.imageOrientation)
         return ViewOrientation(rawValue: raw) ?? .stored
     }
 
     public static var axisLabelColor: MIQColor {
-        let raw = defaults.string(forKey: Keys.axisLabelColor) ?? Defaults.axisLabelColor
+        let raw = value(Keys.axisLabelColor, default: Defaults.axisLabelColor)
         return parseColor(raw) ?? parseColor(Defaults.axisLabelColor)!
     }
 
@@ -202,7 +220,7 @@ public enum MIQConfig {
     /// dropped; any `MetadataField` not present in the stored value is appended
     /// in canonical order so the result always covers every case.
     public static var metadataOrder: [MetadataField] {
-        let raw = defaults.string(forKey: Keys.metadataOrder) ?? Defaults.metadataOrder
+        let raw = value(Keys.metadataOrder, default: Defaults.metadataOrder)
         return parseMetadataOrder(raw)
     }
 
@@ -221,13 +239,12 @@ public enum MIQConfig {
     }
 
     public static var segmentationColoring: SegmentationColoring {
-        let raw = defaults.string(forKey: Keys.segmentationColoring) ?? Defaults.segmentationColoring
+        let raw = value(Keys.segmentationColoring, default: Defaults.segmentationColoring)
         return SegmentationColoring(rawValue: raw) ?? .auto
     }
 
     public static var hideDisclaimerInPreview: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.hideDisclaimerInPreview) as? Bool ?? Defaults.hideDisclaimerInPreview
+        return value(Keys.hideDisclaimerInPreview, default: Defaults.hideDisclaimerInPreview)
     }
 
     /// When `true` (default), the preview extension defers the heavy full-file
@@ -238,8 +255,7 @@ public enum MIQConfig {
     /// canonical NIfTI (already bounded to volume 0) are unaffected. Read by the
     /// preview extension only.
     public static var deferLargeNetworkPreviews: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.deferLargeNetworkPreviews) as? Bool ?? Defaults.deferLargeNetworkPreviews
+        return value(Keys.deferLargeNetworkPreviews, default: Defaults.deferLargeNetworkPreviews)
     }
 
     /// Byte threshold derived from `Defaults.networkPreviewThresholdMB`. Also the
@@ -254,59 +270,108 @@ public enum MIQConfig {
     // thumbnail extension only.
 
     public static var showThumbnails: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.showThumbnails) as? Bool ?? Defaults.showThumbnails
+        return value(Keys.showThumbnails, default: Defaults.showThumbnails)
     }
 
     /// When `false` (default), the thumbnail extension declines files on network
     /// volumes, so browsing a remote share doesn't spawn a parse per file. Local
     /// thumbnails are unaffected. Read by the thumbnail extension only.
     public static var showThumbnailsOnNetworkVolumes: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.showThumbnailsOnNetworkVolumes) as? Bool ?? Defaults.showThumbnailsOnNetworkVolumes
+        return value(Keys.showThumbnailsOnNetworkVolumes, default: Defaults.showThumbnailsOnNetworkVolumes)
     }
 
     public static var thumbnailImageOrientation: ViewOrientation {
-        let raw = defaults.string(forKey: Keys.thumbnailImageOrientation) ?? Defaults.thumbnailImageOrientation
+        let raw = value(Keys.thumbnailImageOrientation, default: Defaults.thumbnailImageOrientation)
         return ViewOrientation(rawValue: raw) ?? .stored
     }
 
     public static var thumbnailSegmentationColoring: SegmentationColoring {
-        let raw = defaults.string(forKey: Keys.thumbnailSegmentationColoring) ?? Defaults.thumbnailSegmentationColoring
+        let raw = value(Keys.thumbnailSegmentationColoring, default: Defaults.thumbnailSegmentationColoring)
         return SegmentationColoring(rawValue: raw) ?? .auto
     }
 
     public static var thumbnailWindowLowerPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.thumbnailWindowLowerPercentile) as? Double ?? Defaults.thumbnailWindowLowerPercentile
+        return value(Keys.thumbnailWindowLowerPercentile, default: Defaults.thumbnailWindowLowerPercentile)
     }
 
     public static var thumbnailWindowUpperPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.thumbnailWindowUpperPercentile) as? Double ?? Defaults.thumbnailWindowUpperPercentile
+        return value(Keys.thumbnailWindowUpperPercentile, default: Defaults.thumbnailWindowUpperPercentile)
     }
 
     // MARK: - Rendering workstream (CT presets)
 
     /// Preset applied to CT-looking volumes; unknown stored values read as `.auto`.
     public static var ctWindowPreset: WindowPreset {
-        let raw = defaults.string(forKey: Keys.ctWindowPreset) ?? Defaults.ctWindowPreset
+        let raw = value(Keys.ctWindowPreset, default: Defaults.ctWindowPreset)
         return WindowPreset(rawValue: raw) ?? .auto
     }
 
     public static var ctPresetAutoDetect: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.ctPresetAutoDetect) as? Bool ?? Defaults.ctPresetAutoDetect
+        return value(Keys.ctPresetAutoDetect, default: Defaults.ctPresetAutoDetect)
     }
+
+    // MARK: - UI settings workstream (feature availability, colormap)
+
+    /// Colormap for scalar volumes; `nil` means "auto" (pick with
+    /// `Colormap.suggested`). Unknown stored values read as auto.
+    public static var defaultColormap: Colormap? {
+        Colormap(rawValue: value(Keys.defaultColormap, default: Defaults.defaultColormap))
+    }
+
+    public static var volumeRenderingEnabled: Bool {
+        value(Keys.volumeRenderingEnabled, default: Defaults.volumeRenderingEnabled)
+    }
+
+    public static var overlayAutoDiscovery: Bool {
+        value(Keys.overlayAutoDiscovery, default: Defaults.overlayAutoDiscovery)
+    }
+
+    public static var qcPanelEnabled: Bool {
+        value(Keys.qcPanelEnabled, default: Defaults.qcPanelEnabled)
+    }
+
+    public static var temporalSummaryEnabled: Bool {
+        value(Keys.temporalSummaryEnabled, default: Defaults.temporalSummaryEnabled)
+    }
+
+    // MARK: - Managed preferences (MDM)
+
+    /// Reads `key` from the App Group store through `ManagedPreferences`, so a
+    /// value an administrator forced for the App Group domain
+    /// (`group.…miq`, the one store both the app and the extensions read) wins,
+    /// and a forced value of the wrong type is ignored. Every getter above goes
+    /// through here.
+    static func value<Value>(_ key: String, default fallback: Value) -> Value {
+        ManagedPreferences.resolve(key, in: [defaults], default: fallback).value
+    }
+
+    /// Whether an administrator forced `key` in the App Group store. Settings
+    /// disables the matching control and says "Managed by your organisation".
+    public static func isManaged(_ key: String) -> Bool {
+        ManagedPreferences.isManaged(key, in: [defaults])
+    }
+
+    /// Whether `key` is forced in `store` — for app-only settings that live
+    /// outside the App Group (Sparkle's keys and the caption feature, both in
+    /// the app's own `UserDefaults.standard`).
+    public static func isManaged(_ key: String, in store: any PreferenceSource) -> Bool {
+        ManagedPreferences.isManaged(key, in: [store])
+    }
+
+    /// The store every `MIQConfig` getter reads: the App Group suite, or
+    /// `.standard` when the App Group ID is missing. The Settings window binds
+    /// its controls to this same instance, so it can never drift onto a
+    /// different (e.g. nameless) suite than the one the getters read.
+    public static var sharedStore: UserDefaults { defaults }
 
     #if DEBUG
     public static var debugShowLayoutBorders: Bool {
-        defaults.object(forKey: Keys.debugShowLayoutBorders) as? Bool ?? false
+        value(Keys.debugShowLayoutBorders, default: false)
     }
     #endif
 
     public static func showMetadataField(_ field: MetadataField) -> Bool {
-        defaults.object(forKey: metadataVisibilityKey(field)) as? Bool ?? defaultVisibility(field)
+        value(metadataVisibilityKey(field), default: defaultVisibility(field))
     }
 
     /// The `UserDefaults` key holding `field`'s visibility toggle.

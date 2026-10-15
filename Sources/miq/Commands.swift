@@ -99,7 +99,7 @@ enum VolumeLoader {
         }
         guard let kind = MIQFileKind(url: url) else {
             throw CommandError("unsupported file type: \(url.lastPathComponent) "
-                + "(expected .nii, .nii.gz, .mgh, .mgz, .mgh.gz, .mif, .mif.gz or .nrrd)")
+                + "(expected .nii, .nii.gz, .mgh, .mgz, .mgh.gz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha or .mhd)")
         }
         do {
             let image = try MIQParser().parse(url: url, fullyDecompress: needsAllVolumes)
