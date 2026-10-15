@@ -52,20 +52,17 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      # AppIcon.icon is an Icon Composer document; older actool builds crash on
-      # it ("Could not open AppIcon.icon"), so build with the newest Xcode the
-      # runner image ships rather than the image default.
-      - name: Select newest Xcode
-        run: |
-          ls -d /Applications/Xcode*.app
-          newest=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
-          sudo xcode-select -s "$newest"
-          xcodebuild -version
+      - name: Xcode version
+        run: xcodebuild -version
       - name: Create LocalSigning.xcconfig from template
         run: cp LocalSigning.xcconfig.template LocalSigning.xcconfig
       - name: xcodebuild
         run: |
           set -o pipefail
+          # AppIcon.icon was authored with a newer Icon Composer than the runner's
+          # Xcode 26.6; its actool crashes compiling it ("Could not open
+          # AppIcon.icon", thinned variant). The icon is irrelevant to whether
+          # the code builds, so CI leaves it out; release builds still use it.
           xcodebuild \
             -project MIQ.xcodeproj \
             -scheme MIQ \
@@ -76,6 +73,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
+            EXCLUDED_SOURCE_FILE_NAMES="AppIcon.icon" \
+            ASSETCATALOG_COMPILER_APPICON_NAME="" \
             build
 
   # Same core suite on Linux via the shim harness, so the code stays portable
