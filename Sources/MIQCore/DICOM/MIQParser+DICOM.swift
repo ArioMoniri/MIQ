@@ -41,12 +41,24 @@ extension MIQParser {
             framePositions: descriptor.framePositions,
             fallbackSliceSpacing: descriptor.spacingBetweenSlices ?? descriptor.sliceThickness
         )
-        let (storage, offset) = descriptor.pixelStorage()
+        var (storage, offset) = descriptor.pixelStorage()
+        var datatypeOverride: MIQDatatype?
+        var scalingOverride: (slope: Float, inter: Float)?
+        if let frameRescale = descriptor.frameRescale {
+            // Enhanced multi-frame whose frames disagree on rescale: materialise
+            // real-world values as float32, as `DICOMSeriesAssembler` does for slices.
+            storage = descriptor.realWorldFloats(storage, offset: offset, rescale: frameRescale)
+            offset = 0
+            datatypeOverride = .float32
+            scalingOverride = (0, 0)
+        }
         let header = descriptor.header(
             frames: descriptor.frames,
             geometry: geometry,
             voxOffset: offset,
-            formatLabel: descriptor.frames > 1 ? "DICOM (multi-frame)" : "DICOM"
+            formatLabel: descriptor.frames > 1 ? "DICOM (multi-frame)" : "DICOM",
+            datatypeOverride: datatypeOverride,
+            scalingOverride: scalingOverride
         )
         let image = MIQImage(header: header, storage: storage, payloadOffset: offset)
         return (image, descriptor.technicalInfo(frames: descriptor.frames, notes: geometry.notes))
@@ -68,8 +80,14 @@ struct DICOMImageDescriptor: Sendable {
     let isPlanar: Bool
     let photometric: String
     let datatype: MIQDatatype
+    /// Rescale of the first frame (or the only one) — the Pixel Value
+    /// Transformation at the top level, in the shared group, or frame 1's.
     let rescaleSlope: Double
     let rescaleIntercept: Double
+    /// Per-frame rescale for an enhanced multi-frame object whose Per-Frame
+    /// Functional Groups give frames *different* Pixel Value Transformations;
+    /// `nil` when every frame shares `rescaleSlope`/`rescaleIntercept`.
+    let frameRescale: [DICOMRescale]?
     /// Six direction cosines (row, column) in LPS, or `nil` when absent/degenerate.
     let orientation: [Double]?
     /// One LPS position per frame, when every frame has one.
@@ -151,6 +169,23 @@ struct DICOMImageDescriptor: Sendable {
         if slope == 0 { slope = 1 }
         let intercept = functional(.rescaleIntercept, .pixelValueTransformationSequence)?.first ?? 0
 
+        // Enhanced objects may carry the Pixel Value Transformation per frame; a
+        // frame without its own falls back to the value resolved above.
+        var frameRescale: [DICOMRescale]?
+        if frames > 1, perFrame.count == frames, samplesPerPixel == 1 {
+            let perFrameRescale = perFrame.map { item -> DICOMRescale in
+                let transform = item.item(.pixelValueTransformationSequence)
+                var s = DICOMValues.decimals(.rescaleSlope, in: transform, data: data)?.first ?? slope
+                if s == 0 || !s.isFinite { s = slope }
+                var i = DICOMValues.decimals(.rescaleIntercept, in: transform, data: data)?.first ?? intercept
+                if !i.isFinite { i = intercept }
+                return DICOMRescale(slope: s, intercept: i)
+            }
+            if perFrameRescale.contains(where: { $0 != DICOMRescale(slope: slope, intercept: intercept) }) {
+                frameRescale = perFrameRescale
+            }
+        }
+
         var orientation: [Double]?
         if let iop = functional(.imageOrientationPatient, .planeOrientationSequence), iop.count >= 6 {
             orientation = Self.normalizedOrientation(Array(iop.prefix(6)))
@@ -190,6 +225,7 @@ struct DICOMImageDescriptor: Sendable {
         self.datatype = datatype
         self.rescaleSlope = slope
         self.rescaleIntercept = intercept
+        self.frameRescale = frameRescale
         self.orientation = orientation
         self.framePositions = positions
         self.pixelSpacing = pixelSpacing
@@ -212,15 +248,39 @@ struct DICOMImageDescriptor: Sendable {
 
     // MARK: Header
 
-    /// Rescale as stored in `MIQHeader` (`MIQVolume` applies `raw × slope + inter`).
-    /// MONOCHROME1 ("minimum is white") is shown inverted by negating both terms, so
-    /// the default window renders it the way radiologists expect. RGB has none.
+    /// Rescale as stored in `MIQHeader` (`MIQVolume` applies `raw × slope + inter`),
+    /// exactly as the file states it, for every photometric interpretation: voxel
+    /// values are the true modality values. MONOCHROME1 ("minimum is white") is
+    /// handled at display time instead (`MIQHeader.invertsDisplay`). RGB has none.
     var headerScaling: (slope: Float, inter: Float) {
         if datatype == .rgb24 { return (0, 0) }
-        let sign: Double = photometric == "MONOCHROME1" ? -1 : 1
-        let slope = Float(rescaleSlope * sign)
-        let inter = Float(rescaleIntercept * sign)
+        let slope = Float(rescaleSlope)
+        let inter = Float(rescaleIntercept)
         return slope.isFinite && inter.isFinite ? (slope, inter) : (1, 0)
+    }
+
+    /// Whether grayscale display should be inverted (MONOCHROME1).
+    var invertsDisplay: Bool { photometric == "MONOCHROME1" }
+
+    /// The sanitised Modality (0008,0060) code, if present.
+    var modality: String? {
+        DICOMTechnicalInfo.sanitizedCode(DICOMValues.string(.modality, in: file.dataset, data: file.data))
+    }
+
+    /// The whole payload as little-endian float32 real-world values, frame `f`
+    /// rescaled with `rescale[f]` (grayscale only).
+    func realWorldFloats(_ storage: Data, offset: Int, rescale: [DICOMRescale]) -> Data {
+        let samples = frameSamples
+        var floats = [Float]()
+        floats.reserveCapacity(samples * frames)
+        for f in 0..<frames {
+            let r = rescale[safe: f] ?? DICOMRescale(slope: rescaleSlope, intercept: rescaleIntercept)
+            for i in 0..<samples {
+                let raw = rawSample(storage, offset: offset, index: f * samples + i)
+                floats.append(Float(raw * r.slope + r.intercept))
+            }
+        }
+        return floats.withUnsafeBufferPointer { Data(buffer: $0) }
     }
 
     func header(
@@ -236,7 +296,7 @@ struct DICOMImageDescriptor: Sendable {
         let datatypeLabel: String? = datatypeOverride == nil && bitsStored < bitsAllocated
             ? "\(datatype.label) (\(bitsStored)-bit)"
             : nil
-        return MIQHeader(
+        var header = MIQHeader(
             littleEndian: true,
             dimensions: [columns, rows, frames, 1],
             pixdim: [1, geometry.pixdim.x, geometry.pixdim.y, geometry.pixdim.z],
@@ -253,6 +313,9 @@ struct DICOMImageDescriptor: Sendable {
             datatypeLabel: datatypeLabel,
             orientationFrame: geometry.frame
         )
+        header.invertsDisplay = datatype != .rgb24 && invertsDisplay
+        header.modality = modality
+        return header
     }
 
     func technicalInfo(frames: Int, notes: [String]) -> DICOMTechnicalInfo {
@@ -400,6 +463,12 @@ struct DICOMImageDescriptor: Sendable {
         guard crossNorm > 0.5 else { return nil }
         return r + c
     }
+}
+
+/// One frame's Pixel Value Transformation (Rescale Slope / Intercept).
+struct DICOMRescale: Sendable, Hashable {
+    let slope: Double
+    let intercept: Double
 }
 
 // MARK: - Geometry

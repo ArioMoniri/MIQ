@@ -98,14 +98,13 @@ public struct DICOMSeriesAssembler: Sendable {
             let samples = anchor.frameSamples
             guard samples.multipliedReportingOverflow(by: 4 * ordered.count).overflow == false,
                   samples * 4 * ordered.count <= maxTotalBytes else { return nil }
-            let sign: Double = anchor.photometric == "MONOCHROME1" ? -1 : 1
             var floats = [Float]()
             floats.reserveCapacity(samples * ordered.count)
             for slice in ordered {
                 let (bytes, offset) = slice.pixelStorage()
                 for i in 0..<samples {
                     let raw = slice.rawSample(bytes, offset: offset, index: i)
-                    floats.append(Float(sign * (raw * slice.rescaleSlope + slice.rescaleIntercept)))
+                    floats.append(Float(raw * slice.rescaleSlope + slice.rescaleIntercept))
                 }
             }
             storage = floats.withUnsafeBufferPointer { Data(buffer: $0) }

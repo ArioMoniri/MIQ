@@ -95,13 +95,18 @@ extension SegmentationLut {
     /// NIfTI extension with ecode 0), and the shape of GIFTI label tables and
     /// CIFTI dlabel extensions (ecode 32). A tolerant scanner, not a full XML
     /// parser: attribute names match case-insensitively and in any order,
-    /// colours accept 0–1 floats (the GIFTI convention) or 0–255 integers, the
+    /// colours accept 0–1 floats (the GIFTI convention) or 0–255 integers
+    /// (decided once for the whole table: any channel above 1 means 0–255), the
     /// name may be CDATA or entity-escaped text, and malformed entries are
     /// skipped. Missing colours leave `color` nil; empty names drop the entry.
     public static func parseLabelTableXML(_ xml: String) -> [Int: SegmentationLabel] {
-        var result: [Int: SegmentationLabel] = [:]
+        // Colours are collected raw and scaled once per table: GIfTI writes 0–1 floats,
+        // some tools 0–255 integers, but a table never mixes the two. Deciding per entry
+        // misread a 0–255 table's dark entries (e.g. `1 0 0`) as full-intensity 0–1 colours.
+        var entries: [(key: Int, name: String, rgb: (Double, Double, Double)?)] = []
+        var seenKeys = Set<Int>()
         var cursor = xml.startIndex
-        while result.count < maxEmbeddedLabels,
+        while seenKeys.count < maxEmbeddedLabels,
               let open = xml.range(of: "<Label", options: [.caseInsensitive], range: cursor..<xml.endIndex) {
             cursor = open.upperBound
             // `<LabelTable>` shares the prefix; only `<Label` + whitespace opens an entry.
@@ -122,16 +127,26 @@ extension SegmentationLut {
             let trimmed = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(128))
             guard !trimmed.isEmpty else { continue }
 
-            var packed: UInt32?
+            var rgb: (Double, Double, Double)?
             if let r = attributes["red"].flatMap(Double.init),
                let g = attributes["green"].flatMap(Double.init),
                let b = attributes["blue"].flatMap(Double.init),
                [r, g, b].allSatisfy({ $0.isFinite && $0 >= 0 }) {
-                let scale: Double = [r, g, b].contains(where: { $0 > 1 }) ? 1 : 255
-                func channel(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * scale).rounded()))) }
-                packed = pack(channel(r), channel(g), channel(b))
+                rgb = (r, g, b)
             }
-            result[key] = SegmentationLabel(name: trimmed, packedRGB: packed)
+            entries.append((key, trimmed, rgb))
+            seenKeys.insert(key)
+        }
+
+        let scale: Double = entries.contains { entry in
+            guard let c = entry.rgb else { return false }
+            return c.0 > 1 || c.1 > 1 || c.2 > 1
+        } ? 1 : 255
+        func channel(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * scale).rounded()))) }
+        var result: [Int: SegmentationLabel] = [:]
+        for entry in entries {
+            let packed = entry.rgb.map { pack(channel($0.0), channel($0.1), channel($0.2)) }
+            result[entry.key] = SegmentationLabel(name: entry.name, packedRGB: packed)
         }
         return result
     }

@@ -10,7 +10,7 @@ import Foundation
 /// starting points a user can adjust, never as calibrated settings.
 ///
 /// The presets only make sense when the stored values *are* Hounsfield units;
-/// `looksLikeCT(header:sampleMin:)` is the (heuristic) gate the UI can use to
+/// `looksLikeCT(header:sampleMin:)` (modality-aware, else heuristic) is the gate the UI can use to
 /// decide whether to offer them.
 public enum WindowPreset: String, CaseIterable, Sendable {
     /// Percentile windowing (`RenderingOptions.lowerPercentile/upperPercentile`).
@@ -86,22 +86,28 @@ public enum WindowPreset: String, CaseIterable, Sendable {
     /// Tolerance (HU) around air's -1024 for both the intercept and minimum tests.
     static let airTolerance: Float = 50
 
-    /// Heuristic: do this volume's scaled values *look like* CT Hounsfield units?
+    /// Does this volume hold CT Hounsfield units, i.e. should CT presets be offered?
     ///
-    /// True when the stored datatype is an integer type (CT is acquired as
-    /// 12–16-bit integers; float CT is rare and indistinguishable from other float
-    /// maps) **and** either
-    ///  * the intercept puts stored 0 near air — `scl_inter` within ±50 of -1024
-    ///    with a unit (or unset) slope, the usual DICOM→NIfTI encoding of unsigned
+    /// **When the file states a modality** (`MIQHeader.modality`, currently DICOM's
+    /// Modality (0008,0060)), that decides: `CT` -> true, any other code (`MR`, `PT`,
+    /// `NM`, ...) -> false. The datatype is not checked then, since a DICOM CT whose
+    /// frames disagree on rescale is materialised as float32. `OT` ("other") is not
+    /// treated as a statement and falls through to the heuristic below.
+    ///
+    /// **Otherwise** (NIfTI, MGH, MIF, NRRD, ... none of which records modality) it
+    /// is a heuristic: true when the stored datatype is an integer type (CT is
+    /// acquired as 12-16-bit integers; float CT is rare and indistinguishable from
+    /// other float maps) **and** either
+    ///  * the intercept puts stored 0 near air: `scl_inter` within +/-50 of -1024
+    ///    with a unit (or unset) slope, the usual DICOM->NIfTI encoding of unsigned
     ///    storage; or
-    ///  * the sampled scaled minimum is near air — within ±50 of -1024 HU — which
+    ///  * the sampled scaled minimum is near air (within +/-50 of -1024 HU), which
     ///    is what an in-air body or head CT stored as signed HU shows.
     ///
-    /// Limits — this is a display hint only, and must never be presented as the
-    /// modality:
-    ///  * no format MIQ reads records modality, so nothing here is authoritative;
+    /// Limits of the heuristic (a display hint only, never to be presented as the
+    /// modality):
     ///  * a CT whose out-of-field padding is -2048/-3024 has that as its minimum,
-    ///    and a tightly cropped scan may contain no air at all — both are missed
+    ///    and a tightly cropped scan may contain no air at all; both are missed
     ///    (unless the intercept test fires);
     ///  * any integer map that happens to bottom out near -1024 is a false
     ///    positive.
@@ -109,6 +115,9 @@ public enum WindowPreset: String, CaseIterable, Sendable {
     /// - Parameter sampleMin: minimum finite *scaled* value of a representative
     ///   sample (e.g. the pooled center slices), or `nil` if not known.
     public static func looksLikeCT(header: MIQHeader, sampleMin: Float?) -> Bool {
+        if let modality = header.modality?.uppercased(), !modality.isEmpty, modality != "OT" {
+            return modality == "CT"
+        }
         guard isIntegerDatatype(header.datatype) else { return false }
         let slope = header.sclSlope
         let unitSlope = slope == 0 || abs(slope - 1) < 1e-6
