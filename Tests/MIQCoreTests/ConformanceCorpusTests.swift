@@ -95,16 +95,6 @@ struct ConformanceCorpusTests {
     }
 
     /// Cases whose expectation depends on behaviour another workstream is landing.
-    /// TODO(orientation workstream): once NRRD without `space`/`space directions`
-    /// reports an unknown orientation, drop `pending` from
-    /// `make_conformance_corpus.py`, regenerate, and delete this test — the case
-    /// then runs in `conforms(_:)`.
-    @Test(.disabled("pending orientation workstream: NRRD without space must report unknown orientation"),
-          arguments: pendingCaseNames)
-    func conformsPending(_ name: String) throws {
-        try Self.verify(name)
-    }
-
     // MARK: - Verification
 
     static func verify(_ name: String) throws {

@@ -458,17 +458,3 @@ extension MIQParser {
         return parsed
     }
 }
-
-// MARK: - Header-only entry point
-
-extension MIQParser {
-    /// Parses only the MIF text header (through `END`) into an `MIQHeader`, never
-    /// touching the payload — so `data` may be just the header prefix. Used by
-    /// `VolumeSummary` (Spotlight importer, App Intents, `miq info`). Lives in this
-    /// file only because the MIF header helpers are `private`.
-    func parseMifHeaderOnly(from data: Data) throws -> MIQHeader {
-        let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
-        let dataOffset = mifHeader.dataOffset > 0 ? mifHeader.dataOffset : embeddedDataOffset
-        return try buildMifMIQHeader(dataOffset: dataOffset, header: mifHeader).header
-    }
-}

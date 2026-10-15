@@ -350,9 +350,7 @@ def build_cases():
     c = Case("nrrd_no_space", "image.nrrd", "nrrd",
              "NRRD int16, raw encoding, no space / space directions (only spacings): orientation "
              "unknown.",
-             D, 1, [1.0, 1.0, 1.0], "int16", "unknown", lambda x, y, z, t: pattern(x, y, z),
-             pending="orientation workstream: NRRD without space/space directions must report "
-                     "unknown orientation (MIQCore currently assumes RAS)")
+             D, 1, [1.0, 1.0, 1.0], "int16", "unknown", lambda x, y, z, t: pattern(x, y, z))
     add(c, nrrd(c, ["spacings: 1 1 1", "kinds: domain domain domain"], "raw"))
 
     return cases

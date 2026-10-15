@@ -112,5 +112,5 @@
       "sha256": "21ed2430ecb15b14d728d143b4f6e5eccd55255d69436c65ca591e6a89028cb1"
     }
   ],
-  "pending": "orientation workstream: NRRD without space/space directions must report unknown orientation (MIQCore currently assumes RAS)"
+  "pending": null
 }

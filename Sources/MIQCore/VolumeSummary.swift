@@ -153,7 +153,7 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
             return niftiSpatialUnit(code: Int(prefix[prefix.startIndex + 123]))
         case .mgh, .mgz, .mif, .mifGz:
             return "mm"
-        case .nrrd:
+        case .nrrd, .zarr, .dicom:
             return nil
         }
     }
@@ -171,20 +171,16 @@ extension MIQParser {
     /// See `VolumeSummary.read(contentsOf:)` for the I/O guarantees.
     public func parseHeaderOnly(url: URL) throws -> MIQHeader {
         guard let kind = MIQFileKind(url: url) else { throw MIQError.unsupportedFileFormat }
+        // Zarr stores are directories and DICOM geometry can sit anywhere before
+        // Pixel Data; neither has a bounded header prefix to read.
+        if kind == .zarr || kind == .dicom {
+            throw MIQError.unsupportedFeature("A header-only summary isn't available for \(kind.displayName)")
+        }
         return try parseHeaderOnly(prefix: readHeaderPrefix(url: url, kind: kind), kind: kind)
     }
 
     func parseHeaderOnly(prefix: Data, kind: MIQFileKind) throws -> MIQHeader {
-        switch kind {
-        case .nii, .niiGz:
-            return try parseNiftiHeader(from: prefix, compressed: kind.isCompressed)
-        case .mgh, .mgz:
-            return try parseMghHeader(from: prefix)
-        case .mif, .mifGz:
-            return try parseMifHeaderOnly(from: prefix)
-        case .nrrd:
-            return try parseNrrdHeaderOnly(from: prefix)
-        }
+        try parseHeaderOnly(prefix, kind: kind)
     }
 
     /// Fixed header sizes: NIfTI-2's 540 bytes + 4-byte extension flag covers
@@ -231,6 +227,8 @@ extension MIQParser {
             let lf = Data("\n\n".utf8)
             let crlf = Data("\n\r\n".utf8)
             return { $0.range(of: lf) != nil || $0.range(of: crlf) != nil }
+        case .zarr, .dicom:
+            return { _ in true } // rejected in `parseHeaderOnly(url:)` before reading
         }
     }
 }
