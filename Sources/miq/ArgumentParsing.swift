@@ -29,6 +29,9 @@ struct RenderSettings: Equatable, Sendable {
 struct InfoCommand: Equatable, Sendable {
     var path: String
     var json: Bool = false
+    /// Also print free-text rows that may carry PHI (`MetadataField.mayContainPHI`:
+    /// description, provenance). Off by default, like the preview panel.
+    var includePHI: Bool = false
 }
 
 struct RenderCommand: Equatable, Sendable {
@@ -100,6 +103,7 @@ enum ArgumentParser {
     private static func parseInfo(_ args: [String]) throws -> CLICommand {
         var tokens = Tokens(args, topic: "info")
         var json = false
+        var includePHI = false
         var positionals: [String] = []
         while let token = tokens.next() {
             switch token {
@@ -108,13 +112,16 @@ enum ArgumentParser {
             case .option("json", let inline):
                 if inline != nil { throw UsageError("--json takes no value", topic: "info") }
                 json = true
+            case .option("include-phi", let inline):
+                if inline != nil { throw UsageError("--include-phi takes no value", topic: "info") }
+                includePHI = true
             case .option(let name, _):
                 throw UsageError("unknown option '\(Tokens.spelling(name))' for info", topic: "info")
             case .positional(let value):
                 positionals.append(value)
             }
         }
-        return .info(InfoCommand(path: try singlePath(positionals, topic: "info"), json: json))
+        return .info(InfoCommand(path: try singlePath(positionals, topic: "info"), json: json, includePHI: includePHI))
     }
 
     private static func parseRender(_ args: [String]) throws -> CLICommand {
@@ -311,7 +318,7 @@ enum Usage {
     miq — inspect medical volumes (NIfTI-1/2, MGH/MGZ, MRtrix MIF, NRRD) from the terminal.
 
     USAGE:
-      miq info   <file> [--json]
+      miq info   <file> [--json] [--include-phi]
       miq render <file> -o out.png [--plane axial|coronal|sagittal] [--slice N] [render options]
       miq mosaic <file> -o out.png [render options]
       miq help [command]
@@ -322,11 +329,14 @@ enum Usage {
     """
 
     static let info = """
-    USAGE: miq info <file> [--json]
+    USAGE: miq info <file> [--json] [--include-phi]
 
     Prints the header summary MIQ's preview shows: format, dimensions, voxel
     spacing, datatype, number of volumes, orientation, qform/sform codes and
     intensity scaling. --json emits a machine-readable object instead.
+
+    Free-text header fields that can hold identifying details (NIfTI descrip /
+    intent name, MIF command history) are omitted unless --include-phi is given.
     """
 
     static let renderOptions = """

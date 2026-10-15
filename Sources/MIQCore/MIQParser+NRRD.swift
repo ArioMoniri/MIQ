@@ -95,7 +95,10 @@ extension MIQParser {
             guard MIQBinaryReader.isLikelyGzip(compressed) else {
                 throw MIQError.malformedFile("NRRD encoding is gzip but gzip magic bytes are missing in payload")
             }
-            storage = try MIQBinaryReader.gunzip(compressed)
+            // Never inflate past what the header's sizes need: a gzip bomb behind
+            // a small `sizes` line stops at that many bytes.
+            let payloadBytes = nrrd.sizes.reduce(nrrd.datatype.bytesPerVoxel, *) // overflow-checked at parse
+            storage = try MIQBinaryReader.gunzip(compressed, maxOutputBytes: payloadBytes)
             payloadOffset = 0
         }
 
@@ -136,7 +139,9 @@ extension MIQParser {
 
         var combined = Data()
         if files.names.count > 1 {
-            combined.reserveCapacity(bytesPerFile * files.names.count)
+            let (total, overflow) = bytesPerFile.multipliedReportingOverflow(by: files.names.count)
+            try requireAssemblablePayload(overflow ? nil : total)
+            combined.reserveCapacity(total)
         }
         for name in files.names {
             try Task.checkCancellation()
@@ -170,7 +175,10 @@ extension MIQParser {
             guard MIQBinaryReader.isLikelyGzip(compressed) else {
                 throw MIQError.malformedFile("NRRD encoding is gzip but gzip magic bytes are missing in the data file")
             }
-            buffer = try MIQBinaryReader.gunzip(Data(compressed))
+            // Inflate only the skip plus one file's payload; anything after it is
+            // never read, and a gzip bomb stops there.
+            let (cap, overflow) = bytesPerFile.addingReportingOverflow(max(0, nrrd.byteSkip))
+            buffer = try MIQBinaryReader.gunzip(Data(compressed), maxOutputBytes: overflow ? Int.max : cap)
             offset = 0
         }
 

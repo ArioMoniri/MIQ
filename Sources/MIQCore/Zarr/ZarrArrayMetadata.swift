@@ -18,6 +18,12 @@ struct ZarrDataType: Equatable {
 
     var needsSwap: Bool { !littleEndian && datatype != nil && elementSize > 1 }
 
+    /// Largest opaque element (`|S<n>`, `|V<n>`, `r<bits>`) accepted. Such
+    /// arrays only ever hold a NIfTI-Zarr header (348–540 bytes plus extensions,
+    /// itself capped at 1 MiB); a crafted `|S1099511627776` must throw here
+    /// rather than make `fillBytes` allocate a terabyte.
+    static let maxOpaqueElementSize = 1 << 20
+
     /// Parses a Zarr v2 NumPy typestring.
     static func v2(_ raw: Any?) throws -> ZarrDataType {
         guard let string = raw as? String, string.count >= 2 else {
@@ -32,6 +38,9 @@ struct ZarrDataType: Equatable {
         default: throw MIQError.unsupportedFeature("Zarr dtype \(string) isn't supported")
         }
         if body.hasPrefix("S") || body.hasPrefix("V"), let n = Int(body.dropFirst()), n > 0 {
+            guard n <= maxOpaqueElementSize else {
+                throw MIQError.unsupportedFeature("Zarr dtype \(string) is implausibly large")
+            }
             return ZarrDataType(datatype: nil, elementSize: n, littleEndian: true, label: nil)
         }
         let mapped: (MIQDatatype, String?)
@@ -58,6 +67,9 @@ struct ZarrDataType: Equatable {
             throw MIQError.unsupportedFeature("Zarr extension data_type isn't supported")
         }
         if name.hasPrefix("r"), let bits = Int(name.dropFirst()), bits > 0, bits % 8 == 0 {
+            guard bits / 8 <= maxOpaqueElementSize else {
+                throw MIQError.unsupportedFeature("Zarr data_type \(name) is implausibly large")
+            }
             return ZarrDataType(datatype: nil, elementSize: bits / 8, littleEndian: true, label: nil)
         }
         let mapped: (MIQDatatype, String?)
@@ -356,6 +368,7 @@ struct ZarrArrayMetadata {
         guard separator == "." || separator == "/" else {
             throw MIQError.malformedFile("Zarr dimension_separator \(separator) is invalid")
         }
+        try validateChunkSize(chunks: chunks, sharding: nil, elementSize: dtype.elementSize)
         return ZarrArrayMetadata(
             zarrFormat: 2, shape: shape, chunkShape: chunks, dataType: dtype,
             fillValue: dtype.fillBytes(json["fill_value"]), pipeline: pipeline,
@@ -399,12 +412,46 @@ struct ZarrArrayMetadata {
                 throw MIQError.malformedFile("Zarr shard shape \(chunks) isn't a multiple of inner chunk shape \(sharding.innerChunkShape)")
             }
         }
+        try validateChunkSize(chunks: chunks, sharding: pipeline.sharding, elementSize: dtype.elementSize)
         let names = (json["dimension_names"] as? [Any])?.map { $0 as? String }
         return ZarrArrayMetadata(
             zarrFormat: 3, shape: shape, chunkShape: chunks, dataType: dtype,
             fillValue: dtype.fillBytes(json["fill_value"]), pipeline: pipeline,
             separator: separator, keyPrefix: prefix, dimensionNames: names
         )
+    }
+
+    /// Upper bound on one decoded addressable chunk (the inner chunk when
+    /// sharded), and on a shard index. A chunk is decoded whole, so a larger one
+    /// could not fit the preview budget anyway.
+    static let maxChunkBytes = MIQParser.zarrMaxPreviewBytes
+
+    /// Rejects chunk geometry whose byte size overflows `Int` or exceeds
+    /// `maxChunkBytes`, so `ZarrChunkReader` can multiply chunk extents, element
+    /// sizes and shard-index entry counts without overflow checks. Thumbnails
+    /// browse Zarr folders automatically, so a hostile `chunks: [9223372036854775807]`
+    /// must throw here instead of trapping later.
+    static func validateChunkSize(chunks: [Int], sharding: ZarrSharding?, elementSize: Int) throws {
+        func checkedBytes(_ extents: [Int], unit: Int) -> Int? {
+            var product = unit
+            for extent in extents {
+                let (next, overflow) = product.multipliedReportingOverflow(by: extent)
+                guard !overflow else { return nil }
+                product = next
+            }
+            return product
+        }
+        let addressable = sharding?.innerChunkShape ?? chunks
+        guard let chunkBytes = checkedBytes(addressable, unit: elementSize), chunkBytes <= maxChunkBytes else {
+            throw MIQError.unsupportedFeature("Zarr chunk shape \(addressable) is too large to preview")
+        }
+        if let sharding {
+            // 16 bytes (offset + nbytes) per inner chunk in the shard index.
+            let perShard = zip(chunks, sharding.innerChunkShape).map { $0 / $1 }
+            guard let indexBytes = checkedBytes(perShard, unit: 16), indexBytes <= maxChunkBytes else {
+                throw MIQError.unsupportedFeature("Zarr shard shape \(chunks) holds too many inner chunks to preview")
+            }
+        }
     }
 
     private static func validatedShape(_ rawShape: Any?, _ rawChunks: Any?) throws -> ([Int], [Int]) {

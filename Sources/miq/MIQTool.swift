@@ -28,7 +28,7 @@ enum MIQTool {
                 writeOut(Data((Usage.text(for: topic) + "\n").utf8))
             case .info(let info):
                 let (url, image, kind) = try VolumeLoader.load(path: info.path, needsAllVolumes: false)
-                let report = InfoReport(url: url, image: image, kind: kind)
+                let report = InfoReport(url: url, image: image, kind: kind, includePHI: info.includePHI)
                 writeOut(info.json ? try report.jsonData() : Data(report.text().utf8))
             case .render(let render):
                 try emit(SliceRenderer.render(render), to: render.output)
