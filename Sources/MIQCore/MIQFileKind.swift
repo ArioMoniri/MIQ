@@ -8,6 +8,9 @@ public enum MIQFileKind: Sendable, CaseIterable {
     case mif
     case mifGz
     case nrrd
+    /// DICOM Part-10 (`.dcm`/`.dicom`). Extensionless DICOM files are recognised by
+    /// content via `MIQFileKind.sniffDICOM(url:)`.
+    case dicom
 
     public init?(url: URL) {
         let path = url.path.lowercased()
@@ -22,6 +25,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case "mgz": self = .mgz
         case "mif": self = .mif
         case "nrrd": self = .nrrd
+        case "dcm", "dicom": self = .dicom
         default: return nil
         }
     }
@@ -29,7 +33,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
     public var isCompressed: Bool {
         switch self {
         case .niiGz, .mgz, .mifGz: return true
-        case .nii, .mgh, .mif, .nrrd: return false
+        case .nii, .mgh, .mif, .nrrd, .dicom: return false
         }
     }
 
@@ -40,7 +44,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
     public var supportsBoundedNetworkRead: Bool {
         switch self {
         case .nii, .niiGz: return true
-        case .mgh, .mgz, .mif, .mifGz, .nrrd: return false
+        case .mgh, .mgz, .mif, .mifGz, .nrrd, .dicom: return false
         }
     }
 
@@ -68,6 +72,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case .mif: return "MRtrix MIF"
         case .mifGz: return "Compressed MRtrix MIF"
         case .nrrd: return "NRRD"
+        case .dicom: return "DICOM"
         }
     }
 
@@ -80,6 +85,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case .mif: return [".mif"]
         case .mifGz: return [".mif.gz"]
         case .nrrd: return [".nrrd"]
+        case .dicom: return [".dcm", ".dicom"]
         }
     }
 }
