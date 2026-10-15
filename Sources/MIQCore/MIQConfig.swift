@@ -112,8 +112,8 @@ public enum MIQConfig {
     /// during interaction (axis labels, overlay colour, metadata order/visibility),
     /// and `UserDefaults(suiteName:)` allocates on every call. The getters still
     /// read values live via `object(forKey:)`, so app-side writes remain visible.
-    /// `nonisolated(unsafe)` mirrors `MIQPreviewCache.cache`: `UserDefaults` is
-    /// thread-safe by Apple's contract, so concurrent reads are sound.
+    /// `nonisolated(unsafe)` is sound here: `UserDefaults` is thread-safe by
+    /// Apple's contract, so concurrent reads of this immutable reference are safe.
     ///
     /// The empty-`appGroupID` check is load-bearing, not defensive noise:
     /// `UserDefaults(suiteName: "")` returns a **non-nil** store (a nameless

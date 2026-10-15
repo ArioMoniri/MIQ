@@ -244,6 +244,13 @@ final class MIQSliceCanvas: NSView {
             NSGraphicsContext.saveGraphicsState()
             let clip = NSBezierPath(rect: imageRect)
             clip.addClip()
+            // Voxels must stay crisp blocks when upscaled: the default interpolation
+            // (usually bilinear or better) would blur them and invent intermediate
+            // intensities. Restored explicitly below rather than relying on the
+            // gstate save/restore, which AppKit does not document as covering it.
+            let context = NSGraphicsContext.current
+            let previousInterpolation = context?.imageInterpolation
+            context?.imageInterpolation = .none
 
             image.draw(
                 in: imageRect,
@@ -254,6 +261,7 @@ final class MIQSliceCanvas: NSView {
                 hints: nil
             )
 
+            if let previousInterpolation { context?.imageInterpolation = previousInterpolation }
             NSGraphicsContext.restoreGraphicsState()
 
             if showAxisLabels {

@@ -24,8 +24,11 @@ final class MIQThumbnailProvider: QLThumbnailProvider {
             return
         }
 
+        // File names often carry patient identifiers: log a stable tag instead.
+        let fileTag = MIQLogRedaction.fileTag(url)
+
         guard let kind = MIQFileKind(url: url) else {
-            logger.notice("declining non-volume file, deferring to system icon: \(url.lastPathComponent, privacy: .public)")
+            logger.notice("declining non-volume file, deferring to system icon: file=\(fileTag, privacy: .public)")
             handler(nil, nil)
             return
         }
@@ -34,7 +37,16 @@ final class MIQThumbnailProvider: QLThumbnailProvider {
         // while browsing, which can hammer a slow mount. Local files are unaffected.
         let isLocal = VolumeLocation.isLocal(url)
         if !MIQConfig.showThumbnailsOnNetworkVolumes, !isLocal {
-            logger.notice("declining thumbnail on network volume (disabled in settings): \(url.lastPathComponent, privacy: .public)")
+            logger.notice("declining thumbnail on network volume (disabled in settings): file=\(fileTag, privacy: .public)")
+            handler(nil, nil)
+            return
+        }
+
+        // A dataless cloud placeholder (iCloud Drive "Optimize Mac Storage", other
+        // File Providers): reading it downloads the whole file first. One download
+        // per visible icon is never worth a thumbnail, so always keep the system icon.
+        if VolumeLocation.isDataless(url) {
+            logger.notice("declining thumbnail for dataless cloud placeholder: file=\(fileTag, privacy: .public)")
             handler(nil, nil)
             return
         }
@@ -44,9 +56,29 @@ final class MIQThumbnailProvider: QLThumbnailProvider {
         // large-network gate.
         let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize
         if kind.declinesThumbnail(fileSizeBytes: fileSize, isLocal: isLocal, thresholdBytes: MIQConfig.networkPreviewThresholdBytes) {
-            logger.notice("declining thumbnail for large \(kind.displayName, privacy: .public) file (\((fileSize ?? 0) / 1_048_576, privacy: .public) MB): \(url.lastPathComponent, privacy: .public)")
+            logger.notice("declining thumbnail for large \(kind.displayName, privacy: .public) file (\((fileSize ?? 0) / 1_048_576, privacy: .public) MB): file=\(fileTag, privacy: .public)")
             handler(nil, nil)
             return
+        }
+
+        // Under the on-disk threshold a compressed file can still inflate to GBs
+        // (label maps, mostly-zero series compress 50-100x). When the thumbnail
+        // would materialize the payload, probe the header (<= 64 KiB of prefix)
+        // and decline over the decoded-size budget. A failed probe means "unknown"
+        // and falls through to the normal parse, which reports its own error.
+        if kind.isCompressed || kind == .nrrd || !isLocal {
+            let header = try? Self.withSecurityScopedAccess(to: url) { try MIQParser().probeHeader(url: url) }
+            let estimated = header.flatMap { kind.estimatedThumbnailDecodeBytes(header: $0) }
+            if kind.declinesThumbnail(
+                fileSizeBytes: fileSize,
+                isLocal: isLocal,
+                thresholdBytes: MIQConfig.networkPreviewThresholdBytes,
+                estimatedDecompressedBytes: estimated
+            ) {
+                logger.notice("declining thumbnail for \(kind.displayName, privacy: .public) file decoding to \((estimated ?? 0) / 1_048_576, privacy: .public) MB: file=\(fileTag, privacy: .public)")
+                handler(nil, nil)
+                return
+            }
         }
 
         do {
@@ -56,10 +88,11 @@ final class MIQThumbnailProvider: QLThumbnailProvider {
                 image.draw(in: NSRect(origin: .zero, size: contextSize))
                 return true
             })
-            logger.notice("thumbnail rendered for: \(url.lastPathComponent, privacy: .public)")
+            logger.notice("thumbnail rendered: file=\(fileTag, privacy: .public)")
             handler(reply, nil)
         } catch {
-            logger.error("thumbnail failed for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            // Cocoa I/O errors embed the file name in their description.
+            logger.error("thumbnail failed: file=\(fileTag, privacy: .public): \(error.localizedDescription, privacy: .private)")
             handler(nil, error)
         }
     }
