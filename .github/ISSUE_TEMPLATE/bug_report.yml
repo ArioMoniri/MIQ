@@ -1,0 +1,118 @@
+name: Bug report
+description: A file that doesn't preview, renders wrong, or crashes Quick Look / the MIQ app.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem.
+
+        > [!WARNING]
+        > **Do not attach or paste identifiable data.** Medical image files and their headers can contain
+        > patient names, IDs, dates or free-text descriptions. Please do **not** upload real subject
+        > data, screenshots showing such information, or full file paths that name a person or study.
+        > If a file is needed to reproduce the issue, use a public sample or a synthetic/anonymized
+        > file, or describe how to create one.
+
+  - type: dropdown
+    id: format
+    attributes:
+      label: File format
+      options:
+        - NIfTI-1 (.nii / .nii.gz)
+        - NIfTI-2 (.nii / .nii.gz)
+        - FreeSurfer MGH/MGZ (.mgh / .mgz / .mgh.gz)
+        - MRtrix (.mif / .mif.gz)
+        - NRRD (.nrrd)
+        - Not sure / other
+    validations:
+      required: true
+
+  - type: input
+    id: file-kind
+    attributes:
+      label: Kind of image
+      description: Roughly what the volume contains — e.g. "T1 structural, int16, 3D", "4D fMRI float32", "FreeSurfer aparc+aseg", "RGB DEC map".
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Quick Look preview (Space in Finder)
+        - Finder thumbnails
+        - MIQ app / Settings
+        - Updating (Sparkle / Homebrew)
+        - miq command-line tool
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+      placeholder: |
+        Steps to reproduce, what you saw, and what you expected instead.
+        If another viewer (FSLeyes, ITK-SNAP, mrview, Freeview…) shows it differently, say which and how.
+    validations:
+      required: true
+
+  - type: textarea
+    id: header
+    attributes:
+      label: Header summary
+      description: |
+        Output of `miq info <file>` (or `miq info --json <file>`) from the MIQ command-line tool, if you have it.
+        It contains only structural header fields (dimensions, spacing, datatype, orientation, scaling) and
+        the **file name** — rename the file first if its name identifies anyone. Do not paste other tools'
+        full header dumps (e.g. descrip / aux_file / DICOM-derived fields) without checking them.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: e.g. macOS 26.1 (Apple Silicon)
+    validations:
+      required: true
+
+  - type: input
+    id: miq-version
+    attributes:
+      label: MIQ version
+      description: MIQ → About MIQ, or `brew info --cask miq`.
+      placeholder: e.g. 1.6.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How was MIQ installed?
+      options:
+        - Downloaded release (MIQ.app.zip)
+        - Homebrew cask
+        - Built from source
+    validations:
+      required: false
+
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else?
+      description: Other Quick Look extensions that handle `.gz` files, network volume (SMB/NFS), file size, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I have not attached or pasted patient-identifiable data (file contents, header text, names, paths or screenshots).
+          required: true

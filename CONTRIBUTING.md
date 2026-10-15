@@ -9,7 +9,8 @@ Thank you for your interest in contributing!
 - `MIQThumbnailExtension` — the Finder **thumbnail** target: renders the axial centre slice as the file icon. Off by default; shares `MIQImageBridge` and `MIQLogger` with the preview target
 - `MIQApp` — SwiftUI host app that installs both extensions and provides the Settings UI (image orientation, intensity windowing, segmentation colouring, axis labels, metadata panel configuration, thumbnails)
 - `Config/` — build settings shared across configurations and targets (see below)
-- `Tests/MIQCoreTests` — Swift Testing coverage for `MIQCore`
+- `Sources/miq` — the `miq` command-line tool (`info` / `render` / `mosaic`), built on `MIQCore` only; no third-party dependencies
+- `Tests/MIQCoreTests` — Swift Testing coverage for `MIQCore`; `Tests/MIQCLITests` covers the CLI's argument parsing and commands
 
 ## Building from Source
 
@@ -82,6 +83,27 @@ Then open a supported file in Finder and press **Space**.
 swift test --package-path .
 ```
 
+#### Without a Mac (Linux)
+
+`MIQCore`, the `miq` command-line tool and their tests also build on Linux. Apple-only bits (`os.log`, the BSD I/O-policy and `statfs` calls) are swapped for small shims in a scratch copy, and your checkout is not modified. With a Swift 6.x toolchain, `zlib1g-dev` and `python3` installed:
+
+```bash
+scripts/ci/linux_core_tests.sh                          # build + run all core tests
+scripts/ci/linux_core_tests.sh --filter PNGEncoderTests  # extra args go to `swift test`
+```
+
+The harness skips `PerformanceBaselineTests` (it uses Apple's Compression framework) and treats every volume as local disk. Anything touching AppKit, Quick Look or the app still needs a Mac.
+
+#### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- **core-tests**: `swift test` on macOS
+- **xcode-build**: an unsigned Debug `xcodebuild` of the app and both extensions. It copies `LocalSigning.xcconfig.template` to `LocalSigning.xcconfig` first.
+- **linux-core**: `scripts/ci/linux_core_tests.sh` in a `swift:6.2` container
+- **plist-consistency**: `scripts/check_plists.py`. It checks that every Info.plist parses and that the UTIs the extensions claim match the ones the app declares.
+- **performance**: opt-in `MIQ_PERF=1` baselines. This job is informational and never blocks a merge.
+
 ## Performance Notes
 
 These design decisions affect the render path — keep them in mind when working on parsing or preview code:
@@ -104,7 +126,7 @@ These design decisions affect the render path — keep them in mind when working
 - Keep pull requests focused — one concern per PR.
 - Run `swift test` before submitting.
 - Use `MIQ`-prefixed names for product-level types, concise domain names for generic imaging concepts (`GrayscaleImage`, `SlicePlane`), and descriptive names for internal helpers.
-- Adding a file format takes four wirings, not just a parser: the `MIQFileKind` case and parser, plus the new UTI in `MIQApp/Info.plist`, `MIQQuickLookExtension/Info.plist`, and `MIQThumbnailExtension/Info.plist`. Miss one of the plists and Finder never routes the file to that extension, so your parser is never called. Also add the UTI to `CFBundleDocumentTypes` (Finder "Open With") and give the kind a `badgeLabel`. Launch Services matches only the last extension, so a two-part extension such as `.nii.gz` resolves to the system gzip type: tag only single extensions, and let gzip-wrapped formats arrive via the extensions' gzip claims plus the `MIQFileKind` filename check. `MIQParser+NRRD.swift` is the most recent worked example.
+- Adding a file format takes four wirings, not just a parser: the `MIQFileKind` case and parser, plus the new UTI in `MIQApp/Info.plist`, `MIQQuickLookExtension/Info.plist`, and `MIQThumbnailExtension/Info.plist`. Miss one of the plists and Finder never routes the file to that extension, so your parser is never called. Also add the UTI to `CFBundleDocumentTypes` (Finder "Open With") and give the kind a `badgeLabel`. Launch Services matches only the last extension, so a two-part extension such as `.nii.gz` resolves to the system gzip type: tag only single extensions, and let gzip-wrapped formats arrive via the extensions' gzip claims plus the `MIQFileKind` filename check. `python3 scripts/check_plists.py` (also run in CI) catches a missing or mismatched entry. `MIQParser+NRRD.swift` is the most recent worked example.
 
 ## Releasing (maintainers only)
 
