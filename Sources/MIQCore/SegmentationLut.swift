@@ -18,28 +18,48 @@ import Foundation
 /// the per-label hash (`randomColor`), which is stable but unspread. The whole map
 /// is a pure function of the label set, so colours are deterministic per file.
 ///
+/// A third scheme, *embedded*, uses a label table stored in the file itself
+/// (e.g. the XML `<LabelTable>` TotalSegmentator writes as a NIfTI extension):
+/// its colours where given, rank-based random colours otherwise.
+///
+/// Label *names* come with the FreeSurfer (full FreeSurferColorLUT) and embedded
+/// schemes (`labelName(_:)`, in `SegmentationLabelNames.swift`), never with the
+/// random or monochrome ones, whose label values carry no known meaning.
+///
 /// Port of MIQ-Win's `SegmentationLut.cs`.
 public struct SegmentationLut: Sendable {
     enum Kind: Sendable {
         case random
         case freeSurfer
         case monochromeWhite
+        case embedded
     }
 
     let kind: Kind
 
-    /// Rank-based label→packed-RGB map for the `.random` kind (empty otherwise).
-    /// Built once from the present labels by `random(labels:)`.
+    /// Rank-based label→packed-RGB map for the `.random` kind, and for the
+    /// `.embedded` kind's labels without a stored colour (empty otherwise).
+    /// Built once from the present labels by `random(labels:)` / `embedded`.
     private let rankedPalette: [Int: UInt32]
 
-    private init(kind: Kind, rankedPalette: [Int: UInt32] = [:]) {
+    /// The file's own label table, for the `.embedded` kind (empty otherwise).
+    let embeddedLabels: [Int: SegmentationLabel]
+
+    private init(kind: Kind, rankedPalette: [Int: UInt32] = [:], embeddedLabels: [Int: SegmentationLabel] = [:]) {
         self.kind = kind
         self.rankedPalette = rankedPalette
+        self.embeddedLabels = embeddedLabels
     }
 
     /// Rank-based categorical palette over the labels present in the volume.
     static func random(labels: Set<Int>) -> SegmentationLut {
         SegmentationLut(kind: .random, rankedPalette: buildRankedPalette(labels))
+    }
+
+    /// A label table embedded in the file. Labels the table gives no colour (or
+    /// does not list) get the rank-based palette over the labels present.
+    static func embedded(_ table: [Int: SegmentationLabel], labels: Set<Int>) -> SegmentationLut {
+        SegmentationLut(kind: .embedded, rankedPalette: buildRankedPalette(labels), embeddedLabels: table)
     }
 
     static let freeSurfer = SegmentationLut(kind: .freeSurfer)
@@ -53,7 +73,22 @@ public struct SegmentationLut: Sendable {
         case .monochromeWhite:
             return (255, 255, 255)
         case .freeSurfer:
+            // The curated table wins (its colours are the historical, tested ones;
+            // it differs from the LUT only on label 28), then any other
+            // FreeSurferColorLUT entry. LUT rows coloured pure black (the
+            // "Unknown" ones) would read as background, so they take the hash.
             if let packed = Self.freeSurferTable[label] {
+                return Self.unpack(packed)
+            }
+            if let entry = Self.freeSurferNamedTable[label], entry.rgb != 0 {
+                return Self.unpack(entry.rgb)
+            }
+            return Self.randomColor(for: label)
+        case .embedded:
+            if let packed = embeddedLabels[label]?.packedRGB {
+                return Self.unpack(packed)
+            }
+            if let packed = rankedPalette[label] {
                 return Self.unpack(packed)
             }
             return Self.randomColor(for: label)
@@ -195,7 +230,7 @@ public struct SegmentationLut: Sendable {
     // than literal per-label entries so it stays that way.
     private static let freeSurferTable: [Int: UInt32] = buildFreeSurferTable()
 
-    private static func pack(_ r: UInt8, _ g: UInt8, _ b: UInt8) -> UInt32 {
+    static func pack(_ r: UInt8, _ g: UInt8, _ b: UInt8) -> UInt32 {
         (UInt32(r) << 16) | (UInt32(g) << 8) | UInt32(b)
     }
 

@@ -570,8 +570,9 @@ struct MIQCoreTests {
         // appended in canonical order so the result always covers every case.
         #expect(parsed.contains(.scaling))
         #expect(parsed.contains(.value))
-        #expect(Array(parsed.suffix(2)) == [.scaling, .value])
-        #expect(parsed.last == .value)
+        // Fields added later still (acquisition/provenance rows) follow them.
+        #expect(Array(parsed[6..<8]) == [.scaling, .value])
+        #expect(parsed == MetadataField.allCases)
     }
 
     @Test

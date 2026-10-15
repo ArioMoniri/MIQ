@@ -37,6 +37,15 @@ public struct MIQHeader: Sendable {
     public let orientationDiagnostics: OrientationDiagnostics
     // END MARK: Orientation diagnostics
 
+    // MARK: Acquisition & provenance
+
+    /// Optional, display-only header fields (units, TR, intent, description,
+    /// extensions, diffusion scheme, history, embedded label names). A `var` with
+    /// a default, not an init parameter, so format parsers that know none of it
+    /// stay untouched; the ones that do (NIfTI, MGH, MIF) assign it after
+    /// building the header. Never consulted by rendering.
+    public var acquisition = MIQAcquisitionInfo()
+
     public var width: Int { dimensions[safe: 0] ?? 1 }
     public var height: Int { dimensions[safe: 1] ?? 1 }
     public var depth: Int { dimensions[safe: 2] ?? 1 }

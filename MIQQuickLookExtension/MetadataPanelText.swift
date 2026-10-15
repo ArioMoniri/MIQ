@@ -114,6 +114,12 @@ enum MetadataPanelText {
         return String(format: "%.6g", Double(value))
     }
 
+    /// As `formatVoxelValue(_:)`, with the label name appended when the active
+    /// segmentation LUT names this value ("17 Left-Hippocampus").
+    static func formatVoxelValue(_ value: Float, lut: SegmentationLut?) -> String {
+        lut?.formatLabelValue(value) ?? formatVoxelValue(value)
+    }
+
     /// Value-column x: widest label plus a gutter. Empty labels are skipped.
     static func labelColumnOrigin(for labels: [String], font: NSFont) -> CGFloat {
         let attributes: [NSAttributedString.Key: Any] = [.font: font]

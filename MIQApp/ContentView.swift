@@ -90,6 +90,7 @@ private func metadataLabel(_ field: MetadataField) -> String {
     case .volumes:     return "Volumes"
     case .scaling:     return "Scaling"
     case .value:       return "Voxel value"
+    default:           return field.displayLabel // newer fields: label owned by MIQCore
     }
 }
 
@@ -1192,6 +1193,15 @@ struct ContentView: View {
         case .volumes:     return $showMetadataVolumes
         case .scaling:     return $showMetadataScaling
         case .value:       return $showMetadataValue
+        default:
+            // Newer fields (MIQCore `MetadataField`) have no @AppStorage here yet;
+            // read/write their key directly until Settings gets dedicated rows.
+            let key = MIQConfig.metadataVisibilityKey(field)
+            let store = Self.store ?? .standard
+            return Binding(
+                get: { store.object(forKey: key) as? Bool ?? MIQConfig.defaultVisibility(field) },
+                set: { store.set($0, forKey: key) }
+            )
         }
     }
 
@@ -1205,6 +1215,7 @@ struct ContentView: View {
         case .volumes:     return MIQConfig.Defaults.showMetadataVolumes
         case .scaling:     return MIQConfig.Defaults.showMetadataScaling
         case .value:       return MIQConfig.Defaults.showMetadataValue
+        default:           return MIQConfig.defaultVisibility(field)
         }
     }
 
