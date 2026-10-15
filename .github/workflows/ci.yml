@@ -52,6 +52,15 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      # AppIcon.icon is an Icon Composer document; older actool builds crash on
+      # it ("Could not open AppIcon.icon"), so build with the newest Xcode the
+      # runner image ships rather than the image default.
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          newest=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
       - name: Create LocalSigning.xcconfig from template
         run: cp LocalSigning.xcconfig.template LocalSigning.xcconfig
       - name: xcodebuild
