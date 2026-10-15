@@ -107,10 +107,32 @@ public struct SidecarMetadata: Sendable, Equatable {
         sidecar.flipAngle = number(dictionary["FlipAngle"])
         sidecar.magneticFieldStrength = number(dictionary["MagneticFieldStrength"])
         sidecar.sliceThickness = number(dictionary["SliceThickness"])
-        sidecar.phaseEncodingDirection = string(dictionary["PhaseEncodingDirection"])
-        sidecar.taskName = string(dictionary["TaskName"])
-        sidecar.mrAcquisitionType = string(dictionary["MRAcquisitionType"])
+        // The string fields are BIDS enumerations / labels, not free text, so a
+        // value outside the spec's form is dropped rather than displayed: that
+        // keeps arbitrary text (a name, an MRN) out of the panel and the logs.
+        sidecar.phaseEncodingDirection = string(dictionary["PhaseEncodingDirection"]).flatMap(phaseEncodingDirection)
+        sidecar.taskName = string(dictionary["TaskName"]).flatMap(taskName)
+        sidecar.mrAcquisitionType = string(dictionary["MRAcquisitionType"]).flatMap(acquisitionType)
         return sidecar
+    }
+
+    /// BIDS `PhaseEncodingDirection`: `i`, `j` or `k`, optionally followed by `-`.
+    private static func phaseEncodingDirection(_ value: String) -> String? {
+        let scalars = Array(value.unicodeScalars)
+        guard (1...2).contains(scalars.count), "ijk".unicodeScalars.contains(scalars[0]),
+              scalars.count == 1 || scalars[1] == "-" else { return nil }
+        return value
+    }
+
+    /// BIDS `MRAcquisitionType`: `2D` or `3D`.
+    private static func acquisitionType(_ value: String) -> String? {
+        value == "2D" || value == "3D" ? value : nil
+    }
+
+    /// BIDS `TaskName` as used in the `task-<label>` entity: ASCII letters and digits.
+    private static func taskName(_ value: String) -> String? {
+        value.unicodeScalars.allSatisfy({ $0.isASCII && ($0.properties.isAlphabetic || ("0"..."9").contains($0)) })
+            ? value : nil
     }
 
     /// A finite, non-negative JSON number. Booleans are rejected: Darwin's

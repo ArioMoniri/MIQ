@@ -7,9 +7,17 @@ import zlib
 /// unsharded array, the inner chunk for a sharded one (shards are range-read
 /// through their index, never loaded whole). Decoded chunks are byte-swapped to
 /// little-endian, so the assembled output is always LE.
+///
+/// Chunk sizes are bounded by `ZarrArrayMetadata.validateChunkSize`, so the
+/// element-count products below cannot overflow. Every chunk or shard file is
+/// opened only after its symlink-resolved path is checked to lie inside
+/// `storeRoot` (see `MIQParser.containedResolvedURL`), so a chunk symlinked to
+/// some other file can't be rendered as voxels.
 struct ZarrChunkReader {
     let directory: URL
     let metadata: ZarrArrayMetadata
+    /// The store the user picked; no file outside it is read.
+    let storeRoot: URL
 
     /// Shape of one addressable chunk (inner chunk when sharded).
     var chunkShape: [Int] { metadata.pipeline.sharding?.innerChunkShape ?? metadata.chunkShape }
@@ -28,7 +36,9 @@ struct ZarrChunkReader {
         let chunkElements = chunk.reduce(1, *)
         guard extents.allSatisfy({ $0 > 0 }) else { return }
 
-        let gridCounts = (0..<rank).map { (extents[$0] + chunk[$0] - 1) / chunk[$0] }
+        // `(n - 1) / c + 1` rather than `(n + c - 1) / c`: the latter overflows for
+        // a chunk extent near `Int.max` (n > 0 is guaranteed above).
+        let gridCounts = (0..<rank).map { (extents[$0] - 1) / chunk[$0] + 1 }
         var shardCache: [String: ShardIndex] = [:]
 
         try forEachIndex(gridCounts) { grid in
@@ -85,6 +95,7 @@ struct ZarrChunkReader {
         guard let sharding = metadata.pipeline.sharding else {
             let url = directory.appendingPathComponent(metadata.chunkKey(grid))
             guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+            try requireInsideStore(url)
             return try Self.decode(try Data(contentsOf: url), codecs: metadata.pipeline.bytesCodecs, expectedBytes: expected)
         }
 
@@ -97,6 +108,7 @@ struct ZarrChunkReader {
         } else {
             let url = directory.appendingPathComponent(key)
             guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+            try requireInsideStore(url)
             index = try readShardIndex(url: url, innerCount: perShard.reduce(1, *), sharding: sharding)
             shardCache[key] = index
         }
@@ -113,6 +125,13 @@ struct ZarrChunkReader {
             throw MIQError.truncatedData
         }
         return try Self.decode(stored, codecs: sharding.inner.bytesCodecs, expectedBytes: expected)
+    }
+
+    /// Throws unless `url` (after symlink resolution) lies inside `storeRoot`.
+    private func requireInsideStore(_ url: URL) throws {
+        guard MIQParser.containedResolvedURL(url, inside: storeRoot) != nil else {
+            throw MIQError.unsupportedFeature("Zarr chunk points outside the store; only files inside the store are read")
+        }
     }
 
     private func readShardIndex(url: URL, innerCount: Int, sharding: ZarrSharding) throws -> ShardIndex {
@@ -149,8 +168,8 @@ struct ZarrChunkReader {
         guard metadata.shape.count == 1 else {
             throw MIQError.malformedFile("expected a 1-D Zarr array")
         }
-        let byteCount = metadata.shape[0] * metadata.dataType.elementSize
-        guard byteCount <= maxBytes else { throw MIQError.malformedFile("Zarr byte array is implausibly large") }
+        let (byteCount, overflow) = metadata.shape[0].multipliedReportingOverflow(by: metadata.dataType.elementSize)
+        guard !overflow, byteCount <= maxBytes else { throw MIQError.malformedFile("Zarr byte array is implausibly large") }
         var output = Data(count: byteCount)
         let fill = metadata.fillValue
         try output.withUnsafeMutableBytes { buffer in
@@ -179,26 +198,53 @@ struct ZarrChunkReader {
     }
 
     /// Inflates a gzip- or zlib-wrapped stream (zlib header auto-detection),
-    /// producing at most `expectedBytes`.
-    static func inflate(_ input: Data, expectedBytes: Int) throws -> Data {
+    /// producing at most `expectedBytes`, which must not exceed
+    /// `ZarrArrayMetadata.maxChunkBytes`. Input and output are handed to zlib in
+    /// windows of at most `window` bytes (`avail_in`/`avail_out` are UInt32), so
+    /// neither side can overflow the conversion. `window` is a parameter only so
+    /// tests can exercise the refills without multi-GiB fixtures.
+    static func inflate(_ input: Data, expectedBytes: Int, window: Int = Int(UInt32.max)) throws -> Data {
         guard expectedBytes > 0 else { return Data() }
+        guard expectedBytes <= ZarrArrayMetadata.maxChunkBytes, window > 0 else {
+            throw MIQError.unsupportedFeature("Zarr chunk is too large to preview")
+        }
         var stream = z_stream()
         guard inflateInit2_(&stream, 32 + MAX_WBITS, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)) == Z_OK else {
             throw MIQError.decompressionFailed
         }
         defer { inflateEnd(&stream) }
+        let window = Swift.min(window, Int(UInt32.max))
         var output = Data(count: expectedBytes)
         let input = Data(input) // contiguous, zero-based
-        let status: Int32 = input.withUnsafeBytes { inRaw in
+        var produced = 0
+        var status: Int32 = Z_OK
+        input.withUnsafeBytes { inRaw in
             output.withUnsafeMutableBytes { outRaw in
-                stream.next_in = UnsafeMutablePointer(mutating: inRaw.bindMemory(to: Bytef.self).baseAddress)
-                stream.avail_in = UInt32(inRaw.count)
-                stream.next_out = outRaw.bindMemory(to: Bytef.self).baseAddress
-                stream.avail_out = UInt32(outRaw.count)
-                return zlib.inflate(&stream, Z_FINISH)
+                guard let outBase = outRaw.bindMemory(to: Bytef.self).baseAddress else {
+                    status = Z_DATA_ERROR
+                    return
+                }
+                let inBase = inRaw.bindMemory(to: Bytef.self).baseAddress
+                var fed = 0
+                while produced < expectedBytes {
+                    if stream.avail_in == 0, fed < inRaw.count, let inBase {
+                        let chunk = Swift.min(inRaw.count - fed, window)
+                        stream.next_in = UnsafeMutablePointer(mutating: inBase + fed)
+                        stream.avail_in = UInt32(chunk)
+                        fed += chunk
+                    }
+                    let outWindow = Swift.min(expectedBytes - produced, window)
+                    stream.next_out = outBase + produced
+                    stream.avail_out = UInt32(outWindow)
+                    status = zlib.inflate(&stream, Z_NO_FLUSH)
+                    produced += outWindow - Int(stream.avail_out)
+                    if status == Z_STREAM_END { return }
+                    guard status == Z_OK || status == Z_BUF_ERROR else { return }
+                    // No progress possible: every input byte consumed, output space left.
+                    if stream.avail_in == 0, fed >= inRaw.count, stream.avail_out > 0 { return }
+                }
             }
         }
-        let produced = expectedBytes - Int(stream.avail_out)
         // A full buffer is success even if the stream has trailing data we didn't need.
         guard status == Z_STREAM_END || produced == expectedBytes else {
             throw MIQError.decompressionFailed

@@ -23,6 +23,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFPlugInCOM.h>
 #include <CoreServices/CoreServices.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -30,7 +31,8 @@
 
 // Implemented in Swift via @_cdecl. Fills `attributes` from the file's header
 // only; returns false (and leaves `attributes` untouched) for anything it does
-// not recognise.
+// not recognise. `contentTypeUTI` may be NULL (the Swift side takes `CFString?`);
+// `attributes` and `url` are checked non-NULL before the call.
 extern Boolean MIQImporterImportURL(CFMutableDictionaryRef attributes, CFStringRef contentTypeUTI, CFURLRef url);
 
 // MARK: - Instance layout
@@ -43,7 +45,8 @@ typedef struct MIQImporterPlugin {
     MDImporterInterfaceStruct *fileInterface;
     MDImporterURLInterfaceStruct *urlInterface;
     CFUUIDRef factoryID;
-    UInt32 refCount;
+    // Atomic: mdworker may AddRef/Release the instance from more than one thread.
+    _Atomic UInt32 refCount;
 } MIQImporterPlugin;
 
 static MIQImporterPlugin *MIQPluginFromFileInterface(void *thisInterface) {
@@ -90,19 +93,20 @@ static void MIQDeallocPlugin(MIQImporterPlugin *plugin) {
 }
 
 static ULONG MIQAddRef(MIQImporterPlugin *plugin) {
-    plugin->refCount += 1;
-    return plugin->refCount;
+    return atomic_fetch_add(&plugin->refCount, 1) + 1;
 }
 
 static ULONG MIQRelease(MIQImporterPlugin *plugin) {
-    if (plugin->refCount > 0) {
-        plugin->refCount -= 1;
+    // Decrement without going below zero; only the release that takes the count
+    // from 1 to 0 frees the instance (an over-release must not double-free it).
+    UInt32 current = atomic_load(&plugin->refCount);
+    while (current > 0 && !atomic_compare_exchange_weak(&plugin->refCount, &current, current - 1)) {
     }
-    if (plugin->refCount == 0) {
+    if (current == 1) {
         MIQDeallocPlugin(plugin);
         return 0;
     }
-    return plugin->refCount;
+    return current > 0 ? current - 1 : 0;
 }
 
 static HRESULT MIQQueryInterface(MIQImporterPlugin *plugin, REFIID iid, LPVOID *ppv) {
@@ -178,7 +182,7 @@ static MIQImporterPlugin *MIQAllocPlugin(CFUUIDRef factoryID) {
     plugin->urlInterface = &MIQURLInterfaceTable;
     plugin->factoryID = (CFUUIDRef)CFRetain(factoryID);
     CFPlugInAddInstanceForFactory(factoryID);
-    plugin->refCount = 1;
+    atomic_init(&plugin->refCount, 1);
     return plugin;
 }
 

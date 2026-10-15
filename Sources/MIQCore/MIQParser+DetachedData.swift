@@ -25,6 +25,25 @@ extension MIQParser {
     /// `%d 0 2147483647 1` pattern from expanding into billions of names.
     static let maxDetachedDataFiles = 16_384
 
+    /// Upper bound on a payload MIQ must build in memory from header-declared
+    /// sizes: a multi-file concatenation or a compressed MetaImage inflate. A
+    /// header can declare `sizes: 1048576 1048576 1048576` in a few bytes, and
+    /// allocating that up front traps instead of throwing. Real volumes previewed
+    /// this way are far smaller; a single raw file is memory-mapped and not
+    /// subject to this cap.
+    static let maxAssembledPayloadBytes = 8 << 30
+
+    /// Throws a display-ready error unless `bytes` (header-declared) fits
+    /// `maxAssembledPayloadBytes`. `nil` means the size overflowed `Int`.
+    func requireAssemblablePayload(_ bytes: Int?) throws {
+        guard let bytes, bytes <= Self.maxAssembledPayloadBytes else {
+            let size = bytes.map { MIQPayloadSizeEstimate.gigabytesText($0) } ?? "too large"
+            throw MIQError.unsupportedFeature(
+                "the header declares a \(size) payload, over the \(MIQPayloadSizeEstimate.gigabytesText(Self.maxAssembledPayloadBytes)) limit for decompressing or joining data files"
+            )
+        }
+    }
+
     /// The ordered payload file names a detached header references.
     struct DetachedFileList: Equatable {
         /// File names as written in the header (relative to the header's folder).
@@ -52,18 +71,23 @@ extension MIQParser {
         guard step != 0, (step > 0 && lo <= hi) || (step < 0 && lo >= hi) else {
             throw MIQError.malformedFile("detached data file pattern has an empty or inverted range")
         }
+        // Every step is overflow-checked: `Int.min / -1` traps, as does the
+        // `+ 1` after `Int.max / 1`, and a trailing `index += step` past the last
+        // name could overflow even though that value is never used.
         let (span, overflow) = hi.subtractingReportingOverflow(lo)
-        guard !overflow else { throw MIQError.malformedFile("detached data file pattern range overflows") }
-        let count = span / step + 1
+        let (quotient, divideOverflow) = span.dividedReportingOverflow(by: step)
+        let (count, countOverflow) = quotient.addingReportingOverflow(1)
+        guard !overflow, !divideOverflow, !countOverflow else {
+            throw MIQError.malformedFile("detached data file pattern range overflows")
+        }
         guard count <= Self.maxDetachedDataFiles else {
             throw MIQError.unsupportedFeature("detached data file pattern expands to more than \(Self.maxDetachedDataFiles) files")
         }
         var names: [String] = []
         names.reserveCapacity(count)
-        var index = lo
-        for _ in 0..<count {
-            names.append(try formatDetachedFileName(tokens[0], index: index))
-            index += step
+        // `lo + i·step` stays within [lo, hi] for i < count, so it can't overflow.
+        for i in 0..<count {
+            names.append(try formatDetachedFileName(tokens[0], index: lo + i * step))
         }
         return DetachedFileList(names: names, subdim: subdim)
     }
@@ -111,6 +135,11 @@ extension MIQParser {
     /// point into that same tree (some writers record the full path of a file next
     /// to the header). `~` is not expanded, and empty names or names containing NUL
     /// are rejected.
+    ///
+    /// Opening the result is not atomic with this check: a process that can
+    /// write inside the header's folder could swap the file for a symlink in
+    /// between. That attacker can already replace the payload itself, and
+    /// Foundation's mapped reads offer no `O_NOFOLLOW`, so the window is accepted.
     func resolveDetachedDataFile(_ name: String, relativeTo headerURL: URL) throws -> URL {
         let displayName = Self.detachedDisplayName(name)
         guard !name.isEmpty, !name.contains("\0") else {
@@ -120,16 +149,26 @@ extension MIQParser {
         let candidate: URL = name.hasPrefix("/")
             ? URL(fileURLWithPath: name)
             : directory.appendingPathComponent(name)
-        let resolved = candidate.standardizedFileURL.resolvingSymlinksInPath()
+        guard let resolved = Self.containedResolvedURL(candidate, inside: directory) else {
+            throw MIQError.unsupportedFeature(
+                "Detached data file '\(displayName)' is outside the header's folder; only files in the same folder or a subfolder are read"
+            )
+        }
+        return resolved
+    }
 
-        let dirComponents = directory.pathComponents
+    /// `url` after `.`/`..` normalisation and symlink resolution, or `nil` unless
+    /// that path lies strictly inside `directory` (itself resolved the same way).
+    /// The containment rule shared by detached payloads and Zarr chunk stores.
+    static func containedResolvedURL(_ url: URL, inside directory: URL) -> URL? {
+        let root = directory.standardizedFileURL.resolvingSymlinksInPath()
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+        let dirComponents = root.pathComponents
         let fileComponents = resolved.pathComponents
         guard fileComponents.count > dirComponents.count,
               Array(fileComponents.prefix(dirComponents.count)) == dirComponents,
               !fileComponents.contains("..") else {
-            throw MIQError.unsupportedFeature(
-                "Detached data file '\(displayName)' is outside the header's folder; only files in the same folder or a subfolder are read"
-            )
+            return nil
         }
         return resolved
     }

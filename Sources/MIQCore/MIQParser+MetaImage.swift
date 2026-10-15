@@ -310,7 +310,11 @@ extension MIQParser {
             bytesPerElement: meta.datatype.bytesPerVoxel
         )
         var combined = Data()
-        if files.names.count > 1 { combined.reserveCapacity(bytesPerFile * files.names.count) }
+        if files.names.count > 1 {
+            let (total, overflow) = bytesPerFile.multipliedReportingOverflow(by: files.names.count)
+            try requireAssemblablePayload(overflow ? nil : total)
+            combined.reserveCapacity(total)
+        }
 
         for name in files.names {
             try Task.checkCancellation()
@@ -344,8 +348,11 @@ extension MIQParser {
     /// accepted too) into exactly `expectedBytes`. Output beyond that is never
     /// produced, so a lying stream can't grow the buffer; a short stream is
     /// `truncatedData`. Polls cancellation between 16 MiB output windows.
+    /// `expectedBytes` is header-declared, so it is capped at
+    /// `maxAssembledPayloadBytes` before the output buffer is allocated.
     func inflateMetaImage(_ compressed: Data, expectedBytes: Int) throws -> Data {
         guard expectedBytes > 0, !compressed.isEmpty else { throw MIQError.decompressionFailed }
+        try requireAssemblablePayload(expectedBytes)
         var stream = z_stream()
         // +32: auto-detect zlib or gzip header.
         guard inflateInit2_(&stream, MAX_WBITS + 32, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)) == Z_OK else {

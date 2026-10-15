@@ -68,10 +68,14 @@ private extension Array {
 /// Entry point called by the CFPlugIn glue in `main.c` for both importer
 /// interfaces. Must not throw or trap: it runs inside `mdworker`, so every
 /// failure is reported as `false` ("nothing imported").
+///
+/// `contentTypeUTI` is optional because `mdworker` may pass NULL for it, and a
+/// NULL bridged into a non-optional Swift reference is undefined behaviour. It
+/// is unused: the file's own extension decides the format.
 @_cdecl("MIQImporterImportURL")
 public func miqImporterImportURL(
     _ attributes: CFMutableDictionary,
-    _ contentTypeUTI: CFString,
+    _ contentTypeUTI: CFString?,
     _ url: CFURL
 ) -> DarwinBoolean {
     guard let values = MIQSpotlightAttributes.attributes(forFileAt: url as URL) else {

@@ -42,7 +42,10 @@ struct InfoReport: Encodable, Equatable {
     let scaling: Scaling
     let display: [DisplayLine]
 
-    init(url: URL, image: MIQImage, kind: MIQFileKind) {
+    /// - Parameter includePHI: Keep rows whose field `mayContainPHI` (free text
+    ///   such as NIfTI `descrip` or MIF `command_history`). Off by default, so
+    ///   output pasted into a bug report or a script's log carries no free text.
+    init(url: URL, image: MIQImage, kind: MIQFileKind, includePHI: Bool = false) {
         let header = image.header
         let volume = MIQVolume(image: image)
         let orientation = volume.storageOrientationLabel()
@@ -65,7 +68,9 @@ struct InfoReport: Encodable, Equatable {
             intercept: header.sclInter.isFinite ? Double(header.sclInter) : nil
         )
         display = [DisplayLine(label: "Format", value: format)]
-            + metadata.asDisplayLines().map { DisplayLine(label: $0.label, value: $0.value) }
+            + metadata.asDisplayLines()
+                .filter { includePHI || $0.field?.mayContainPHI != true }
+                .map { DisplayLine(label: $0.label, value: $0.value) }
     }
 
     func jsonData() throws -> Data {

@@ -17,6 +17,8 @@ struct ArgumentParsingTests {
         #expect(try ArgumentParser.parse(["info", "a.nii.gz"]) == .info(InfoCommand(path: "a.nii.gz", json: false)))
         #expect(try ArgumentParser.parse(["info", "--json", "a.nii"]) == .info(InfoCommand(path: "a.nii", json: true)))
         #expect(try ArgumentParser.parse(["info", "a.nii", "--json"]) == .info(InfoCommand(path: "a.nii", json: true)))
+        #expect(try ArgumentParser.parse(["info", "--include-phi", "a.nii"]) == .info(InfoCommand(path: "a.nii", includePHI: true)))
+        #expect(throws: UsageError.self) { try ArgumentParser.parse(["info", "--include-phi=1", "a.nii"]) }
     }
 
     @Test
@@ -144,7 +146,7 @@ struct MosaicTests {
 /// End-to-end over a tiny on-disk NIfTI-1 fixture.
 struct CommandExecutionTests {
     /// Minimal little-endian NIfTI-1 (`n+1`) with uint8 voxels `value = index % 251`.
-    static func writeNifti(width: Int, height: Int, depth: Int, volumes: Int = 1, pixdim: [Float] = [1, 1, 1]) throws -> URL {
+    static func writeNifti(width: Int, height: Int, depth: Int, volumes: Int = 1, pixdim: [Float] = [1, 1, 1], descrip: String? = nil) throws -> URL {
         var bytes = [UInt8](repeating: 0, count: 352)
         func put<T: FixedWidthInteger>(_ v: T, _ at: Int) {
             withUnsafeBytes(of: v.littleEndian) { for (i, b) in $0.enumerated() { bytes[at + i] = b } }
@@ -160,6 +162,7 @@ struct CommandExecutionTests {
         putF(352, 108)
         putF(1, 112)
         bytes.replaceSubrange(344..<348, with: Array("n+1\0".utf8))
+        if let descrip { bytes.replaceSubrange(148..<(148 + descrip.utf8.count), with: Array(descrip.utf8)) }
         let count = width * height * depth * volumes
         let payload = (0..<count).map { UInt8($0 % 251) }
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -193,6 +196,22 @@ struct CommandExecutionTests {
         #expect(json?["volumes"] as? Int == 2)
         #expect(json?["file"] as? String == url.lastPathComponent)
         #expect((json?["display"] as? [[String: Any]])?.isEmpty == false)
+    }
+
+    @Test
+    func infoOmitsPHIRowsUnlessIncludePHI() throws {
+        let url = try Self.writeNifti(width: 4, height: 4, depth: 2, descrip: "DOE^JOHN 1970-01-01")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (_, image, kind) = try VolumeLoader.load(path: url.path, needsAllVolumes: false)
+
+        let redacted = InfoReport(url: url, image: image, kind: kind)
+        #expect(!redacted.text().contains("DOE^JOHN"))
+        #expect(!String(decoding: try redacted.jsonData(), as: UTF8.self).contains("DOE"))
+        #expect(!redacted.display.contains { $0.label == MetadataField.description.displayLabel })
+
+        let full = InfoReport(url: url, image: image, kind: kind, includePHI: true)
+        #expect(full.text().contains("DOE^JOHN"))
+        #expect(full.display.contains { $0.label == MetadataField.description.displayLabel })
     }
 
     @Test

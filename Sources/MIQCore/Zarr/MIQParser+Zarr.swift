@@ -62,7 +62,7 @@ extension MIQParser {
 
         let levels = store.levels
         guard !levels.isEmpty else { throw MIQError.malformedFile("OME-Zarr multiscales has no datasets") }
-        let shapes = levels.map { ZarrArrayMetadata.shape(directory: store.directory(for: $0.path)) }
+        let shapes = try levels.map { ZarrArrayMetadata.shape(directory: try store.directory(for: $0.path)) }
         let rank = shapes.compactMap { $0?.count }.first ?? store.axes.count
         let axes = store.axes.count == rank ? store.axes : ZarrAxis.defaults(rank: rank)
         let spatial = try ZarrAxis.spatialIndices(axes)
@@ -85,7 +85,7 @@ extension MIQParser {
             throw MIQError.malformedFile("no readable Zarr array metadata in any pyramid level")
         }
         let level = levels[levelIndex]
-        let arrayDirectory = store.directory(for: level.path)
+        let arrayDirectory = try store.directory(for: level.path)
         guard let metadata = try ZarrArrayMetadata.read(directory: arrayDirectory) else {
             throw MIQError.malformedFile("Zarr level \(level.path) has no array metadata")
         }
@@ -120,7 +120,7 @@ extension MIQParser {
         }
 
         var storage = Data(count: byteCount)
-        let reader = ZarrChunkReader(directory: arrayDirectory, metadata: metadata)
+        let reader = ZarrChunkReader(directory: arrayDirectory, metadata: metadata, storeRoot: store.storeRoot)
         try storage.withUnsafeMutableBytes { buffer in
             ZarrChunkReader.fill(buffer, with: metadata.fillValue)
             try reader.assemble(extents: extents, outputStrides: outputStrides, into: buffer)
@@ -310,6 +310,9 @@ struct ZarrLevel {
 struct ZarrStore {
     /// Directory of the multiscales group (or the array itself).
     let root: URL
+    /// The directory the user picked (`root` or its parent for the
+    /// bioformats2raw layout). Nothing outside it is ever read.
+    let storeRoot: URL
     let hasMultiscales: Bool
     let omeVersion: String?
     let axes: [ZarrAxis]
@@ -320,8 +323,24 @@ struct ZarrStore {
     /// Raw bytes of the NIfTI-Zarr `nifti` array, when present.
     let niftiHeaderBytes: Data?
 
-    func directory(for path: String) -> URL {
-        path.isEmpty ? root : root.appendingPathComponent(path, isDirectory: true)
+    /// The directory of a level's array. `path` comes from untrusted metadata:
+    /// absolute paths and `..` components are rejected outright, and the
+    /// symlink-resolved directory must lie inside `storeRoot`, so a dataset path
+    /// like `../../other.zarr/0` (or a level symlinked elsewhere) can't make a
+    /// preview read another store.
+    func directory(for path: String) throws -> URL {
+        if path.isEmpty { return root }
+        guard Self.isSafeRelativePath(path),
+              let resolved = MIQParser.containedResolvedURL(root.appendingPathComponent(path, isDirectory: true), inside: storeRoot) else {
+            throw MIQError.unsupportedFeature("Zarr dataset path points outside the store; only arrays inside the store are read")
+        }
+        return resolved
+    }
+
+    /// A relative `/`-separated path with no `..` component, no NUL, not absolute.
+    static func isSafeRelativePath(_ path: String) -> Bool {
+        guard !path.hasPrefix("/"), !path.hasPrefix("~"), !path.contains("\0") else { return false }
+        return !path.split(separator: "/", omittingEmptySubsequences: false).contains("..")
     }
 
     /// Combined scale/translation for a level: `global ∘ dataset`.
@@ -394,7 +413,7 @@ struct ZarrStore {
                 ($0["dimension_names"] as? [Any])?.compactMap { $0 as? String }
             }
             let axes = names.map { $0.map { ZarrAxis(name: $0, type: nil, unit: nil) } } ?? ZarrAxis.defaults(rank: shape.count)
-            return ZarrStore(root: url, hasMultiscales: false, omeVersion: nil, axes: axes,
+            return ZarrStore(root: url, storeRoot: url, hasMultiscales: false, omeVersion: nil, axes: axes,
                              levels: [ZarrLevel(path: "", scale: nil, translation: nil)],
                              globalScale: nil, globalTranslation: nil, niftiHeaderBytes: nil)
         }
@@ -402,7 +421,8 @@ struct ZarrStore {
         if found == nil {
             // bioformats2raw layout: the image lives in the "0" subgroup.
             let child = url.appendingPathComponent("0", isDirectory: true)
-            if let node = try node(at: child), !node.isArray, let nested = multiscales(node.attributes) {
+            if MIQParser.containedResolvedURL(child, inside: url) != nil,
+               let node = try node(at: child), !node.isArray, let nested = multiscales(node.attributes) {
                 root = (node, child)
                 found = nested
             }
@@ -418,22 +438,25 @@ struct ZarrStore {
         let global = transforms(multiscale["coordinateTransformations"])
         return ZarrStore(
             root: root.1,
+            storeRoot: url,
             hasMultiscales: true,
             omeVersion: version,
             axes: ZarrAxis.parse(multiscale["axes"]),
             levels: levels,
             globalScale: global.scale,
             globalTranslation: global.translation,
-            niftiHeaderBytes: try niftiHeader(in: root.1)
+            niftiHeaderBytes: try niftiHeader(in: root.1, storeRoot: url)
         )
     }
 
     /// The NIfTI-Zarr `nifti` array: raw header bytes (`u1`/`uint8` or one `S<n>`
     /// element). Capped at 1 MiB — a header plus extensions, never a payload.
-    private static func niftiHeader(in root: URL) throws -> Data? {
+    private static func niftiHeader(in root: URL, storeRoot: URL) throws -> Data? {
         let directory = root.appendingPathComponent("nifti", isDirectory: true)
-        guard let metadata = try? ZarrArrayMetadata.read(directory: directory) else { return nil }
-        let bytes = try ZarrChunkReader(directory: directory, metadata: metadata).readAllBytes(maxBytes: 1 << 20)
+        guard MIQParser.containedResolvedURL(directory, inside: storeRoot) != nil,
+              let metadata = try? ZarrArrayMetadata.read(directory: directory) else { return nil }
+        let bytes = try ZarrChunkReader(directory: directory, metadata: metadata, storeRoot: storeRoot)
+            .readAllBytes(maxBytes: 1 << 20)
         return bytes.count >= 348 ? bytes : nil
     }
 }

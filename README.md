@@ -114,12 +114,13 @@ swift build -c release --product miq     # binary: .build/release/miq
 ```bash
 miq info sub-01_T1w.nii.gz               # format, dimensions, spacing, datatype, volumes, orientation, scaling
 miq info --json sub-01_T1w.nii.gz        # same, machine-readable
+miq info --include-phi sub-01_T1w.nii.gz # also print free-text fields (descrip, command history)
 miq render sub-01_T1w.nii.gz --plane coronal --slice 120 -o coronal.png
 miq render bold.nii.gz --volume 10 --window 0,1500 -o vol10.png
 miq mosaic aparc+aseg.mgz -o overview.png  # the preview's 2×2 layout as one PNG
 ```
 
-`render` and `mosaic` also accept `--orientation stored|neurological|radiological`, `--segmentation auto|off|random` and `--max-size N`. Run `miq help <command>` for details. PNGs are written by a built-in encoder and contain pixels only, with no text or metadata chunks.
+`info` leaves out free-text header fields that can carry identifying details (NIfTI `descrip`/`intent_name`, MIF `command_history`), matching the preview's defaults; pass `--include-phi` to print them. `render` and `mosaic` also accept `--orientation stored|neurological|radiological`, `--segmentation auto|off|random` and `--max-size N`. Run `miq help <command>` for details. PNGs are written by a built-in encoder and contain pixels only, with no text or metadata chunks.
 
 ## Privacy
 
