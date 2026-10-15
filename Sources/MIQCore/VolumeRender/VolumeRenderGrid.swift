@@ -29,14 +29,22 @@ public struct VolumeRenderGrid: Sendable {
     /// Voxel values in a label grid are *indices* into this array. `nil` for
     /// intensity grids.
     public let labels: [Int]?
+    /// Intensity grids only: the flat background MinIP ignores
+    /// (`MinIPBackground.floor` of the grid values — zero fill, CT padding), or
+    /// `nil` when the grid has none and MinIP takes every sample.
+    public let minIPBackgroundFloor: Float?
 
     let storage: Storage
 
     final class Storage: @unchecked Sendable {
         /// RAS-ordered values, x fastest. Immutable after init.
         let values: [Float]
-        /// Label grids only: 1 where the label is non-background, else 0 —
-        /// trilinearly sampled for smooth surface normals.
+        /// Label grids: 1 where the label is non-background, else 0 —
+        /// trilinearly sampled for smooth surface normals. Intensity grids with a
+        /// `minIPBackgroundFloor`: 1 where the value is above it; MinIP keeps a
+        /// sample only where this interpolates to ~1, i.e. no background voxel
+        /// contributes to it (else every ray would pick up the dark partial-volume
+        /// blend at the head's edge).
         let occupancy: [Float]?
 
         init(values: [Float], occupancy: [Float]?) {
@@ -76,8 +84,11 @@ public struct VolumeRenderGrid: Sendable {
         if labels != nil {
             self.storage = Storage(values: clean, occupancy: clean.map { $0 != 0 ? 1 : 0 })
             self.suggestedWindow = nil
+            self.minIPBackgroundFloor = nil
         } else {
-            self.storage = Storage(values: clean, occupancy: nil)
+            let floor = MinIPBackground.floor(of: clean)
+            self.minIPBackgroundFloor = floor
+            self.storage = Storage(values: clean, occupancy: floor.map { f in clean.map { $0 > f ? 1 : 0 } })
             let stride = max(1, clean.count / 262_144)
             var sample = [Float]()
             sample.reserveCapacity(clean.count / stride + 1)

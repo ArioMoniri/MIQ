@@ -186,14 +186,23 @@ enum QCContentClassifier {
     /// Label map: integer datatype, integral scaled values, at most 1000 distinct values on the
     /// grid, and piecewise-constant structure (most adjacent non-zero grid neighbours share a
     /// value — noisy MRI almost never does, even when stored as uint8).
+    ///
+    /// Neighbour pairs where both voxels hold the grid's most frequent value are left out
+    /// along with zero pairs: that value is the background (0 for MRI and label maps, but
+    /// e.g. −1024 for CT with noise-free air or padding), and a flat background says
+    /// nothing about whether the *foreground* is piecewise constant.
     static func labelMapEvidence(grid: QCGrid, datatype: MIQDatatype) -> (isLabel: Bool, isBinary: Bool) {
         guard integerTypes.contains(datatype) else { return (false, false) }
-        var unique = Set<Float>()
+        var counts: [Float: Int] = [:]
         for v in grid.values {
             if v != v.rounded() { return (false, false) }
-            if unique.insert(v).inserted, unique.count > 1000 { return (false, false) }
+            counts[v, default: 0] += 1
+            if counts.count > 1000 { return (false, false) }
         }
-        guard unique.count >= 2 else { return (false, false) }
+        guard counts.count >= 2 else { return (false, false) }
+        let unique = counts.count
+        // Ties resolve to the smallest value so the result is deterministic.
+        let mode = counts.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key ?? 0
         var pairs = 0
         var equal = 0
         for z in 0..<grid.depth {
@@ -201,7 +210,7 @@ enum QCContentClassifier {
                 let row = grid.index(0, y, z)
                 for x in 0..<(grid.width - 1) {
                     let a = grid.values[row + x], b = grid.values[row + x + 1]
-                    if a != 0 && b != 0 {
+                    if a != 0 && b != 0 && !(a == mode && b == mode) {
                         pairs += 1
                         if a == b { equal += 1 }
                     }
@@ -209,7 +218,7 @@ enum QCContentClassifier {
             }
         }
         // Two values only (a binary mask) is a label map regardless of neighbour structure.
-        if unique.count == 2 { return (true, true) }
+        if unique == 2 { return (true, true) }
         guard pairs >= 8 else { return (false, false) }
         return (Double(equal) / Double(pairs) >= 0.5, false)
     }

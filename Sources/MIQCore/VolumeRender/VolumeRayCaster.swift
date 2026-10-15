@@ -29,6 +29,9 @@ struct VolumeRenderSetup: Sendable {
     let gradientFloor: Float
     let shading: Bool
     let earlyTermination: Float
+    /// MinIP only: skip samples touching the grid's flat background
+    /// (`VolumeRenderGrid.minIPBackgroundFloor`, via the occupancy field).
+    let minIPMasked: Bool
     /// RGBA floats, `transferTableSize` entries; alpha is per-step corrected.
     let transfer: [Float]
     /// RGBA floats per label index (index 0 = background, alpha 0).
@@ -80,6 +83,7 @@ struct VolumeRenderSetup: Sendable {
         self.mode = mode
         shading = options.shading
         earlyTermination = min(max(options.earlyTerminationAlpha, 0.01), 1)
+        minIPMasked = mode == .minIP && grid.minIPBackgroundFloor != nil && grid.storage.occupancy != nil
 
         let win = window ?? grid.suggestedWindow
             ?? MIQIntensityWindowBounds(low: grid.valueRange.min, high: grid.valueRange.max)
@@ -182,9 +186,32 @@ struct VoxelSampler {
 }
 
 /// Portable reference ray caster. Each pixel is independent and computed with
-/// a fixed sample sequence (no jitter), so output is bit-identical regardless
-/// of thread count or scheduling.
+/// a fixed sample sequence — DVR/label rays start at a per-pixel offset that is a
+/// pure hash of the pixel coordinates (`rayStartJitter`), never RNG state — so
+/// output is bit-identical regardless of thread count or scheduling.
 enum CPUVolumeRayCaster {
+
+    /// Ray-start offset in [0, 1) steps for pixel (`px`, `py`).
+    ///
+    /// With every ray starting the same fraction of a step past the box entry,
+    /// DVR/label samples line up on concentric shells around the camera and the
+    /// opacity steps between them show as "wood-grain" rings. Offsetting each
+    /// ray's first sample by a decorrelated fraction turns that structured
+    /// aliasing into fine, unstructured noise. The hash (a 32-bit integer mixer
+    /// over the pixel coordinates) is integer-only and its result is exactly
+    /// representable as a Float, so the Metal kernel's copy of the formula yields
+    /// bit-identical offsets. MIP/MinIP keep the fixed half-step start: their
+    /// extremum doesn't band, and they stay pixel-exact against references.
+    @inline(__always)
+    static func rayStartJitter(_ px: Int, _ py: Int) -> Float {
+        var h = UInt32(truncatingIfNeeded: px) &* 1973 &+ UInt32(truncatingIfNeeded: py) &* 9277 &+ 26699
+        h ^= h >> 16
+        h = h &* 0x7feb_352d
+        h ^= h >> 15
+        h = h &* 0x846c_a68b
+        h ^= h >> 16
+        return Float(h >> 8) * (1 / 16_777_216)
+    }
 
     /// Renders rows `rows` into `out` (RGBA8, full-frame pointer). Returns
     /// `false` if `shouldStop` fired (checked once per row).
@@ -270,7 +297,8 @@ enum CPUVolumeRayCaster {
         let c0z = (o.2 + s.hz) / s.sz - 0.5
         let dvx = s.dir.0 / s.sx, dvy = s.dir.1 / s.sy, dvz = s.dir.2 / s.sz
         let count = max(1, Int((tFar - tNear) / s.stepMM))
-        let tStart = tNear + 0.5 * s.stepMM
+        let jitter: Float = s.mode == .dvr || s.mode == .labels ? rayStartJitter(px, py) : 0.5
+        let tStart = tNear + jitter * s.stepMM
         let lastEntry = Float(VolumeRenderSetup.transferTableSize - 1)
 
         @inline(__always) func tfIndex(_ value: Float) -> Int {
@@ -281,12 +309,35 @@ enum CPUVolumeRayCaster {
         switch s.mode {
         case .mip, .minIP:
             let isMax = s.mode == .mip
+            let masked = s.minIPMasked && occField != nil
             var best: Float = isMax ? -Float.greatestFiniteMagnitude : Float.greatestFiniteMagnitude
+            var found = false
+            // MinIP background (`MinIPBackground`): samples touching the flat
+            // floor are dropped while outside the object — before the first and
+            // after the last foreground sample; a run between two foreground
+            // samples is committed when the second arrives.
+            var pending = Float.greatestFiniteMagnitude
+            var hasPending = false
             for n in 0..<count {
                 let t = tStart + Float(n) * s.stepMM
-                let val = field.trilinear(c0x + t * dvx, c0y + t * dvy, c0z + t * dvz)
+                let x = c0x + t * dvx, y = c0y + t * dvy, z = c0z + t * dvz
+                let val = field.trilinear(x, y, z)
+                if masked && occField!.trilinear(x, y, z) < 0.999 {
+                    if found {
+                        pending = min(pending, val)
+                        hasPending = true
+                    }
+                    continue
+                }
+                if hasPending {
+                    best = min(best, pending)
+                    hasPending = false
+                }
                 best = isMax ? max(best, val) : min(best, val)
+                found = true
             }
+            // MinIP ray through background only: show the background colour.
+            if !found { return s.background }
             let i = tfIndex(best)
             return (tf[i], tf[i + 1], tf[i + 2])
 

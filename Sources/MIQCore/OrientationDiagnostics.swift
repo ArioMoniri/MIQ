@@ -91,14 +91,24 @@ public struct OrientationDiagnostics: Sendable, Equatable {
     /// NIfTI only: the qform's axis codes when a conflict is reported, so the warning
     /// can name both sides.
     public let qformAxisCodes: String?
+    /// MRtrix MIF only: the orientation code of MRtrix's *image* axes (the
+    /// `transform:` columns alone), i.e. the axes `mrinfo`, `mrview` and MRtrix
+    /// voxel indices refer to. `axisCodes` describes MIQ's voxel grid instead,
+    /// which walks the payload in storage order: with `layout: -0,+1,+2` and an
+    /// RAS transform the stored x runs right→left, so MIQ's grid (and its
+    /// "stored" view) is LAS while MRtrix calls the same image RAS with strides
+    /// -1,2,3. `nil` for other formats.
+    public let imageAxisCodes: String?
 
     public init(
         transformSource: TransformSource,
         axisCodes: String?,
         obliquityDegrees: Double?,
         qformSformConflict: QSConflict? = nil,
-        qformAxisCodes: String? = nil
+        qformAxisCodes: String? = nil,
+        imageAxisCodes: String? = nil
     ) {
+        self.imageAxisCodes = imageAxisCodes
         self.transformSource = transformSource
         self.axisCodes = axisCodes
         self.obliquityDegrees = obliquityDegrees
@@ -116,11 +126,16 @@ public struct OrientationDiagnostics: Sendable, Equatable {
     }
 
     /// One-line summary for the metadata panel, e.g. "RAS · oblique 23° · sform",
-    /// "LPS · NRRD space", or "Unknown · no transform".
+    /// "LPS · NRRD space", or "Unknown · no transform". A MIF whose layout
+    /// reorders or flips its image axes adds what MRtrix calls them:
+    /// "LAS · MRtrix image axes RAS · MIF transform" (see `imageAxisCodes`).
     public var displaySummary: String {
         var parts = [axisCodes ?? "Unknown"]
         if isOblique, let degrees = obliquityDegrees {
             parts.append(degrees < 0.5 ? "oblique <1°" : "oblique \(Int(degrees.rounded()))°")
+        }
+        if let imageAxisCodes, axisCodes != nil, imageAxisCodes != axisCodes {
+            parts.append("MRtrix image axes \(imageAxisCodes)")
         }
         parts.append(transformSource.label)
         return parts.joined(separator: " · ")
@@ -154,7 +169,8 @@ public struct OrientationDiagnostics: Sendable, Equatable {
         source: TransformSource? = nil,
         rows: [[Float]]?,
         qformSformConflict: QSConflict? = nil,
-        qformAxisCodes: String? = nil
+        qformAxisCodes: String? = nil,
+        imageAxisCodes: String? = nil
     ) -> OrientationDiagnostics {
         guard let frame else { return .unknown }
         return OrientationDiagnostics(
@@ -162,7 +178,8 @@ public struct OrientationDiagnostics: Sendable, Equatable {
             axisCodes: frame.axes.map(\.letter).joined(),
             obliquityDegrees: rows.flatMap(obliquityDegrees(rows:)),
             qformSformConflict: qformSformConflict,
-            qformAxisCodes: qformAxisCodes
+            qformAxisCodes: qformAxisCodes,
+            imageAxisCodes: imageAxisCodes
         )
     }
 
