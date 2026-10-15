@@ -104,7 +104,7 @@ These design decisions affect the render path — keep them in mind when working
 - Keep pull requests focused — one concern per PR.
 - Run `swift test` before submitting.
 - Use `MIQ`-prefixed names for product-level types, concise domain names for generic imaging concepts (`GrayscaleImage`, `SlicePlane`), and descriptive names for internal helpers.
-- Adding a file format takes four wirings, not just a parser: the `MIQFileKind` case and parser, plus the new UTI in `MIQApp/Info.plist`, `MIQQuickLookExtension/Info.plist`, and `MIQThumbnailExtension/Info.plist`. Miss one of the plists and Finder never routes the file to that extension, so your parser is never called. `MIQParser+NRRD.swift` is the most recent worked example.
+- Adding a file format takes four wirings, not just a parser: the `MIQFileKind` case and parser, plus the new UTI in `MIQApp/Info.plist`, `MIQQuickLookExtension/Info.plist`, and `MIQThumbnailExtension/Info.plist`. Miss one of the plists and Finder never routes the file to that extension, so your parser is never called. Also add the UTI to `CFBundleDocumentTypes` (Finder "Open With") and give the kind a `badgeLabel`. Launch Services matches only the last extension, so a two-part extension such as `.nii.gz` resolves to the system gzip type: tag only single extensions, and let gzip-wrapped formats arrive via the extensions' gzip claims plus the `MIQFileKind` filename check. `MIQParser+NRRD.swift` is the most recent worked example.
 
 ## Releasing (maintainers only)
 

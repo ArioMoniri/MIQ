@@ -56,6 +56,9 @@ final class MIQThumbnailProvider: QLThumbnailProvider {
                 image.draw(in: NSRect(origin: .zero, size: contextSize))
                 return true
             })
+            // Badge with the format, not the last extension: Finder would
+            // otherwise label every `.nii.gz`/`.mif.gz` thumbnail "GZ".
+            reply.extensionBadge = kind.badgeLabel
             logger.notice("thumbnail rendered for: \(url.lastPathComponent, privacy: .public)")
             handler(reply, nil)
         } catch {
