@@ -989,6 +989,23 @@
         }
       }
     },
+    "MRtrix image axes %@" : {
+      "comment" : "Orientation summary for an MRtrix MIF file; %@ is an axis code such as RAS (the orientation MRtrix itself reports).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MRtrix-Bildachsen %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MRtrix görüntü eksenleri %@"
+          }
+        }
+      }
+    },
     "Malformed file: %@." : {
       "localizations" : {
         "de" : {

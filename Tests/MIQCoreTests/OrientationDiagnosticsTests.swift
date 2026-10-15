@@ -186,6 +186,32 @@ struct OrientationDiagnosticsTests {
         #expect(diag.obliquityDegrees.map { abs($0 - 23) < 0.01 } == true)
     }
 
+    /// e2e regression: `layout: -0,+1,+2` with an RAS transform was reported as a
+    /// bare "LAS" although MRtrix (mrinfo/mrview) calls the image RAS. MIQ's grid is
+    /// in storage order (LAS is right for its stored view), so the summary now
+    /// names both.
+    @Test
+    func mifReversedLayoutNamesMRtrixImageAxes() throws {
+        let identity: [[Float]] = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]
+        let flipped = try MIQParser().parseMif(TestMIQFactory.makeMif(
+            width: 4, height: 3, depth: 2, datatype: .uint8, layout: [-0, 1, 2], layoutTokens: ["-0", "+1", "+2"],
+            transform: identity
+        ))
+        let diag = flipped.header.orientationDiagnostics
+        #expect(diag.axisCodes == "LAS")
+        #expect(diag.imageAxisCodes == "RAS")
+        #expect(diag.displaySummary == "LAS · MRtrix image axes RAS · MIF transform")
+        #expect(MIQVolume(image: flipped).storageOrientationLabel() == "LAS")
+
+        let plain = try MIQParser().parseMif(TestMIQFactory.makeMif(
+            width: 4, height: 3, depth: 2, datatype: .uint8, transform: identity
+        ))
+        #expect(plain.header.orientationDiagnostics.displaySummary == "RAS · MIF transform")
+
+        // Non-MIF formats carry no image-axis code.
+        #expect(try Self.nifti(sformCode: 1, qformCode: 0).header.orientationDiagnostics.imageAxisCodes == nil)
+    }
+
     // MARK: - Fallback derivation
 
     @Test

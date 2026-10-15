@@ -86,6 +86,7 @@ public enum CoreUIText {
         // Orientation (`OrientationDiagnostics`) and sidecar warnings.
         "qform (%@) and sform (%@) disagree — other tools may orient this image differently",
         "oblique %@",
+        "MRtrix image axes %@",
         "TR mismatch: sidecar %@, header %@",
         ".bval has %@ entries for %@ volumes",
         // Data QC.

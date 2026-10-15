@@ -244,10 +244,18 @@ extension MIQParser {
         // Obliquity reads the transform itself (layout only permutes/flips axes, which
         // leaves it unchanged). An absent field is still labelled RAS, as MRtrix does,
         // but reported as `.mifDefault` so the panel does not imply the file said so.
+        //
+        // MIQ's voxel grid walks the payload in storage order (`strides4` above), so
+        // `storageFrame` is what the "stored" view, the labels and `srow` describe —
+        // and it differs from what MRtrix reports whenever `layout` permutes or flips:
+        // MRtrix indexes voxels along the *image* axes (`imageFrame`), whatever the
+        // strides. The diagnostics carry both so the panel and `miq info` can say
+        // e.g. "LAS · MRtrix image axes RAS" instead of an unexplained LAS.
         let orientationDiagnostics = OrientationDiagnostics.make(
             frame: storageFrame,
             source: header.transform == nil ? .mifDefault : .mifTransform,
-            rows: transform
+            rows: transform,
+            imageAxisCodes: imageFrame.map { $0.axes.map(\.letter).joined() }
         )
 
         let worldRows = storageFrame == nil ? nil : Self.mifVoxelToWorldRows(
