@@ -429,41 +429,83 @@ def scene_crosshair(th):
 
 
 # --------------------------------------------------------------------------
-# Scene 3: a strip of supported formats sliding under a fixed highlight.
+# Scene 3: a strip of supported formats sliding under a fixed highlight, with a
+# small table below that switches to the highlighted format's details.
 # --------------------------------------------------------------------------
 
-FORMATS = [("NIfTI-1 / 2", ".nii  .nii.gz"), ("FreeSurfer", ".mgh  .mgz"), ("MRtrix", ".mif  .mih"),
-           ("NRRD", ".nrrd  .nhdr"), ("MetaImage", ".mha  .mhd"), ("DICOM", ".dcm"), ("Zarr", ".ome.zarr")]
+# (strip label, chip extensions, table: extensions, table: notes)
+FORMATS = [
+    ("NIfTI-1 / 2", ".nii  .nii.gz", ".nii, .nii.gz",
+     "Orientation from sform/qform, with a warning if they disagree"),
+    ("FreeSurfer", ".mgh  .mgz", ".mgh, .mgz, .mgh.gz",
+     "World position from c_ras; FreeSurfer label colours and names"),
+    ("MRtrix", ".mif  .mih", ".mif, .mif.gz, .mih",
+     "Any axis layout; .mih keeps the data in a second file"),
+    ("NRRD", ".nrrd  .nhdr", ".nrrd, .nhdr",
+     "Raw or gzip; no anatomical space means orientation \u201c?\u201d"),
+    ("MetaImage", ".mha  .mhd", ".mha, .mhd",
+     "ITK format, including zlib-compressed data"),
+    ("DICOM", ".dcm", ".dcm, .dicom",
+     "Uncompressed, single or multi-frame; patient tags never shown"),
+    ("Zarr", ".ome.zarr", ".zarr, .ome.zarr, .nii.zarr",
+     "OME-Zarr and NIfTI-Zarr, lowest-resolution level"),
+]
 
 
 def scene_formats(th):
-    n, hold, move = len(FORMATS), 42, 14
+    n, hold, move, fade = len(FORMATS), 54, 14, 6
     frames = n * (hold + move)
-    sc = Scene("MIQ formats", 720, 120, frames, poster=0)
+    sc = Scene("MIQ formats", 720, 250, frames, poster=0)
     backdrop(sc, th)
-    pitch, cw, ch = 150, 136, 70
+    pitch, cw, ch, sy = 150, 136, 70, 58
     # Hold on each chip, then slide one pitch; the strip repeats, so the last
     # position looks exactly like the first and the loop is seamless.
     seq = []
     for i in range(n):
         t0 = i * (hold + move)
-        seq.append((t0, [360 - i * pitch, 60], "hold"))
-        seq.append((t0 + hold, [360 - i * pitch, 60], "inout"))
-    seq.append((frames, [360 - n * pitch, 60]))
+        seq.append((t0, [360 - i * pitch, sy], "hold"))
+        seq.append((t0 + hold, [360 - i * pitch, sy], "inout"))
+    seq.append((frames, [360 - n * pitch, sy]))
     row = sc.add("row", ks=transform(p=kf(*seq)))
     for j in range(-3, n + 4):
-        name, ext = FORMATS[j % n]
+        name, ext = FORMATS[j % n][:2]
         x = j * pitch
         sc.add(f"chip {j}", parent=row, shapes=[group(rect(cw, ch, 12, (x, 0)), stroke(th["border"], 1),
                                                       fill(th["chip"]))])
         sc.text(f"chip {j} name", name, 15, th["fg"], (x, -2), j=2, font="MIQ-Semibold", parent=row)
         sc.text(f"chip {j} ext", ext, 11, th["soft"], (x, 18), j=2, font="MIQ-Mono", parent=row)
     # Fixed highlight frame and soft edge fades.
-    sc.add("highlight", shapes=[group(rect(cw + 8, ch + 8, 15, (360, 60)), stroke(th["accent"], 2.5))])
-    sc.add("fade left", shapes=[group(rect(170, 116, 0, (86, 60)),
+    sc.add("highlight", shapes=[group(rect(cw + 8, ch + 8, 15, (360, sy)), stroke(th["accent"], 2.5))])
+    sc.add("fade left", shapes=[group(rect(170, 112, 0, (86, sy)),
                                       gradient((2, 0), (170, 0), [(0, th["panel"], 1), (1, th["panel"], 0)]))])
-    sc.add("fade right", shapes=[group(rect(170, 116, 0, (634, 60)),
+    sc.add("fade right", shapes=[group(rect(170, 112, 0, (634, sy)),
                                        gradient((718, 0), (550, 0), [(0, th["panel"], 1), (1, th["panel"], 0)]))])
+
+    # The table: three label/value rows; the values swap with the highlighted chip.
+    tx, ty, tw, rh = 24, 124, 672, 36
+    sc.add("table", shapes=[group(rect(tw, rh * 3, 10, (tx + tw / 2, ty + rh * 1.5)), stroke(th["border"], 1),
+                                  fill(th["chip"]))])
+    for r in (1, 2):
+        sc.add(f"table rule {r}", shapes=[group(rect(tw - 2, 1, 0, (tx + tw / 2, ty + rh * r)), fill(th["border"]))])
+    sc.add("table column rule", shapes=[group(rect(1, rh * 3 - 2, 0, (tx + 120, ty + rh * 1.5)), fill(th["border"]))])
+    for r, label in enumerate(("Format", "Extensions", "Notes")):
+        sc.text(f"label {label}", label, 13, th["soft"], (tx + 14, ty + rh * r + 23), font="MIQ-Semibold")
+
+    def visibility(i):
+        """Opacity keyframes: shown while chip i sits in the highlight."""
+        t0 = i * (hold + move)
+        if i == 0:
+            return kf((0, 100, "hold"), (hold, 100), (hold + fade, 0, "hold"), (frames - fade, 0), (frames, 100))
+        return kf((0, 0, "hold"), (t0 - fade, 0), (t0, 100, "hold"), (t0 + hold, 100),
+                  (t0 + hold + fade, 0, "hold"), (frames, 0))
+
+    for i, (name, _, exts, notes) in enumerate(FORMATS):
+        o = visibility(i)
+        vx = tx + 136
+        sc.text(f"value {i} name", name, 13, th["fg"], (vx, ty + 23), font="MIQ-Semibold", o=o)
+        sc.text(f"value {i} ext", exts, 12, th["fg"], (vx, ty + rh + 23), font="MIQ-Mono", o=o)
+        sc.text(f"value {i} notes", notes, 13, th["fg"], (vx, ty + rh * 2 + 23), o=o)
+
     sc.add("frame", shapes=[group(rect(sc.w - 2, sc.h - 2, 14, (sc.w / 2, sc.h / 2)), stroke(th["border"], 1))])
     return sc
 

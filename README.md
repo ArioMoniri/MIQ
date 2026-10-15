@@ -2,16 +2,24 @@
 
 MIQ lets you look inside medical image files straight from Finder. Select a file, press **Space**, and you get coronal, sagittal and axial slices next to the key header information. A Windows version, [**MIQ-Win**](https://github.com/marcoduering/MIQ-Win), is also available.
 
+<p align="center">
+  <a href="https://github.com/marcoduering/MIQ/releases/latest/download/MIQ.app.zip"><img src="docs/download-macos.svg" height="56" alt="Download for macOS"></a>
+</p>
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/3058f94e-4ffa-4c0a-a1b8-d1578de0f651" width="640"></video>
+</div>
+
+MIQ is meant for a quick look, not for analysis. For anything more, open the file in a full viewer (MIQ can hand it over, see below).
+
+## What it does
+
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_Bento_dark.webp">
     <img src="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_Bento.webp" width="90%" alt="MIQ overview: press Space in Finder for a 2x2 preview of a brain MRI (coronal, sagittal, axial) with a metadata panel; also segmentation colours, Finder thumbnails, 4D support and settings.">
   </picture>
 </div>
-
-MIQ is meant for a quick look, not for analysis. For anything more, open the file in a full viewer (MIQ can hand it over, see below).
-
-## What it does
 
 - **Preview:** three orthogonal slices with a linked crosshair and the voxel value under it. Scroll through slices, step through 4D volumes, zoom, and adjust brightness and contrast.
 - **Header info:** dimensions, voxel size, orientation, datatype and more. MIQ warns if a file's orientation is ambiguous (for example when qform and sform disagree).
@@ -22,6 +30,13 @@ MIQ is meant for a quick look, not for analysis. For anything more, open the fil
 In the MIQ app you can change all settings, open a file in another viewer, and make a brain mask with **Tools → Brain Mask…** (a small model that runs on your Mac). A `miq` command-line tool covers the same formats.
 
 ## Supported formats
+
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/lottie/formats_dark.svg">
+    <img src="docs/lottie/formats.svg" width="90%" alt="Animation: supported formats slide past a highlight, and the table below shows the highlighted format's extensions and notes.">
+  </picture>
+</div>
 
 | Format | Extensions |
 |---|---|
@@ -101,9 +116,3 @@ MIT License, provided "as is" without warranty. See [LICENSE](./LICENSE).
 
 > [!CAUTION]
 > MIQ is **not a medical device** and is **not for diagnosis**. It is a convenience tool for researchers and developers. Do not use it to make clinical decisions.
-
-## See it in action
-
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/3058f94e-4ffa-4c0a-a1b8-d1578de0f651" width="600"></video>
-</div>
