@@ -58,6 +58,18 @@ extension MIQParser {
         return try buildMifMIQHeader(dataOffset: dataOffset, header: mifHeader).header
     }
 
+    /// Where the payload lives, for `MIQColdPreviewGate` (header prefix only).
+    /// Slices the memory-mapped file in place, except `bit`, which is unpacked
+    /// to one byte per voxel in RAM (`unpackMifBits`).
+    func mifColdPayloadLayout(from data: Data) throws -> ColdPayloadLayout {
+        let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
+        guard !mifHeader.bitPacked else { return .materialized }
+        guard mifHeader.dataFile == "." else {
+            return .mapped(dataFile: mifHeader.dataFile, payloadOffset: mifHeader.dataOffset)
+        }
+        return .mapped(dataFile: nil, payloadOffset: mifHeader.dataOffset > 0 ? mifHeader.dataOffset : embeddedDataOffset)
+    }
+
     // MARK: - Header lines
 
     private func parseMifHeader(from data: Data) throws -> (MifHeader, Int) {
