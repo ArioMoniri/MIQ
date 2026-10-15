@@ -72,6 +72,9 @@ public enum MIQConfig {
         // MARK: Rendering workstream (CT presets, shared 4D window)
         public static let ctWindowPreset          = "ctWindowPreset"
         public static let ctPresetAutoDetect      = "ctPresetAutoDetect"
+        // MARK: Preview panel workstream (data summaries)
+        public static let qcPanelEnabled          = "qcPanelEnabled"
+        public static let temporalSummaryEnabled  = "temporalSummaryEnabled"
         #if DEBUG
         public static let debugShowLayoutBorders  = "debugShowLayoutBorders"
         #endif
@@ -129,6 +132,13 @@ public enum MIQConfig {
         /// offering/applying presets). Off by default: the heuristic is a guess,
         /// and the default display must not change silently.
         public static let ctPresetAutoDetect      = false
+        /// The preview's "Data QC" rows (likely sequence, head mask, face,
+        /// overall rating). On by default: they describe the pixel data with
+        /// fixed wording and never echo header free text, so they add no PHI.
+        public static let qcPanelEnabled          = true
+        /// The preview's "tSNR (median)" row for 4D series of ≥ 10 volumes.
+        /// On by default for the same reason as `qcPanelEnabled`.
+        public static let temporalSummaryEnabled  = true
     }
 
     public struct MIQColor: Sendable {
@@ -297,6 +307,22 @@ public enum MIQConfig {
     public static var ctPresetAutoDetect: Bool {
         let d = defaults
         return d.object(forKey: Keys.ctPresetAutoDetect) as? Bool ?? Defaults.ctPresetAutoDetect
+    }
+
+    // MARK: - Preview panel workstream (data summaries)
+
+    /// Whether the preview runs `QCAnalyzer` after a load and appends its
+    /// `displayLines` under a "Data QC" subheading. Read by the preview
+    /// extension only, once per load.
+    public static var qcPanelEnabled: Bool {
+        defaults.object(forKey: Keys.qcPanelEnabled) as? Bool ?? Defaults.qcPanelEnabled
+    }
+
+    /// Whether the preview computes `TemporalStats.summary` (median tSNR, spike
+    /// frames) for 4D series and shows it under "Data QC". Read by the preview
+    /// extension only, once per load.
+    public static var temporalSummaryEnabled: Bool {
+        defaults.object(forKey: Keys.temporalSummaryEnabled) as? Bool ?? Defaults.temporalSummaryEnabled
     }
 
     #if DEBUG
