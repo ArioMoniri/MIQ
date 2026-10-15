@@ -81,10 +81,7 @@ struct RenderCenterSliceIntent: AppIntent {
                 windowBounds: nil,
                 lut: lut
             )
-            guard let bitmap = slice.rgbaBitmap(), let data = MIQIntentSupport.pngData(from: bitmap) else {
-                throw MIQIntentError.renderFailed
-            }
-            return data
+            return try MIQIntentSupport.pngData(from: slice)
         }
         let filename = "\(MIQIntentSupport.baseName(of: file))_\(self.plane.rawValue).png"
         return .result(value: IntentFile(data: png, filename: filename, type: .png))

@@ -334,7 +334,7 @@
 		</dict>
 		<!-- DICOM Part-10. Imported, not exported: MIQ doesn't own the format. Only
 		     files with a .dcm/.dicom extension reach Quick Look; extensionless
-		     DICOM gets public.data. See docs/dicom-plist-snippets.md. -->
+		     DICOM gets public.data. See CONTRIBUTING.md, "DICOM and Zarr plist wiring". -->
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
@@ -363,7 +363,7 @@
 		<!-- Zarr store (OME-Zarr / NIfTI-Zarr). Quick Look only hands a directory to
 		     an extension when its UTI is a package, so Finder shows *.zarr folders
 		     as single items while MIQ is installed (Show Package Contents opens
-		     them). See docs/zarr-plist-snippets.md. -->
+		     them). See CONTRIBUTING.md, "DICOM and Zarr plist wiring". -->
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>

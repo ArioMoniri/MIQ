@@ -1768,7 +1768,7 @@ struct ContentView: View {
         starBannerDismissed = MIQConfig.Defaults.starBannerDismissed
         CaptionSettings.restoreDefaults()
         // The default is SUEnableAutomaticChecks in Info.plist (on); see
-        // the Sparkle convention in CLAUDE.md for why it ships on.
+        // CONTRIBUTING.md, "Conventions › Sparkle automatic update checks".
         if !Self.automaticChecksAreManaged {
             updater.automaticallyChecksForUpdates = true
         }
