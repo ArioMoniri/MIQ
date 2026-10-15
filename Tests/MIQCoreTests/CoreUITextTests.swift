@@ -37,6 +37,29 @@ struct CoreUITextTests {
         #expect(CoreUIText.localize("", lookup: lookup) == "")
     }
 
+    /// File names in the deferred-preview text are never split, matched or
+    /// translated: not at the first " is ", not on " · ", not as a phrase.
+    @Test func deferredMessageKeepsFileNamesIntact() {
+        let template = PreviewStatusText.deferredTemplate(isDataless: false)
+        let lookup: (String) -> String? = {
+            [template: "%1$@ ist %2$@ groß (Netzwerk).", "Unknown": "Unbekannt", "MIP": "MIP-de"][$0]
+        }
+        for name in ["This is a scan.nii.gz", "a · b.nii", "Unknown", "MIP · Unknown is x.nii"] {
+            // Structured: what the extension calls.
+            #expect(CoreUIText.localize(template: template, arguments: [name, "2 GB"], lookup: lookup)
+                == "\(name) ist 2 GB groß (Netzwerk).")
+            // Composed English still round-trips with the name intact.
+            let english = PreviewStatusText.deferredMessage(name: name, sizeText: "2 GB", isDataless: false)
+            #expect(CoreUIText.localize(english, lookup: lookup) == "\(name) ist 2 GB groß (Netzwerk).")
+        }
+        #expect(CoreUIText.match(template: template, text: PreviewStatusText.deferredMessage(
+            name: "This is a scan.nii.gz", sizeText: "2 GB", isDataless: false), anchorLast: true)
+            == ["This is a scan.nii.gz", "2 GB"])
+        // No catalog entry: English template, name intact.
+        #expect(CoreUIText.localize(template: template, arguments: ["a · b.nii", "1 GB"]) { _ in nil }
+            == PreviewStatusText.deferredMessage(name: "a · b.nii", sizeText: "1 GB", isDataless: false))
+    }
+
     // MARK: Templates cover what MIQCore produces
 
     /// A lookup that knows every catalogued key and returns it unchanged, but

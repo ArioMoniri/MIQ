@@ -38,12 +38,25 @@ enum MIQPanKeyState {
     /// must not act on the same press again.
     static var lastHandledClickEventNumber: Int?
 
+    /// Set once `CGEventSource.keyState` has reported Space down in this
+    /// process, i.e. the key-state query actually works here.
+    private static var keyStateIsReliable = false
+
     /// Whether Space-drag panning is armed. The tracked flag can go stale
-    /// (keyUp delivered to another window, the host swallowing it), so the
-    /// hardware key state confirms it at press time.
+    /// (keyUp delivered to another window, the host swallowing it); the
+    /// resign-key / window-move / model-change `reset()` calls clear it.
+    ///
+    /// The hardware key state is a second check only once it has been seen to
+    /// work: in the sandboxed extension without Input Monitoring access,
+    /// `keyState` can report every key as up, and gating on it alone would
+    /// disable Space-pan entirely.
     static var isSpaceHeldNow: Bool {
         guard spaceHeld else { return false }
-        if CGEventSource.keyState(.combinedSessionState, key: 0x31) { return true }
+        if CGEventSource.keyState(.combinedSessionState, key: 0x31) {
+            keyStateIsReliable = true
+            return true
+        }
+        guard keyStateIsReliable else { return true }
         spaceHeld = false
         return false
     }

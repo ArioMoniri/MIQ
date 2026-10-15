@@ -75,8 +75,8 @@ public enum CoreUIText {
         "Unsupported datatype code: %@.",
         "Unsupported feature: %@.",
         "Malformed file: %@.",
-        "%@ is %@ in iCloud (not downloaded).\nLoading it now downloads the whole file, which could make Finder unresponsive.",
-        "%@ is %@ on a network volume.\nLoading it now could make Finder unresponsive while it transfers.",
+        PreviewStatusText.deferredTemplate(isDataless: true),
+        PreviewStatusText.deferredTemplate(isDataless: false),
         "Too large for 4D in Quick Look (%@)",
         "Too large to preview in Quick Look (%@)",
         // Accessibility (`PreviewAccessibility`).
@@ -96,6 +96,24 @@ public enum CoreUIText {
         "%@ spike frames",
     ]
 
+    /// Templates whose arguments are a file name and a size: substituted
+    /// verbatim, never translated or split on `partSeparator` (a file can be
+    /// called "Unknown.nii" or "a · b.nii"). Callers that hold the parts should
+    /// use `localize(template:arguments:lookup:)`; `localize(_:lookup:)` still
+    /// recognises the composed English, anchoring the file name on the *last*
+    /// occurrence of the literal after it ("This is a scan.nii.gz is 2 GB…").
+    static let verbatimArgumentTemplates: [String] = [
+        PreviewStatusText.deferredTemplate(isDataless: true),
+        PreviewStatusText.deferredTemplate(isDataless: false),
+    ]
+
+    /// `template` (a `templates` key) translated through `lookup` and filled
+    /// with `arguments` as given — nothing in them is matched or translated.
+    /// Falls back to the English template when the catalog has no entry.
+    public static func localize(template: String, arguments: [String], lookup: (String) -> String?) -> String {
+        substitute(format: lookup(template) ?? template, arguments: arguments)
+    }
+
     /// Separator MIQCore uses between parts of one value ("RAS · oblique 23° ·
     /// sform", "12.3 · Typical"); each part is translated on its own.
     static let partSeparator = " \u{00B7} "
@@ -112,6 +130,10 @@ public enum CoreUIText {
     private static func localize(_ text: String, lookup: (String) -> String?, depth: Int) -> String {
         guard !text.isEmpty, depth < 4 else { return text }
         if let exact = lookup(text) { return exact }
+        for template in verbatimArgumentTemplates {
+            guard let arguments = match(template: template, text: text, anchorLast: true) else { continue }
+            return localize(template: template, arguments: arguments, lookup: lookup)
+        }
         if text.contains(partSeparator) {
             return text.components(separatedBy: partSeparator)
                 .map { localize($0, lookup: lookup, depth: depth + 1) }
@@ -128,8 +150,10 @@ public enum CoreUIText {
 
     /// The `%@` arguments of `text` under `template`, or `nil` when it does not
     /// match. Each argument is non-empty and ends at the first occurrence of
-    /// the literal that follows it.
-    static func match(template: String, text: String) -> [String]? {
+    /// the literal that follows it — or, with `anchorLast`, at the last one
+    /// (for an argument that may contain that literal, like a file name; only
+    /// meaningful when later arguments can't contain it).
+    static func match(template: String, text: String, anchorLast: Bool = false) -> [String]? {
         let literals = template.components(separatedBy: "%@")
         guard literals.count > 1,
               let first = literals.first, let last = literals.last,
@@ -142,7 +166,9 @@ public enum CoreUIText {
             // At least one character of argument before the literal.
             guard !rest.isEmpty else { return nil }
             let searchStart = rest.index(after: rest.startIndex)
-            guard let range = rest.range(of: literal, range: searchStart..<rest.endIndex) else { return nil }
+            guard let range = rest.range(
+                of: literal, options: anchorLast ? .backwards : [], range: searchStart..<rest.endIndex
+            ) else { return nil }
             arguments.append(String(rest[rest.startIndex..<range.lowerBound]))
             rest = rest[range.upperBound...]
         }
