@@ -81,7 +81,7 @@ public struct QCSummary: Sendable {
     }
 
     /// One row per metric ("SNR: 12.3 · Typical"), for an expanded panel.
-    public var metricLines: [MetadataEntry] {
+    var metricLines: [MetadataEntry] {
         guard report.isAssessed else { return [] }
         return report.metrics.map {
             MetadataEntry(field: nil, label: $0.id.displayName, value: "\($0.formattedValue) · \($0.level.displayName)")

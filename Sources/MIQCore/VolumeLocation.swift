@@ -21,8 +21,14 @@ public enum VolumeLocation {
 
     /// `SF_DATALESS` from `<sys/stat.h>`: the file's contents are not on disk
     /// (an iCloud Drive / File Provider placeholder, "Optimize Mac Storage").
-    /// Spelled out because the Swift Darwin overlay doesn't import it on every SDK.
+    #if canImport(Darwin)
+    static let dataLessFlag = UInt32(SF_DATALESS)
+    #else
+    /// Linux has no `st_flags` / `SF_DATALESS`; the value (Darwin's, 0x40000000)
+    /// exists only so the Linux CI harness (`scripts/ci/linux_core_tests.sh`)
+    /// compiles and can pin the constant. `isDataless` is always `false` there.
     static let dataLessFlag: UInt32 = 0x4000_0000
+    #endif
 
     /// `true` when `url` is a dataless cloud placeholder: reading it would make
     /// the File Provider download the whole file first, which from Quick Look

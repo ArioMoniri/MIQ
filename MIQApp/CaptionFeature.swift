@@ -15,9 +15,9 @@ import FoundationModels
 // Quick Look and thumbnail extensions never compile this file.
 //
 // Keeping MIQ outside the medical-device definition is the reason for every
-// guard here (see the doc comment on `CaptionPrompt` for the FDA Jan 2026 CDS
-// guidance rationale): the model only ever sees allowlisted header facts, its
-// instructions forbid findings and diagnosis, its answer passes through
+// guard here (see "Regulatory rationale" in the doc comment on `CaptionPrompt`
+// for the cited reasoning): the model only ever sees allowlisted header facts,
+// its instructions forbid findings and diagnosis, its answer passes through
 // `CaptionPrompt.filterOutput` (diagnostic vocabulary → neutral header
 // summary), and the panel permanently shows "Generated on-device. Not a medical
 // interpretation." The local-server engine re-validates the endpoint with
@@ -39,7 +39,8 @@ enum CaptionSettings {
         static let endpointURL = "captionLocalEndpointURL"
         /// `model` field sent to the local server (llama.cpp ignores it).
         static let endpointModel = "captionLocalEndpointModel"
-        /// Also send a downsampled axial centre slice (multimodal models only).
+        /// Also send a downsampled axial centre slice to the local loopback server
+        /// (multimodal models only). The on-device engine is text-only and ignores it.
         static let includeSliceImage = "captionIncludeSliceImage"
     }
 
@@ -118,7 +119,8 @@ enum CaptionError: LocalizedError {
 // MARK: - Input
 
 /// What an engine is given: the allowlisted header facts and, only when the
-/// user opted in, one downsampled axial centre slice. Never the file name.
+/// user opted in and the engine is the local loopback server, one downsampled
+/// axial centre slice. Never the file name.
 struct CaptionInput: Sendable {
     let metadata: [String: String]
     let slice: RGBABitmap?
@@ -170,22 +172,11 @@ struct CaptionInput: Sendable {
         }
     }
 
-    var sliceCGImage: CGImage? {
-        guard let slice, slice.width > 0, slice.height > 0,
-              slice.pixels.count == slice.width * slice.height * 4,
-              let provider = CGDataProvider(data: slice.pixels as CFData) else { return nil }
-        return CGImage(
-            width: slice.width, height: slice.height,
-            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: slice.width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
-        )
-    }
-
+    /// The opt-in slice as PNG (MIQCore `PNGEncoder`), for the local server's
+    /// OpenAI-style `image_url` content part.
     var slicePNG: Data? {
-        guard let cgImage = sliceCGImage else { return nil }
-        return NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
+        guard let slice else { return nil }
+        return try? PNGEncoder.encode(slice)
     }
 }
 
@@ -198,12 +189,8 @@ protocol CaptionEngine: Sendable {
 }
 
 #if canImport(FoundationModels)
-/// Apple's on-device system model. Text-only on macOS 26. Image input uses
-/// `Attachment` (documented for macOS 27 in "Analyzing images with multimodal
-/// prompting"); because that type does not exist in the macOS 26 SDK, the
-/// image path is additionally compiled only when the build defines
-/// `MIQ_FM_IMAGE_ATTACHMENTS` (add it to SWIFT_ACTIVE_COMPILATION_CONDITIONS
-/// once the project builds with the macOS 27 SDK).
+/// Apple's on-device system model. Text-only: it is given the header facts and
+/// never the slice image (`CaptionModel.describe` doesn't render one for it).
 @available(macOS 26, *)
 struct OnDeviceCaptionEngine: CaptionEngine {
     func rawCaption(for input: CaptionInput) async throws -> String {
@@ -218,16 +205,6 @@ struct OnDeviceCaptionEngine: CaptionEngine {
         let session = LanguageModelSession(model: model, instructions: CaptionPrompt.systemInstructions)
         let options = GenerationOptions(sampling: .greedy, temperature: nil, maximumResponseTokens: 96)
         let prompt = CaptionPrompt.userPrompt(metadata: input.metadata)
-
-        #if MIQ_FM_IMAGE_ATTACHMENTS
-        if #available(macOS 27, *), let image = input.sliceCGImage {
-            let response = try await session.respond(options: options) {
-                prompt
-                Attachment(image)
-            }
-            return response.content
-        }
-        #endif
 
         return try await session.respond(to: prompt, options: options).content
     }
@@ -340,8 +317,11 @@ final class CaptionModel: ObservableObject {
             return
         }
         let kind = CaptionEngineKind(rawValue: defaults.string(forKey: CaptionSettings.Keys.engine) ?? "") ?? .onDevice
-        let includeSlice = defaults.object(forKey: CaptionSettings.Keys.includeSliceImage) as? Bool
-            ?? CaptionSettings.Defaults.includeSliceImage
+        // Only the local loopback server can take the image; for the text-only
+        // on-device engine, skip rendering it (and the full parse it needs).
+        let includeSlice = kind == .localEndpoint
+            && (defaults.object(forKey: CaptionSettings.Keys.includeSliceImage) as? Bool
+                ?? CaptionSettings.Defaults.includeSliceImage)
         let endpoint = defaults.string(forKey: CaptionSettings.Keys.endpointURL) ?? CaptionSettings.Defaults.endpointURL
         let endpointModel = defaults.string(forKey: CaptionSettings.Keys.endpointModel) ?? CaptionSettings.Defaults.endpointModel
 
@@ -474,6 +454,7 @@ struct CaptionSettingsSection: View {
                 TextField("Model name (optional)", text: $endpointModel)
             }
             Toggle("Include centre slice image", isOn: $includeSliceImage)
+                .disabled(engine != CaptionEngineKind.localEndpoint.rawValue)
             Text(sliceFootnote)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -483,13 +464,8 @@ struct CaptionSettingsSection: View {
 
     private var sliceFootnote: String {
         if engine == CaptionEngineKind.localEndpoint.rawValue {
-            return String(localized: "Sends one downsampled axial slice to the local server. Requires a multimodal model (e.g. loaded with --mmproj).")
+            return String(localized: "Sends one downsampled axial slice to the local server on this Mac (loopback address only). Requires a multimodal model (e.g. loaded with --mmproj).")
         }
-        #if MIQ_FM_IMAGE_ATTACHMENTS
-        if #available(macOS 27, *) {
-            return String(localized: "Gives the on-device model one downsampled axial slice.")
-        }
-        #endif
-        return String(localized: "The on-device model on this macOS version uses header facts only.")
+        return String(localized: "Only used with a local server. The on-device model uses header facts only.")
     }
 }

@@ -116,7 +116,7 @@ struct DetachedHeaderTests {
         try Self.write(Self.nhdrGeometry + "\nencoding: gzip\nbyte skip: -1\ndata file: vol.raw.gz\n", to: header)
         let attempts: [() throws -> Void] = [
             { _ = try MIQParser().parse(url: header) },
-            { _ = try MIQParser().probeHeader(url: header) },
+            { _ = try MIQParser().parseHeaderOnly(url: header, maxBytes: MIQParser.headerProbeCap) },
         ]
         for attempt in attempts {
             do {
@@ -265,7 +265,7 @@ struct DetachedHeaderTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         let header = dir.appendingPathComponent("vol.nhdr")
         try Self.write(Self.nhdrGeometry + "\nencoding: gzip\ndata file: absent.raw.gz\n", to: header)
-        let probed = try MIQParser().probeHeader(url: header)
+        let probed = try MIQParser().parseHeaderOnly(url: header, maxBytes: MIQParser.headerProbeCap)
         #expect(probed.dimensions == [4, 3, 2, 1])
         let summary = try VolumeSummary.read(contentsOf: header)
         #expect(summary.format == "Compressed NRRD (detached)")

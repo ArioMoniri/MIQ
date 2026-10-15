@@ -1,12 +1,11 @@
 import AppIntents
-import CoreGraphics
 import Foundation
-import ImageIO
 import MIQCore
 import UniformTypeIdentifiers
 
 /// Shared plumbing for MIQ's App Intents: the file types they accept, scoped access
-/// to the `IntentFile` the system hands over, user-facing errors and PNG encoding.
+/// to the `IntentFile` the system hands over, user-facing errors and PNG encoding
+/// (via MIQCore `PNGEncoder`).
 ///
 /// Every intent is read-only and offline: it reads the given file, never writes
 /// next to it, never touches the network, and returns its result to the caller.
@@ -99,38 +98,15 @@ enum MIQIntentSupport {
         return name.isEmpty ? "volume" : (name as NSString).deletingPathExtension
     }
 
-    /// Encodes an RGBA slice bitmap as an opaque sRGB PNG with ImageIO. The bitmap's
-    /// alpha is always 255, so it is skipped rather than written as a channel.
-    static func pngData(from bitmap: RGBABitmap) -> Data? {
-        guard bitmap.width > 0, bitmap.height > 0,
-              bitmap.pixels.count == bitmap.width * bitmap.height * 4,
-              let provider = CGDataProvider(data: bitmap.pixels as CFData),
-              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
-              let image = CGImage(
-                width: bitmap.width,
-                height: bitmap.height,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
-                bytesPerRow: bitmap.width * 4,
-                space: colorSpace,
-                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
-                provider: provider,
-                decode: nil,
-                shouldInterpolate: false,
-                intent: .defaultIntent
-              ) else {
-            return nil
+    /// Encodes a rendered slice as PNG with MIQCore's `PNGEncoder` — the same
+    /// encoder the `miq` CLI uses, so both produce identical files: grayscale
+    /// slices as 8-bit gray, colour (RGB / segmentation) slices as 8-bit RGB.
+    static func pngData(from slice: SliceImage) throws -> Data {
+        do {
+            return try PNGEncoder.encode(slice)
+        } catch {
+            throw MIQIntentError.renderFailed
         }
-
-        let output = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(
-            output as CFMutableData, UTType.png.identifier as CFString, 1, nil
-        ) else {
-            return nil
-        }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return output as Data
     }
 }
 

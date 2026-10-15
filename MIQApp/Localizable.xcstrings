@@ -1683,22 +1683,6 @@
         }
       }
     },
-    "Gives the on-device model one downsampled axial slice." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Übergibt dem On-Device-Modell eine verkleinerte axiale Schicht."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cihaz üstü modele küçültülmüş bir aksiyel kesit verir."
-          }
-        }
-      }
-    },
     "Greyscale" : {
       "localizations" : {
         "de" : {
@@ -2595,6 +2579,22 @@
         }
       }
     },
+    "Only used with a local server. The on-device model uses header facts only." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird nur mit einem lokalen Server verwendet. Das On-Device-Modell verwendet nur Angaben aus dem Header."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yalnızca yerel sunucuyla kullanılır. Cihaz üstü model yalnızca başlık bilgilerini kullanır."
+          }
+        }
+      }
+    },
     "Open MIQ on GitHub" : {
       "localizations" : {
         "de" : {
@@ -3443,18 +3443,18 @@
         }
       }
     },
-    "Sends one downsampled axial slice to the local server. Requires a multimodal model (e.g. loaded with --mmproj)." : {
+    "Sends one downsampled axial slice to the local server on this Mac (loopback address only). Requires a multimodal model (e.g. loaded with --mmproj)." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sendet eine verkleinerte axiale Schicht an den lokalen Server. Erfordert ein multimodales Modell (z. B. mit --mmproj geladen)."
+            "value" : "Sendet eine verkleinerte axiale Schicht an den lokalen Server auf diesem Mac (nur Loopback-Adresse). Erfordert ein multimodales Modell (z. B. mit --mmproj geladen)."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Yerel sunucuya küçültülmüş bir aksiyel kesit gönderir. Çok kipli bir model gerektirir (ör. --mmproj ile yüklenmiş)."
+            "value" : "Bu Mac’teki yerel sunucuya (yalnızca loopback adresi) küçültülmüş bir aksiyel kesit gönderir. Çok kipli bir model gerektirir (ör. --mmproj ile yüklenmiş)."
           }
         }
       }
@@ -3919,22 +3919,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cihaz üstü model kullanılamıyor (%@)."
-          }
-        }
-      }
-    },
-    "The on-device model on this macOS version uses header facts only." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das On-Device-Modell verwendet unter dieser macOS-Version nur Angaben aus dem Header."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bu macOS sürümünde cihaz üstü model yalnızca başlık bilgilerini kullanır."
           }
         }
       }

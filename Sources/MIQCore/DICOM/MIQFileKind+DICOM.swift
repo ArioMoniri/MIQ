@@ -19,7 +19,7 @@ extension MIQFileKind {
 
     /// `true` when `prefix` (the first ≥ 132 bytes of a file) has the DICOM Part-10
     /// `DICM` marker at offset 128.
-    public static func isDICOMPart10(_ prefix: Data) -> Bool {
+    static func isDICOMPart10(_ prefix: Data) -> Bool {
         DICOMReader.hasPart10Marker(prefix)
     }
 }

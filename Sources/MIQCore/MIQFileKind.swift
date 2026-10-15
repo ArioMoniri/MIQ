@@ -99,7 +99,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
     ///   MGH/MIF are memory-mapped, so size costs them nothing. An unknown size
     ///   (`nil`) never declines on this ground.
     /// - **Decoded size.** `estimatedDecompressedBytes` (from a header-only
-    ///   probe, see `MIQParser.probeHeader` and `estimatedThumbnailDecodeBytes`)
+    ///   probe, see `MIQParser.parseHeaderOnly(url:maxBytes:)` and `estimatedThumbnailDecodeBytes`)
     ///   over `decompressedBudgetBytes` declines whenever the thumbnail would
     ///   materialize the payload in RAM — the same compressed / `.nrrd` / network
     ///   cases, now including canonical NIfTI's volume 0. Catches highly

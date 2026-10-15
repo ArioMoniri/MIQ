@@ -111,7 +111,7 @@ public struct QCHeadMask: Sendable {
     }
 
     /// "Head mask: 1 520 mL". Deliberately labelled as a head/foreground mask, never as brain volume.
-    public var volumeDisplayText: String {
+    var volumeDisplayText: String {
         "Head mask: \(QCFormat.groupedInteger(volumeMilliliters)) mL"
     }
 }

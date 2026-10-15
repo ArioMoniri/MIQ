@@ -68,7 +68,7 @@ struct PayloadSizeEstimateTests {
         for (data, suffix, expected) in cases {
             let url = try Self.write(data, suffix: suffix)
             defer { try? FileManager.default.removeItem(at: url) }
-            let header = try MIQParser().probeHeader(url: url)
+            let header = try MIQParser().parseHeaderOnly(url: url, maxBytes: MIQParser.headerProbeCap)
             #expect(header.width == 5, "\(suffix)")
             #expect(header.estimatedPayloadBytes == expected, "\(suffix)")
         }
@@ -80,15 +80,48 @@ struct PayloadSizeEstimateTests {
         let headerOnly = TestMIQFactory.makeMghHeaderOnly(width: 2048, height: 2048, depth: 512, frames: 4, datatype: .float32)
         let url = try Self.write(try TestZlib.gzip(headerOnly), suffix: ".mgz")
         defer { try? FileManager.default.removeItem(at: url) }
-        let header = try MIQParser().probeHeader(url: url)
+        let header = try MIQParser().parseHeaderOnly(url: url, maxBytes: MIQParser.headerProbeCap)
         #expect(header.estimatedPayloadBytes == 2048 * 2048 * 512 * 4 * 4)
         // Full parse rejects it; the probe is header-only by design.
         #expect(throws: (any Error).self) { try MIQParser().parse(url: url) }
     }
 
     @Test func probeRejectsUnsupportedAndMissingFiles() {
-        #expect(throws: (any Error).self) { try MIQParser().probeHeader(url: Self.tempURL(suffix: ".txt")) }
-        #expect(throws: (any Error).self) { try MIQParser().probeHeader(url: Self.tempURL(suffix: ".nii")) }
+        #expect(throws: (any Error).self) { try MIQParser().parseHeaderOnly(url: Self.tempURL(suffix: ".txt"), maxBytes: MIQParser.headerProbeCap) }
+        #expect(throws: (any Error).self) { try MIQParser().parseHeaderOnly(url: Self.tempURL(suffix: ".nii"), maxBytes: MIQParser.headerProbeCap) }
+    }
+
+    /// One reader, two caps: a text header longer than the small probe cap fails
+    /// the probe ("size unknown") but parses with the default (summary) cap, for
+    /// plain and gzipped files alike.
+    @Test func headerOnlyReadHonoursByteCap() throws {
+        let comments = String(repeating: "# padding comment line for a long header\n", count: 2_500) // ~100 KB
+        let text = "NRRD0004\ntype: float\ndimension: 3\nsizes: 4 3 2\n\(comments)encoding: raw\ndata file: absent.raw\n"
+        #expect(text.utf8.count > MIQParser.headerProbeCap)
+        let nhdr = try Self.write(Data(text.utf8), suffix: ".nhdr")
+        defer { try? FileManager.default.removeItem(at: nhdr) }
+        #expect(throws: (any Error).self) { try MIQParser().parseHeaderOnly(url: nhdr, maxBytes: MIQParser.headerProbeCap) }
+        #expect(try MIQParser().parseHeaderOnly(url: nhdr).dimensions.prefix(3) == [4, 3, 2])
+        #expect(try VolumeSummary.read(contentsOf: nhdr).dimensions == [4, 3, 2])
+
+        // Uncompressed reads stop exactly at the cap.
+        let prefix = try MIQParser().readHeaderPrefix(url: nhdr, kind: .nhdr, maxBytes: 1_000)
+        #expect(prefix.count == 1_000)
+
+        let mif = TestMIQFactory.makeMif(width: 5, height: 4, depth: 3, datatype: .uint16)
+        var mifText = String(decoding: mif, as: UTF8.self)
+        // Splice a long comment block in after the magic line.
+        if let firstNewline = mifText.firstIndex(of: "\n") {
+            mifText.insert(contentsOf: "\n" + String(repeating: "comments: padding padding padding padding\n", count: 2_500).dropLast(), at: firstNewline)
+        }
+        let mifGz = try Self.write(try TestZlib.gzip(Data(mifText.utf8)), suffix: ".mif.gz")
+        defer { try? FileManager.default.removeItem(at: mifGz) }
+        #expect(throws: (any Error).self) { try MIQParser().parseHeaderOnly(url: mifGz, maxBytes: MIQParser.headerProbeCap) }
+        #expect(try MIQParser().parseHeaderOnly(url: mifGz).width == 5)
+    }
+
+    @Test func headerOnlyReadRejectsDICOM() {
+        #expect(throws: MIQError.self) { try MIQParser().parseHeaderOnly(url: Self.tempURL(suffix: ".dcm")) }
     }
 
     // MARK: - Redaction

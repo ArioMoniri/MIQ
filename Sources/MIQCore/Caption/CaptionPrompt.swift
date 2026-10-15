@@ -6,15 +6,19 @@ import Foundation
 ///
 /// ## Regulatory rationale
 ///
-/// MIQ is a file viewer, not a medical device. FDA's January 2026 guidance on
-/// clinical decision support software (and the long-standing device definition
-/// in section 201(h) of the FD&C Act) turns on *intended use*: software that
-/// analyses medical images to produce findings, diagnoses or treatment
-/// suggestions is a device, while software that describes a file's technical
-/// properties is not. Image-processing functions are excluded from the
-/// non-device CDS carve-out altogether, so the only safe position for a
-/// model-written caption is to stay strictly technical. This type enforces that
-/// in code rather than relying on the prompt alone:
+/// MIQ is intended as a file viewer, not a medical device. This is the
+/// project's own reading, not legal advice, and it is not an FDA determination.
+/// Under the FD&C Act, whether software is a device depends on its *intended
+/// use* (the device definition in section 201(h), 21 U.S.C. 321(h)). The
+/// clinical decision support (CDS) carve-out in section 520(o)(1)(E),
+/// 21 U.S.C. 360j(o)(1)(E), does not cover software "intended to acquire,
+/// process, or analyze a medical image", and FDA's guidance "Clinical Decision
+/// Support Software" (fda.gov/regulatory-information/search-fda-guidance-documents/clinical-decision-support-software;
+/// check the current revision) explains how FDA applies those criteria. A
+/// model-written caption therefore seems safest when it stays strictly
+/// technical: it describes the file's properties and offers no findings,
+/// diagnoses or treatment suggestions. This type enforces that in code rather
+/// than relying on the prompt alone:
 ///
 /// - **Input allowlist.** Only the structural header facts in `CaptionField`
 ///   reach the model — never the file name, path, NIfTI `descrip` / `aux_file`,
