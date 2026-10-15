@@ -250,6 +250,10 @@ extension MIQParser {
             rows: transform
         )
 
+        let worldRows = storageFrame == nil ? nil : Self.mifVoxelToWorldRows(
+            transform: transform, header: header, spatialAxes: spatialAxes
+        )
+
         var miqHeader = MIQHeader(
             littleEndian: header.littleEndian,
             dimensions: [dim0, dim1, dim2, volumes],
@@ -260,9 +264,9 @@ extension MIQParser {
             sclInter: header.offset,
             qformCode: 0,
             sformCode: 0,
-            srowX: [],
-            srowY: [],
-            srowZ: [],
+            srowX: worldRows?[0] ?? [],
+            srowY: worldRows?[1] ?? [],
+            srowZ: worldRows?[2] ?? [],
             datatypeLabel: header.bitPacked ? "bit" : nil,
             orientationFrame: storageFrame,
             orientationDiagnostics: orientationDiagnostics
@@ -274,6 +278,42 @@ extension MIQParser {
             header: miqHeader,
             strides4: strides4
         )
+    }
+
+    /// The voxel→scanner affine (three rows of four, mm) in MIQ's *logical* voxel
+    /// order — the storage order `buildMifMIQHeader` renders in — so `srowX/Y/Z`
+    /// mean the same as a NIfTI sform: `world = srow · (i, j, k, 1)`.
+    ///
+    /// MRtrix's `transform:` maps image-axis positions *in mm* to scanner space
+    /// (its 3×3 block is a pure rotation; voxel sizes come from `vox:`). Logical
+    /// axis `n` is image axis `spatialAxes[n]` walked in increasing element order,
+    /// which for a reversed (`-`) layout entry runs from the axis's last image index
+    /// down to its first. So column `n` is `R[:, a] · |vox[a]|`, negated when `a` is
+    /// reversed, and every reversed axis moves the origin to its far end,
+    /// `R[:, a] · |vox[a]| · (dim[a] − 1)`.
+    ///
+    /// Stored with `sformCode` 0 (MIF has no such code); `MIQVolume.voxelToWorld`
+    /// reads these rows for `.mifLayout` frames. Display orientation still comes
+    /// from `orientationFrame`, which this composition agrees with by construction.
+    private static func mifVoxelToWorldRows(
+        transform: [[Float]], header: MifHeader, spatialAxes: [Int]
+    ) -> [[Float]]? {
+        // `parseMifTransform` accepts rows of three (no translation): origin 0 then.
+        guard transform.count >= 3, transform.allSatisfy({ $0.count >= 3 }) else { return nil }
+        var rows = transform.prefix(3).map { [0, 0, 0, $0[safe: 3] ?? 0] as [Float] }
+        for (column, axis) in spatialAxes.enumerated() {
+            let spacing = sanitizedSpacing(header.vox[safe: axis] ?? 1)
+            let reversed = header.layout[axis].reversed
+            for r in 0..<3 {
+                let step = transform[r][axis] * spacing
+                rows[r][column] = reversed ? -step : step
+                if reversed {
+                    rows[r][3] += step * Float(header.dim[axis] - 1)
+                }
+            }
+        }
+        guard rows.allSatisfy({ $0.allSatisfy(\.isFinite) }) else { return nil }
+        return rows
     }
 
     private func buildMifImage(data: Data, dataOffset: Int, header: MifHeader) throws -> MIQImage {

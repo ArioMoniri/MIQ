@@ -177,11 +177,13 @@ extension MIQVolume {
     ///
     /// - **NIfTI**: sform when `sform_code > 0` and invertible; else qform (re-read
     ///   from the raw header) when `qform_code > 0`; else `diag(pixdim)`.
-    /// - **MGH/MGZ**: direction cosines × voxel size, centred on the volume (the
-    ///   header's `c_ras` is not retained by the parser, so the origin is taken as
-    ///   0 — exact for volumes sharing a conformed space such as `aseg.mgz`/`T1.mgz`).
+    /// - **MGH/MGZ**: FreeSurfer's vox2ras — direction cosines × voxel size, with
+    ///   the origin the parser derived from `c_ras` (the centre voxel dim/2 maps to
+    ///   `c_ras`).
     /// - **NRRD**: the space directions + origin.
-    /// - **MIF / anything else**: signed axis permutation from `orientationFrame`
+    /// - **MIF**: `transform:` composed with `layout:` and `vox:` (rows built by the
+    ///   parser, see `mifVoxelToWorldRows`).
+    /// - **Anything else**: signed axis permutation from `orientationFrame`
     ///   × voxel size, centred on the volume (offset unknown).
     /// - No orientation at all: `diag(pixdim)`, zero origin.
     public var voxelToWorld: VoxelAffine {
@@ -198,8 +200,11 @@ extension MIQVolume {
             let cos = srow.rows
             var rows = [[Double]](repeating: [0, 0, 0, 0], count: 3)
             let scale = [sx, sy, sz]
-            for r in 0..<3 { for c in 0..<3 { rows[r][c] = cos[r][c] * scale[c] } }
-            return Self.centred(VoxelAffine(rows: rows), width: width, height: height, depth: depth)
+            for r in 0..<3 {
+                for c in 0..<3 { rows[r][c] = cos[r][c] * scale[c] }
+                rows[r][3] = cos[r][3]
+            }
+            return VoxelAffine(rows: rows)
         }
         if let raw = NIfTIRawFields(image: image) {
             if header.sformCode > 0, let srow, srow.isInvertible { return srow }
@@ -207,6 +212,7 @@ extension MIQVolume {
             return .diagonal(sx, sy, sz)
         }
         if header.sformCode > 0, let srow, srow.isInvertible { return srow }
+        if source == .mifLayout, let srow, srow.isInvertible { return srow }
         if let axes = header.orientationFrame?.axes, axes.count == 3 {
             var rows = [[Double]](repeating: [0, 0, 0, 0], count: 3)
             let scale = [sx, sy, sz]

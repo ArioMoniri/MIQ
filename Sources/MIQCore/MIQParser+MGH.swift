@@ -85,9 +85,21 @@ extension MIQParser {
             let za = MIQBinaryReader.float32(data, 70, littleEndian: false)
             let zs = MIQBinaryReader.float32(data, 74, littleEndian: false)
 
-            srowX = [xr, yr, zr, 0]
-            srowY = [xa, ya, za, 0]
-            srowZ = [xs, ys, zs, 0]
+            // Rows keep the unit direction cosines (spacing lives in pixdim, as
+            // consumers of `.mghDirectionCosines` expect); the fourth column is the
+            // world position of voxel (0,0,0). FreeSurfer's vox2ras puts `c_ras` at
+            // the voxel *centre* index dim/2: P0 = c_ras − Mdc · diag(spacing) · dim/2.
+            let cr = MIQBinaryReader.float32(data, 78, littleEndian: false)
+            let ca = MIQBinaryReader.float32(data, 82, littleEndian: false)
+            let cs = MIQBinaryReader.float32(data, 86, littleEndian: false)
+            let half = [Float(width) / 2 * sx, Float(height) / 2 * sy, Float(depth) / 2 * sz]
+            func origin(_ c: Float, _ row: (Float, Float, Float)) -> Float {
+                let p = c - (row.0 * half[0] + row.1 * half[1] + row.2 * half[2])
+                return p.isFinite ? p : 0
+            }
+            srowX = [xr, yr, zr, origin(cr, (xr, yr, zr))]
+            srowY = [xa, ya, za, origin(ca, (xa, ya, za))]
+            srowZ = [xs, ys, zs, origin(cs, (xs, ys, zs))]
             sformCode = 1
         } else {
             pixdim = [1.0, 1.0, 1.0, 1.0]
