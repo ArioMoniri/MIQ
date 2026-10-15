@@ -27,8 +27,8 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
     /// values. A non-finite header value is reported as `0` (JSON cannot carry NaN).
     public let voxelSpacing: [Double]
     /// Spatial unit of `voxelSpacing` ("mm", "m", "µm"), or `nil` when the header
-    /// does not say. NIfTI reads `xyzt_units`; MGH and MIF are millimetres by
-    /// specification; NRRD is reported as unknown.
+    /// does not say. NIfTI reads `xyzt_units`; MGH and MIF/MIH are millimetres by
+    /// specification; NRRD and MetaImage are reported as unknown.
     public let spacingUnit: String?
     /// Datatype label as the preview shows it ("int16", "float32", MIF "bit", …).
     public let datatype: String
@@ -151,9 +151,10 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
             }
             guard prefix.count > 123 else { return nil }
             return niftiSpatialUnit(code: Int(prefix[prefix.startIndex + 123]))
-        case .mgh, .mgz, .mif, .mifGz:
+        case .mgh, .mgz, .mif, .mifGz, .mih:
             return "mm"
-        case .nrrd, .zarr, .dicom:
+        case .nrrd, .nhdr, .mha, .mhd, .zarr, .dicom:
+            // NRRD `space units` isn't read; MetaImage has no unit field (ITK assumes mm).
             return nil
         }
     }
@@ -220,13 +221,23 @@ extension MIQParser {
             return { $0.count >= niftiHeaderPrefixBytes }
         case .mgh, .mgz:
             return { $0.count >= mghHeaderPrefixBytes }
-        case .mif, .mifGz:
+        case .mif, .mifGz, .mih:
             let marker = Data("\nEND".utf8)
             return { $0.range(of: marker) != nil }
         case .nrrd:
             let lf = Data("\n\n".utf8)
             let crlf = Data("\n\r\n".utf8)
             return { $0.range(of: lf) != nil || $0.range(of: crlf) != nil }
+        case .nhdr, .mhd:
+            // The whole (small) file is header: read to EOF, capped by the caller.
+            return { _ in false }
+        case .mha:
+            // `ElementDataFile` is the last header line; complete once its newline is in.
+            let key = Data("ElementDataFile".utf8)
+            return { data in
+                guard let hit = data.range(of: key) else { return false }
+                return data[hit.upperBound...].contains(0x0A)
+            }
         case .zarr, .dicom:
             return { _ in true } // rejected in `parseHeaderOnly(url:)` before reading
         }

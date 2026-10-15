@@ -66,7 +66,7 @@ final class MIQThumbnailProvider: QLThumbnailProvider {
         // would materialize the payload, probe the header (<= 64 KiB of prefix)
         // and decline over the decoded-size budget. A failed probe means "unknown"
         // and falls through to the normal parse, which reports its own error.
-        if kind.isCompressed || kind == .nrrd || !isLocal {
+        if kind.isCompressed || kind.payloadEncodingDecidedByHeader || !isLocal {
             let header = try? Self.withSecurityScopedAccess(to: url) { try MIQParser().probeHeader(url: url) }
             let estimated = header.flatMap { kind.estimatedThumbnailDecodeBytes(header: $0) }
             if kind.declinesThumbnail(

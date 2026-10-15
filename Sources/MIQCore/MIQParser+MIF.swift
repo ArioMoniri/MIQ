@@ -29,10 +29,19 @@ extension MIQParser {
         var acquisition = MIQAcquisitionInfo()
     }
 
-    func parseMif(_ data: Data) throws -> MIQImage {
+    /// - Parameter headerURL: The header's location, passed only for `.mih`. A
+    ///   `file: <name> <offset>` other than `.` then names a payload file resolved
+    ///   next to the header (see `resolveDetachedDataFile`), read from `<offset>`.
+    ///   With `nil` (`.mif`, single-file by definition) an external file is rejected.
+    func parseMif(_ data: Data, headerURL: URL? = nil) throws -> MIQImage {
         let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
         guard mifHeader.dataFile == "." else {
-            throw MIQError.malformedFile("MIF references an external data file; only embedded payloads are supported")
+            guard let headerURL else {
+                throw MIQError.malformedFile("MIF references an external data file; only embedded payloads are supported")
+            }
+            let url = try resolveDetachedDataFile(mifHeader.dataFile, relativeTo: headerURL)
+            let payload = try readDetachedDataFile(url, name: mifHeader.dataFile)
+            return try buildMifImage(data: payload, dataOffset: mifHeader.dataOffset, header: mifHeader)
         }
         let dataOffset = mifHeader.dataOffset > 0 ? mifHeader.dataOffset : embeddedDataOffset
         return try buildMifImage(data: data, dataOffset: dataOffset, header: mifHeader)
@@ -43,7 +52,9 @@ extension MIQParser {
     /// wanted).
     func parseMifHeaderOnly(from data: Data) throws -> MIQHeader {
         let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
-        let dataOffset = mifHeader.dataOffset > 0 ? mifHeader.dataOffset : embeddedDataOffset
+        let dataOffset = mifHeader.dataOffset > 0 || mifHeader.dataFile != "."
+            ? mifHeader.dataOffset
+            : embeddedDataOffset
         return try buildMifMIQHeader(dataOffset: dataOffset, header: mifHeader).header
     }
 

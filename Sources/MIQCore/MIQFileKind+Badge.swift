@@ -14,6 +14,10 @@ extension MIQFileKind {
         case .mgz: return "MGZ"
         case .mif, .mifGz: return "MIF"
         case .nrrd: return "NRRD"
+        case .nhdr: return "NHDR"
+        case .mih: return "MIH"
+        case .mha: return "MHA"
+        case .mhd: return "MHD"
         case .zarr: return "ZARR"
         case .dicom: return "DCM"
         }
