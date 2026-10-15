@@ -100,6 +100,28 @@ Use the MIQ app to tailor the preview, metadata panel and thumbnails. Live examp
 
 By default, MIQ displays data **as stored on disk**, without reorienting. Images may appear upside down, mirrored, or rotated depending on acquisition. This is by design, so you can inspect the raw data "as is". Optional settings reorient to **Neurological** or **Radiological view**.
 
+### Command-line tool (`miq`)
+
+The same parsers and renderer are available as a small command-line tool, handy for scripts, headless machines and bug reports. It is not part of the app download (yet). Build it from a checkout with Swift 6 on macOS or Linux:
+
+```bash
+swift build -c release --product miq     # binary: .build/release/miq
+```
+
+```bash
+miq info sub-01_T1w.nii.gz               # format, dimensions, spacing, datatype, volumes, orientation, scaling
+miq info --json sub-01_T1w.nii.gz        # same, machine-readable
+miq render sub-01_T1w.nii.gz --plane coronal --slice 120 -o coronal.png
+miq render bold.nii.gz --volume 10 --window 0,1500 -o vol10.png
+miq mosaic aparc+aseg.mgz -o overview.png  # the preview's 2×2 layout as one PNG
+```
+
+`render` and `mosaic` also accept `--orientation stored|neurological|radiological`, `--segmentation auto|off|random` and `--max-size N`. Run `miq help <command>` for details. PNGs are written by a built-in encoder and contain pixels only, with no text or metadata chunks.
+
+## Privacy
+
+MIQ runs entirely on your Mac. It has **no telemetry, analytics or crash reporting**, keeps no history of the files you preview, and never uploads image data. The only network access is the optional update check (see [Updating](#updating)). Details: [privacy policy](https://miq.marco-duering.net/privacy.html). IT administrators: see [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for signing, update control and offline deployment.
+
 ## Troubleshooting
 
 ### `.gz` File Handling
@@ -116,6 +138,8 @@ MIQ is provided "as is" under [MIT License](./LICENSE), without warranty of any 
 
 > [!CAUTION]
 > This software is **<ins>not</ins> a medical device and is <ins>not</ins> intended for diagnostic use**. It is a developer and researcher convenience tool only. Do not use it to make clinical decisions.
+
+**Scope by design:** MIQ deliberately does **not** read DICOM and contains **no AI/ML features**. It is a fast previewer for research volume formats (NIfTI, MGH/MGZ, MIF, NRRD), not a clinical viewer or an analysis tool.
 
 ## See it in action
 

@@ -1,6 +1,6 @@
 # Releasing MIQ
 
-Maintainer-only. This is the running order; the reasoning behind each rule lives in CLAUDE.md (the Sparkle and Homebrew conventions).
+Maintainer-only. This is the running order. The rationale for the Sparkle and Homebrew rules is kept in the maintainer's notes; the steps below are complete without them.
 
 ## One-time setup
 
