@@ -87,6 +87,52 @@ public final class NiftiVolumeReader: @unchecked Sendable {
             countLimit: Self.maxCachedVolumes,
             totalCostLimit: max(cacheByteLimit, bytes)
         )
+        Self.register(self)
+    }
+
+    /// A second reader over the same file with its own gzip stream and a cache
+    /// of at most `cacheByteLimit` (never below one volume) — for a background
+    /// pass (shared window, temporal summary) that walks the series forward
+    /// without rewinding this reader's stream or evicting the volumes the
+    /// user is scrubbing through. Does no I/O.
+    public func makeSiblingReader(cacheByteLimit: Int = 0) throws -> NiftiVolumeReader {
+        try NiftiVolumeReader(
+            url: url,
+            header: header,
+            compressed: isCompressed,
+            mapLocalFile: mapLocalFile,
+            cacheByteLimit: cacheByteLimit
+        )
+    }
+
+    // MARK: - Memory pressure
+
+    private final class WeakReader {
+        weak var reader: NiftiVolumeReader?
+        init(_ reader: NiftiVolumeReader) { self.reader = reader }
+    }
+
+    /// Every live reader, weakly, so a memory-pressure handler that cannot see
+    /// the previews owning them can still drop their decoded volumes.
+    private nonisolated(unsafe) static var registry: [WeakReader] = []
+    private static let registryLock = NSLock()
+
+    private static func register(_ reader: NiftiVolumeReader) {
+        registryLock.lock()
+        defer { registryLock.unlock() }
+        registry.removeAll { $0.reader == nil }
+        registry.append(WeakReader(reader))
+    }
+
+    /// Drops the decoded volumes of every live reader (`purgeCache()` on each) —
+    /// the system memory-pressure response, alongside the preview cache's own
+    /// clear. A later read decodes again; gzip stream positions are kept.
+    public static func purgeAllCaches() {
+        registryLock.lock()
+        registry.removeAll { $0.reader == nil }
+        let live = registry.compactMap(\.reader)
+        registryLock.unlock()
+        for reader in live { reader.purgeCache() }
     }
 
     deinit {

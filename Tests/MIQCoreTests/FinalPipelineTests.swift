@@ -375,3 +375,107 @@ struct HeadMaskWindowTests {
         #expect(try flat.windowingHeadMask() == nil)
     }
 }
+
+// MARK: - Streamed 4D series (shared window, temporal summary, memory pressure)
+
+struct StreamedSeriesTests {
+    static let w = 10, h = 9, d = 8, n = 13
+
+    /// A noisy 4D float series with a drifting mean and one spike volume.
+    static func values() -> [Float] {
+        var seed: UInt32 = 4242
+        var out: [Float] = []
+        out.reserveCapacity(w * h * d * n)
+        for t in 0..<n {
+            for i in 0..<(w * h * d) {
+                let base: Float = i % 7 == 0 ? 2 : 400 + Float(i % 31)
+                let noise = Float(lcg(&seed) % 1000) / 50
+                let spike: Float = t == 6 ? 300 : 0
+                out.append(base + noise + Float(t) * 3 + spike)
+            }
+        }
+        return out
+    }
+
+    static func gzReader() throws -> (NiftiVolumeReader, MIQVolume) {
+        let nii = ModalityFixtures.niftiBytes(dims: [w, h, d, n], values: values())
+        let url = scratchURL("series.nii.gz")
+        try TestZlib.gzip(nii).write(to: url)
+        let full = MIQVolume(image: try MIQParser().parseNifti(nii))
+        let reader = try NiftiVolumeReader(url: url, header: full.image.header, compressed: true, cacheByteLimit: 1)
+        return (reader, full)
+    }
+
+    @Test func streamedSharedWindowMatchesInMemory() throws {
+        let (reader, full) = try Self.gzReader()
+        let options = RenderingOptions(lowerPercentile: 2, upperPercentile: 98)
+        var asked: [Int] = []
+        let streamed = try MIQVolume.sharedVolumeWindow(volumeCount: Self.n, options: options) { t in
+            asked.append(t)
+            return try reader.volume(at: t)
+        }
+        #expect(streamed != nil)
+        #expect(streamed == full.sharedVolumeWindow(options: options))
+        #expect(asked == asked.sorted() && asked.count == 8)
+    }
+
+    @Test func streamedTemporalSummaryMatchesInMemoryInOnePass() throws {
+        let (reader, full) = try Self.gzReader()
+        let expected = try #require(TemporalStats.summary(for: full, maxVolumes: 5))
+        var asked: [Int] = []
+        let streamed = try #require(try TemporalStats.summary(
+            volumeCount: Self.n, width: Self.w, height: Self.h, depth: Self.d, maxVolumes: 5
+        ) { t in
+            asked.append(t)
+            return try reader.volume(at: t)
+        })
+        #expect(asked == Array(0..<Self.n))
+        #expect(streamed.medianTSNR == expected.medianTSNR)
+        #expect(streamed.framewiseDifference == expected.framewiseDifference)
+        #expect(streamed.spikeFrames == expected.spikeFrames)
+        #expect(streamed.spikeFrames == [6])
+        #expect(streamed.sampledVolumeCount == expected.sampledVolumeCount)
+        #expect(streamed.foregroundVoxelCount == expected.foregroundVoxelCount)
+    }
+
+    @Test func streamedTemporalSummaryStopsWhenCancelled() throws {
+        let (reader, _) = try Self.gzReader()
+        var calls = 0
+        let result = try TemporalStats.summary(
+            volumeCount: Self.n, width: Self.w, height: Self.h, depth: Self.d,
+            isCancelled: { calls >= 3 }
+        ) { t in
+            calls += 1
+            return try reader.volume(at: t)
+        }
+        #expect(result == nil)
+        #expect(calls == 3)
+    }
+
+    @Test func streamedPassGates() throws {
+        #expect(PreviewDataSummaries.streamedSharedWindowAllowed(compressed: true, readsOverNetwork: false))
+        #expect(PreviewDataSummaries.streamedSharedWindowAllowed(compressed: false, readsOverNetwork: true))
+        #expect(!PreviewDataSummaries.streamedSharedWindowAllowed(compressed: true, readsOverNetwork: true))
+        let (_, full) = try Self.gzReader()
+        let header = full.image.header
+        #expect(PreviewDataSummaries.shouldRunStreamedTemporalSummary(header: header, isLabelMap: false, readsOverNetwork: false))
+        #expect(!PreviewDataSummaries.shouldRunStreamedTemporalSummary(header: header, isLabelMap: false, readsOverNetwork: true))
+        #expect(!PreviewDataSummaries.shouldRunStreamedTemporalSummary(header: header, isLabelMap: true, readsOverNetwork: false))
+        let short = try MIQParser().parseNiftiHeader(from: ModalityFixtures.niftiBytes(dims: [2, 2, 2, 3], values: Array(repeating: 1, count: 24)))
+        #expect(!PreviewDataSummaries.shouldRunStreamedTemporalSummary(header: short, isLabelMap: false, readsOverNetwork: false))
+    }
+
+    @Test func purgeAllCachesDropsEveryReadersVolumes() throws {
+        let (reader, _) = try Self.gzReader()
+        let sibling = try reader.makeSiblingReader()
+        _ = try reader.volumeData(at: 2)
+        _ = try sibling.volumeData(at: 9)
+        #expect(reader.isCached(2) && sibling.isCached(9))
+        // Independent streams and caches.
+        #expect(!reader.isCached(9))
+        NiftiVolumeReader.purgeAllCaches()
+        #expect(!reader.isCached(2) && !sibling.isCached(9))
+        // Still readable afterwards.
+        #expect(try reader.volume(at: 2).voxel(x: 1, y: 0, z: 0, t: 0) == Self.values()[2 * Self.w * Self.h * Self.d + 1])
+    }
+}

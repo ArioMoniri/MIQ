@@ -133,6 +133,7 @@ final class MIQPreviewModel {
     private var interactiveState: InteractivePreviewState? {
         didSet {
             renderGate.advance()
+            snapshotGeneration &+= 1
             // A streamed source belongs to the state it was opened for.
             volumeStream = nil
             streamedVolume = nil
@@ -181,7 +182,14 @@ final class MIQPreviewModel {
     private var volumeStream: NiftiVolumeReader?
     /// The streamed volume the slices currently show (`t` > 0), for the
     /// crosshair value readout.
-    private var streamedVolume: (t: Int, volume: MIQVolume)?
+    private var streamedVolume: (t: Int, volume: MIQVolume)? {
+        didSet { snapshotGeneration &+= 1 }
+    }
+    /// `MIQInteractionSnapshot.generation`: bumped on every interactive-state
+    /// swap *and* every streamed volume change, since for a streamed series
+    /// the snapshot's volume is the displayed timepoint (addressed as t = 0),
+    /// so view-feature caches keyed on (generation, t) must not collide.
+    private var snapshotGeneration = 0
     /// A streamed volume read is in flight (the Volumes line says
     /// "decompressing…").
     private var streamedVolumeLoading = false
@@ -590,6 +598,16 @@ final class MIQPreviewModel {
                 volumeStream = reader
                 expansionState = .streaming
                 logger.notice("4D over the Quick Look budget — decoding single volumes on demand")
+                // Shared mode needs ≤ 8 sampled volumes; where that would pull
+                // the whole compressed series over the network, fall back to
+                // per-volume windows — and the window-mode row says so.
+                if !perVolumeWindow,
+                   !PreviewDataSummaries.streamedSharedWindowAllowed(compressed: reader.isCompressed, readsOverNetwork: readsOverNetwork) {
+                    perVolumeWindow = true
+                    logger.notice("streamed 4D on a network volume: per-volume windows instead of a shared window")
+                }
+                // The caller (`applyVolume`) runs `ensureSharedWindowIfNeeded`.
+                startDataSummariesIfNeeded()
                 return
             }
             let bytes = header.estimatedPayloadBytes ?? Int.max
@@ -1029,8 +1047,13 @@ final class MIQPreviewModel {
             if stream != nil {
                 self.streamedVolumeFailed = false
                 // Only while the stream is still this state's (not after a swap).
-                if decision == .apply, let streamed { self.streamedVolume = (cursor.t, streamed) }
-            } else if cursor.t == 0 {
+                // Re-rendering the same timepoint (slice scrolling) keeps the
+                // entry, so the snapshot generation — and the view features'
+                // caches keyed on it — only change with the timepoint.
+                if decision == .apply, let streamed, self.streamedVolume?.t != cursor.t {
+                    self.streamedVolume = (cursor.t, streamed)
+                }
+            } else if cursor.t == 0, self.streamedVolume != nil {
                 self.streamedVolume = nil
             }
             // Remember the auto window so a subsequent W/L drag starts from it,
@@ -1088,6 +1111,39 @@ final class MIQPreviewModel {
             }
         }
 
+        // A streamed series (over the decompression budget) gets the summary
+        // from one forward pass through its own reader — local files only; on
+        // a network volume the row is left out rather than pulling the series.
+        if !temporalStarted, MIQConfig.temporalSummaryEnabled, expansionState == .streaming, let stream = volumeStream,
+           PreviewDataSummaries.shouldRunStreamedTemporalSummary(
+               header: header,
+               isLabelMap: interactiveState.segmentationLut != nil,
+               readsOverNetwork: readsOverNetwork
+           ) {
+            temporalStarted = true
+            let fileURL = url
+            temporalTask = Task { [weak self] in
+                let summary = try? await MIQPreviewModel.runCancelableDetached(priority: .utility) { () -> TemporalSummary? in
+                    try MIQPreviewModel.withSecurityScopedAccess(to: fileURL) {
+                        let pass = try stream.makeSiblingReader()
+                        return try TemporalStats.summary(
+                            volumeCount: header.volumes,
+                            width: header.width,
+                            height: header.height,
+                            depth: header.depth
+                        ) { t in try pass.volume(at: t) }
+                    }
+                }
+                guard let self, !Task.isCancelled, generation == self.summaryGeneration else { return }
+                self.temporalTask = nil
+                // `try?` flattens: `nil` on cancellation, a read error or an
+                // empty foreground — the row is then simply absent.
+                guard let entry = summary.flatMap(PreviewDataSummaries.temporalEntry) else { return }
+                self.temporalEntry = entry
+                self.onChange?()
+            }
+        }
+
         if !temporalStarted, MIQConfig.temporalSummaryEnabled,
            PreviewDataSummaries.shouldRunTemporalSummary(volume: volume, isLabelMap: interactiveState.segmentationLut != nil) {
             temporalStarted = true
@@ -1110,10 +1166,17 @@ final class MIQPreviewModel {
     /// user has taken manual W/L control. Idempotent per interactive state;
     /// waits for a capped buffer's expansion, since sampling it would only see
     /// volume 0.
+    ///
+    /// A streamed series (`.streaming`) samples its volumes through a sibling
+    /// `NiftiVolumeReader` (one volume resident at a time) instead; on a
+    /// network volume that read goes through `NetworkReadLane`. Where that
+    /// would pull a whole compressed series over the network,
+    /// `triggerExpansionIfNeeded` has already switched to per-volume windows.
     private func ensureSharedWindowIfNeeded() {
+        let stream = expansionState == .streaming ? volumeStream : nil
         guard !perVolumeWindow, let interactiveState,
               interactiveState.volume.volumes > 1,
-              interactiveState.volume.containsAllVolumes,
+              interactiveState.volume.containsAllVolumes || stream != nil,
               interactiveState.segmentationLut == nil,
               interactiveState.windowBounds != nil,
               sharedWindowTask == nil,
@@ -1121,9 +1184,31 @@ final class MIQPreviewModel {
         let generation = interactiveStateGeneration
         let volume = interactiveState.volume
         let options = interactiveState.options
+        let fileURL = url
+        let overNetwork = readsOverNetwork
         sharedWindowTask = Task { [weak self] in
-            let bounds = try? await MIQPreviewModel.runCancelableDetached(priority: .userInitiated) {
-                volume.sharedVolumeWindow(options: options)
+            let bounds: MIQIntensityWindowBounds?
+            if let stream {
+                let pass: @Sendable () throws -> MIQIntensityWindowBounds? = {
+                    try MIQPreviewModel.withSecurityScopedAccess(to: fileURL) {
+                        let sampler = try stream.makeSiblingReader()
+                        return try MIQVolume.sharedVolumeWindow(volumeCount: volume.volumes, options: options) { t in
+                            try sampler.volume(at: t)
+                        }
+                    }
+                }
+                if overNetwork {
+                    bounds = try? await NetworkReadLane.shared.run("shared-window", url: fileURL, navigating: false, claimsNewest: true) { readFinished in
+                        defer { readFinished() }
+                        return try pass()
+                    }
+                } else {
+                    bounds = try? await MIQPreviewModel.runCancelableDetached(priority: .userInitiated, pass)
+                }
+            } else {
+                bounds = try? await MIQPreviewModel.runCancelableDetached(priority: .userInitiated) {
+                    volume.sharedVolumeWindow(options: options)
+                }
             }
             guard let self, !Task.isCancelled else { return }
             self.sharedWindowTask = nil
@@ -1579,25 +1664,49 @@ struct MIQInteractionSnapshot: Sendable {
     /// window the last render applied. `nil` for RGB / constant data.
     let windowBounds: MIQIntensityWindowBounds?
     let segmentationLut: SegmentationLut?
+    /// Addresses `volume`: for a streamed series (4D over the decompression
+    /// budget) `volume` holds only the displayed timepoint, so `cursor.t` is 0
+    /// while the slices show a later volume — always read `volume` at `cursor.t`.
     let cursor: MIQVolumeCursor
     /// Changes whenever the backing volume is swapped (fresh parse, cache-hit
-    /// preparation, 4D expansion); derived caches key on it.
+    /// preparation, 4D expansion, and each streamed volume that lands);
+    /// derived caches key on it.
     let generation: Int
 }
 
 extension MIQPreviewModel {
     /// `nil` until the interactive state is ready (cold load done or cache-hit
     /// preparation finished).
+    ///
+    /// For a streamed series the snapshot follows the volume *on screen*: the
+    /// decoded single volume (addressed as `t = 0`) once its render has landed,
+    /// volume 0 of the capped buffer while that is displayed — never the
+    /// capped buffer's zero backstop for a later timepoint. While a newly
+    /// requested volume is still decoding, the snapshot keeps describing the
+    /// one displayed. `nil` in the one state with no decoded data for what is
+    /// shown (a later volume whose stream was just reset), so features wait
+    /// for the next render instead of drawing zeros.
     var interactionSnapshot: MIQInteractionSnapshot? {
         guard let interactiveState else { return nil }
+        let cursor = currentCursor ?? interactiveState.centerCursor
+        var volume = interactiveState.volume
+        var snapshotCursor = cursor
+        if expansionState == .streaming {
+            let shownT = displayedCursor?.t ?? 0
+            if shownT > 0 {
+                guard let streamed = streamedVolume, streamed.t == shownT else { return nil }
+                volume = streamed.volume
+            }
+            snapshotCursor = MIQVolumeCursor(x: cursor.x, y: cursor.y, z: cursor.z, t: 0)
+        }
         return MIQInteractionSnapshot(
-            volume: interactiveState.volume,
+            volume: volume,
             options: interactiveState.options,
             maxDimension: interactiveState.maxDimension,
             windowBounds: displayedWindowBounds,
             segmentationLut: interactiveState.segmentationLut,
-            cursor: currentCursor ?? interactiveState.centerCursor,
-            generation: interactiveStateGeneration
+            cursor: snapshotCursor,
+            generation: snapshotGeneration
         )
     }
 

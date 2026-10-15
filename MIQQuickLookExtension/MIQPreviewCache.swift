@@ -66,6 +66,9 @@ enum MIQPreviewCache {
             // whether or not the SDK marks it @Sendable.
             memoryPressureSource.setEventHandler { [weak self] in
                 self?.cache.removeAll()
+                // So are the decoded volumes of streamed 4D series (the one on
+                // screen stays alive through the model's own reference).
+                NiftiVolumeReader.purgeAllCaches()
                 // The 3D view's GPU textures are just as disposable.
                 VolumeRenderer.releaseCachedResources()
             }

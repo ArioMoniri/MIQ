@@ -1260,6 +1260,36 @@ public struct MIQVolume: Sendable {
         return bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }
     }
 
+    /// `sharedVolumeWindow(maxSampledVolumes:options:)` for a series that is not
+    /// in memory: `volumeAt(t)` supplies timepoint `t` as a *single-volume*
+    /// `MIQVolume` addressed at `volumeIndex: 0` (e.g. `NiftiVolumeReader.volume(at:)`).
+    /// Samples the same indices over `volumeCount`, asks for them in ascending
+    /// order (so a forward gzip stream never rewinds) and keeps only their
+    /// decoded center slices, so memory stays at one volume plus the pool. The
+    /// result is identical to the in-memory call on the same data.
+    /// Rethrows `volumeAt`'s errors; checks cancellation per volume.
+    public static func sharedVolumeWindow(
+        volumeCount: Int,
+        maxSampledVolumes: Int = 8,
+        options: RenderingOptions,
+        volumeAt: (Int) throws -> MIQVolume
+    ) throws -> MIQIntensityWindowBounds? {
+        let indices = sharedWindowSampleIndices(volumeCount: volumeCount, maxSamples: max(1, maxSampledVolumes))
+        guard !indices.isEmpty else { return nil }
+        var firstVolume: MIQVolume?
+        var pooled: [(plane: SlicePlane, slice: PreparedSlice)] = []
+        pooled.reserveCapacity(indices.count * SlicePlane.allCases.count)
+        for t in indices {
+            try Task.checkCancellation()
+            let volume = try volumeAt(t)
+            if firstVolume == nil { firstVolume = volume }
+            pooled.append(contentsOf: volume.prepareCenterSlices(planes: SlicePlane.allCases, volumeIndex: 0, options: options))
+        }
+        guard let firstVolume else { return nil }
+        let bounds = firstVolume.pooledBounds(from: pooled, volumeIndex: 0, options: options)
+        return bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }
+    }
+
     // MARK: - Intensity projection (MIP / MinIP)
 
     /// Renders an intensity projection through the whole volume perpendicular to
