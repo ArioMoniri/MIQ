@@ -2,8 +2,8 @@ import Foundation
 
 extension MIQParser {
     /// Prefix read (or, for gzip kinds, decompressed) by `probeHeader`. Every
-    /// supported header fits: NIfTI ≤ 540 B, MGH 284 B, and the MIF/NRRD text
-    /// headers are a few KB in practice. A text header longer than this fails the
+    /// supported header fits: NIfTI ≤ 540 B, MGH 284 B, and the MIF/NRRD/MetaImage
+    /// text headers are a few KB in practice. A text header longer than this fails the
     /// probe, which callers treat as "size unknown".
     static let headerOnlyProbeBytes = 64 * 1024
 
@@ -45,10 +45,13 @@ extension MIQParser {
             return try parseNiftiHeader(from: prefix, compressed: kind.isCompressed)
         case .mgh, .mgz:
             return try parseMghHeader(from: prefix)
-        case .mif, .mifGz:
+        case .mif, .mifGz, .mih:
             return try parseMifHeaderOnly(from: prefix)
-        case .nrrd:
+        case .nrrd, .nhdr:
+            // A detached header's data file is never opened here.
             return try parseNrrdHeaderOnly(from: prefix)
+        case .mha, .mhd:
+            return try parseMetaImageHeaderOnly(from: prefix)
         case .zarr:
             throw MIQError.unsupportedFeature("Header-only probe isn't available for Zarr stores")
         case .dicom:

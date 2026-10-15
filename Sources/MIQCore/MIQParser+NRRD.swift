@@ -17,39 +17,72 @@ extension MIQParser {
         let toRasSigns: (rx: Float, ry: Float, rz: Float)?
         // Fallback voxel spacings when spaceDirections is absent
         let spacings: [Float]?
+        /// Payload file(s) named by `data file:` (detached header); nil = attached payload.
+        let dataFiles: DetachedFileList?
+        /// `line skip`: lines to skip at the start of each data file (detached only).
+        let lineSkip: Int
+        /// `byte skip`: bytes to skip after `line skip` (after decompression for
+        /// gzip); `-1` means "the payload is the last bytes of a raw file".
+        /// Detached only — an attached payload starts right after the header.
+        let byteSkip: Int
     }
 
     // MARK: - Public entry points
 
-    func parseNrrd(_ data: Data) throws -> MIQImage {
-        let (nrrd, storage, payloadOffset) = try loadNrrd(data: data)
+    /// - Parameter headerURL: Where `data` was read from. Required to resolve a
+    ///   detached `data file:` (always present in `.nhdr`, rare in `.nrrd`); with
+    ///   `nil`, a detached header is rejected.
+    func parseNrrd(_ data: Data, headerURL: URL? = nil) throws -> MIQImage {
+        let (nrrd, storage, payloadOffset) = try loadNrrd(data: data, headerURL: headerURL)
         return try buildNrrdImage(nrrd: nrrd, storage: storage, payloadOffset: payloadOffset)
     }
 
     /// Header-only parse for `probeHeader`: the payload is neither read nor
-    /// decompressed (a gzip-encoded NRRD keeps its plaintext header in front).
+    /// decompressed (a gzip-encoded NRRD keeps its plaintext header in front), and
+    /// a detached header's data file is never opened.
     func parseNrrdHeaderOnly(from data: Data) throws -> MIQHeader {
         let (nrrd, payloadIndex) = try parseNrrdHeaderBlock(data: data)
-        let payloadOffset = data.distance(from: data.startIndex, to: payloadIndex)
+        // Detached: the payload starts `byte skip` into the data file (estimate only).
+        let payloadOffset = nrrd.dataFiles != nil
+            ? max(0, nrrd.byteSkip)
+            : data.distance(from: data.startIndex, to: payloadIndex)
         return try buildNrrdMIQHeader(nrrd: nrrd, payloadOffset: payloadOffset).header
     }
 
     // MARK: - Loading
 
     private func parseNrrdHeaderBlock(data: Data) throws -> (NrrdParsedHeader, Data.Index) {
-        let (headerText, payloadIndex) = try splitNrrdHeader(data: data)
+        let (headerText, payloadIndex, hasSeparator) = splitNrrdHeader(data: data)
         let lines = headerText.split(whereSeparator: { $0.isNewline }).map(String.init)
 
         guard let first = lines.first, first.hasPrefix("NRRD000") else {
             throw MIQError.malformedFile("NRRD magic line not found; file does not appear to be NRRD format")
         }
 
-        let fields = parseNrrdFields(lines: lines)
-        return (try buildNrrdParsedHeader(fields: fields), payloadIndex)
+        let (fields, listedFiles) = parseNrrdFields(lines: lines)
+        let nrrd = try buildNrrdParsedHeader(fields: fields, listedFiles: listedFiles)
+        // A detached header (`.nhdr`) may end at EOF; an attached one needs the
+        // blank line that separates header from payload.
+        guard hasSeparator || nrrd.dataFiles != nil else {
+            throw MIQError.malformedFile(
+                "NRRD header is missing the blank-line separator and names no data file"
+            )
+        }
+        return (nrrd, payloadIndex)
     }
 
-    private func loadNrrd(data: Data) throws -> (NrrdParsedHeader, Data, Int) {
+    private func loadNrrd(data: Data, headerURL: URL?) throws -> (NrrdParsedHeader, Data, Int) {
         let (nrrd, payloadIndex) = try parseNrrdHeaderBlock(data: data)
+
+        if let dataFiles = nrrd.dataFiles {
+            guard let headerURL else {
+                throw MIQError.unsupportedFeature(
+                    "NRRD detached header needs its data file, which can only be resolved next to the header file"
+                )
+            }
+            let (storage, offset) = try loadNrrdDetachedPayload(nrrd: nrrd, files: dataFiles, headerURL: headerURL)
+            return (nrrd, storage, offset)
+        }
 
         let storage: Data
         let payloadOffset: Int
@@ -69,13 +102,89 @@ extension MIQParser {
         return (nrrd, storage, payloadOffset)
     }
 
-    private func splitNrrdHeader(data: Data) throws -> (String, Data.Index) {
+    /// Splits at the first blank line. Without one the whole buffer is header text
+    /// (`hasSeparator == false`), which only a detached header may legitimately be —
+    /// `parseNrrdHeaderBlock` enforces that once the fields are known.
+    private func splitNrrdHeader(data: Data) -> (text: String, payloadIndex: Data.Index, hasSeparator: Bool) {
         guard let separator = firstBlankLine(in: data) else {
-            throw MIQError.malformedFile(
-                "NRRD header is missing the blank-line separator; detached headers (.nhdr) are not supported"
-            )
+            return (String(decoding: data, as: UTF8.self), data.endIndex, false)
         }
-        return (String(decoding: data[data.startIndex..<separator.lowerBound], as: UTF8.self), separator.upperBound)
+        return (String(decoding: data[data.startIndex..<separator.lowerBound], as: UTF8.self), separator.upperBound, true)
+    }
+
+    // MARK: - Detached payload
+
+    /// Reads the payload of a detached header: each named file in order (resolved
+    /// next to the header, see `resolveDetachedDataFile`), with `line skip` /
+    /// `byte skip` applied per file and gzip inflated per file. A single raw file is
+    /// returned as-is (memory-mapped) with the skip as the payload offset; several
+    /// files are concatenated into one buffer in element order.
+    private func loadNrrdDetachedPayload(
+        nrrd: NrrdParsedHeader,
+        files: DetachedFileList,
+        headerURL: URL
+    ) throws -> (Data, Int) {
+        let bytesPerFile = try detachedBytesPerFile(
+            sizes: nrrd.sizes,
+            subdim: files.subdim,
+            fileCount: files.names.count,
+            bytesPerElement: nrrd.datatype.bytesPerVoxel
+        )
+        if nrrd.byteSkip == -1, nrrd.encoding != .raw {
+            throw MIQError.malformedFile("NRRD 'byte skip: -1' is only valid with raw encoding")
+        }
+
+        var combined = Data()
+        if files.names.count > 1 {
+            combined.reserveCapacity(bytesPerFile * files.names.count)
+        }
+        for name in files.names {
+            try Task.checkCancellation()
+            let url = try resolveDetachedDataFile(name, relativeTo: headerURL)
+            let raw = try readDetachedDataFile(url, name: name)
+            let (buffer, offset) = try nrrdDetachedSlab(raw: raw, nrrd: nrrd, bytesPerFile: bytesPerFile)
+            if files.names.count == 1 { return (buffer, offset) }
+            let start = buffer.startIndex + offset
+            combined.append(buffer[start..<(start + bytesPerFile)])
+        }
+        return (combined, 0)
+    }
+
+    /// One data file's payload: the buffer holding it and the offset where it starts.
+    /// Throws `truncatedData` when fewer than `bytesPerFile` bytes follow the skips.
+    private func nrrdDetachedSlab(raw: Data, nrrd: NrrdParsedHeader, bytesPerFile: Int) throws -> (Data, Int) {
+        var start = raw.startIndex
+        for _ in 0..<nrrd.lineSkip {
+            guard let newline = raw[start...].firstIndex(of: 0x0A) else { throw MIQError.truncatedData }
+            start = newline + 1
+        }
+
+        let buffer: Data
+        var offset: Int
+        switch nrrd.encoding {
+        case .raw:
+            buffer = raw
+            offset = raw.distance(from: raw.startIndex, to: start)
+        case .gzip:
+            let compressed = raw[start...]
+            guard MIQBinaryReader.isLikelyGzip(compressed) else {
+                throw MIQError.malformedFile("NRRD encoding is gzip but gzip magic bytes are missing in the data file")
+            }
+            buffer = try MIQBinaryReader.gunzip(Data(compressed))
+            offset = 0
+        }
+
+        if nrrd.byteSkip == -1 {
+            // The payload is the *last* bytesPerFile bytes of the file.
+            guard buffer.count - offset >= bytesPerFile else { throw MIQError.truncatedData }
+            offset = buffer.count - bytesPerFile
+        } else {
+            let (skipped, overflow) = offset.addingReportingOverflow(nrrd.byteSkip)
+            guard !overflow else { throw MIQError.truncatedData }
+            offset = skipped
+        }
+        guard offset <= buffer.count, buffer.count - offset >= bytesPerFile else { throw MIQError.truncatedData }
+        return (buffer, offset)
     }
 
     /// The header ends at the *earliest* blank line (`\n\n` or `\n\r\n`). Walking
@@ -103,9 +212,13 @@ extension MIQParser {
 
     // MARK: - Header field parsing
 
-    private func parseNrrdFields(lines: [String]) -> [String: String] {
+    /// Standard `key: value` fields, plus the file names that follow a
+    /// `data file: LIST` line (every remaining header line, per the NRRD spec).
+    private func parseNrrdFields(lines: [String]) -> (fields: [String: String], listedFiles: [String]?) {
         var fields: [String: String] = [:]
+        var lineIndex = 0
         for line in lines.dropFirst() {
+            lineIndex += 1
             guard !line.hasPrefix("#") else { continue }
             // Skip NRRD custom key-value pairs (key:=value); only parse standard fields (key: value)
             guard let colonIdx = line.firstIndex(of: ":"),
@@ -114,16 +227,49 @@ extension MIQParser {
             let key = line[..<colonIdx].trimmingCharacters(in: .whitespaces).lowercased()
             let value = String(line[line.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
             fields[key] = value
+            if key == "data file" || key == "datafile", value.split(separator: " ").first == "LIST" {
+                let names = lines.dropFirst(lineIndex + 1)
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                return (fields, names)
+            }
         }
-        return fields
+        return (fields, nil)
     }
 
-    private func buildNrrdParsedHeader(fields: [String: String]) throws -> NrrdParsedHeader {
-        // Reject detached headers early
-        if let dataFile = fields["data file"] ?? fields["datafile"] {
-            throw MIQError.unsupportedFeature(
-                "NRRD detached header (data file: \(dataFile)) is not supported; use a self-contained .nrrd file"
-            )
+    /// `data file:` in its three forms: a single name, `LIST [subdim]` (names on
+    /// the following lines), or a printf pattern `fmt min max step [subdim]`.
+    private func parseNrrdDataFiles(_ value: String, listedFiles: [String]?) throws -> DetachedFileList {
+        let tokens = value.split(whereSeparator: { $0.isWhitespace })
+        if tokens.first == "LIST" {
+            guard let names = listedFiles, !names.isEmpty else {
+                throw MIQError.malformedFile("NRRD 'data file: LIST' is not followed by any file names")
+            }
+            guard names.count <= Self.maxDetachedDataFiles else {
+                throw MIQError.unsupportedFeature("NRRD data file list names more than \(Self.maxDetachedDataFiles) files")
+            }
+            var subdim: Int?
+            if tokens.count > 1 {
+                guard let parsed = Int(tokens[1]) else {
+                    throw MIQError.malformedFile("NRRD 'data file: LIST' has a non-integer sub-dimension")
+                }
+                subdim = parsed
+            }
+            return DetachedFileList(names: names, subdim: subdim)
+        }
+        if let pattern = try parseDetachedFilePattern(value) { return pattern }
+        guard !value.isEmpty else { throw MIQError.malformedFile("NRRD 'data file' field is empty") }
+        return DetachedFileList(names: [value], subdim: nil)
+    }
+
+    private func buildNrrdParsedHeader(fields: [String: String], listedFiles: [String]? = nil) throws -> NrrdParsedHeader {
+        let dataFiles = try (fields["data file"] ?? fields["datafile"]).map {
+            try parseNrrdDataFiles($0, listedFiles: listedFiles)
+        }
+        let lineSkip = try fields["line skip"].map { try parseNrrdIntList($0, field: "line skip")[0] } ?? 0
+        let byteSkip = try fields["byte skip"].map { try parseNrrdIntList($0, field: "byte skip")[0] } ?? 0
+        guard lineSkip >= 0, byteSkip >= -1 else {
+            throw MIQError.malformedFile("NRRD 'line skip' / 'byte skip' is out of range")
         }
 
         // Encoding
@@ -183,7 +329,10 @@ extension MIQParser {
             spaceDirections: spaceDirections,
             spaceOrigin: spaceOrigin,
             toRasSigns: toRasSigns,
-            spacings: spacings
+            spacings: spacings,
+            dataFiles: dataFiles,
+            lineSkip: lineSkip,
+            byteSkip: byteSkip
         )
     }
 
@@ -242,11 +391,22 @@ extension MIQParser {
             srowX: srowX,
             srowY: srowY,
             srowZ: srowZ,
-            formatLabel: nrrd.encoding == .gzip ? "Compressed NRRD" : nil,
+            formatLabel: nrrdFormatLabel(nrrd),
             orientationFrame: orientationFrame
         )
 
         return NrrdImageDescriptor(header: header, strides: customStrides)
+    }
+
+    /// "NRRD" / "Compressed NRRD", with "(detached)" when the payload is in a
+    /// separate file. `nil` (→ `MIQFileKind.displayName`) for a plain attached NRRD.
+    private func nrrdFormatLabel(_ nrrd: NrrdParsedHeader) -> String? {
+        switch (nrrd.encoding, nrrd.dataFiles != nil) {
+        case (.raw, false): return nil
+        case (.gzip, false): return "Compressed NRRD"
+        case (.raw, true): return "NRRD (detached)"
+        case (.gzip, true): return "Compressed NRRD (detached)"
+        }
     }
 
     private func buildNrrdImage(nrrd: NrrdParsedHeader, storage: Data, payloadOffset: Int) throws -> MIQImage {

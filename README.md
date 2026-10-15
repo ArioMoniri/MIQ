@@ -24,10 +24,13 @@ Supported formats:
 
 - :white_check_mark: **NIfTI-1 & NIfTI-2** — `.nii`, `.nii.gz`
 - :white_check_mark: **FreeSurfer** — `.mgh`, `.mgz`, `.mgh.gz`
-- :white_check_mark: **MRtrix** — `.mif`, `.mif.gz`
-- :white_check_mark: **NRRD** — `.nrrd` *(only single-file variant with attached header)*
+- :white_check_mark: **MRtrix** — `.mif`, `.mif.gz`, `.mih` *(detached header + data file)*
+- :white_check_mark: **NRRD** — `.nrrd`, `.nhdr` *(detached header: single data file, `LIST`, or printf-style `slice%03d.raw` multi-file)*
+- :white_check_mark: **MetaImage (ITK)** — `.mha`, `.mhd` *(detached header + `.raw`/`.zraw`)*
 
-All formats are supported uncompressed and gzip-compressed.
+All formats are supported uncompressed and gzip-compressed (MetaImage: zlib `CompressedData`).
+
+Detached headers (`.nhdr`, `.mih`, `.mhd`) only read data files in the header's own folder or a subfolder; a data file referenced by an absolute path elsewhere, via `..`, or through a symlink leading out of that folder is refused.
 
 ## Installation & Updates
 
@@ -128,6 +131,10 @@ MIQ runs entirely on your Mac. It has **no telemetry, analytics or crash reporti
 
 macOS Quick Look routes files to extensions by file name suffix. Several kinds of tools, including archive utilities, source-code viewers, and format-specific extensions like MIQ, need to claim the broad `.gz` suffix to support compound extensions such as `.nii.gz`/`.mif.gz`. When more than one installed extension claims `.gz`, which one macOS shows isn't always consistent; this is general Quick Look behavior, not specific to MIQ. If a gzip-compressed file isn't opening with MIQ's preview, try deactivating other `.gz`-handling extensions.
 
+### Detached headers (`.nhdr`, `.mih`, `.mhd`)
+
+A detached header keeps the voxel data in a separate file next to it. macOS sandboxes Quick Look extensions and normally grants them access only to the file being previewed, so the preview may show *"Detached data file '…' couldn't be read from Quick Look (sandbox)"* even though the data file is right there. The same restriction can apply when the file is shown from MIQ.app via **Open With**. If you hit it, use the attached variant of the format — `.nrrd` instead of `.nhdr`, `.mif` instead of `.mih`, `.mha` instead of `.mhd` (e.g. `unu save -f nrrd`, `mrconvert in.mih out.mif`, or re-saving from ITK/3D Slicer). Finder thumbnails hit the same limit and fall back to the system icon; Spotlight metadata only needs the header, so it is indexed either way.
+
 ## Active Development
 
 MIQ is free and open source, in active development, and was created with the support of AI coding agents. Report issues or feature suggestions via [**GitHub Issues**](https://github.com/marcoduering/MIQ/issues), or see [CONTRIBUTING.md](./CONTRIBUTING.md) to contribute. If MIQ is useful to you, consider [**sponsoring the project**](https://github.com/sponsors/marcoduering) (entirely optional, always appreciated).
@@ -139,7 +146,7 @@ MIQ is provided "as is" under [MIT License](./LICENSE), without warranty of any 
 > [!CAUTION]
 > This software is **<ins>not</ins> a medical device and is <ins>not</ins> intended for diagnostic use**. It is a developer and researcher convenience tool only. Do not use it to make clinical decisions.
 
-**Scope by design:** MIQ deliberately does **not** read DICOM and contains **no AI/ML features**. It is a fast previewer for research volume formats (NIfTI, MGH/MGZ, MIF, NRRD), not a clinical viewer or an analysis tool.
+**Scope by design:** MIQ deliberately does **not** read DICOM and contains **no AI/ML features**. It is a fast previewer for research volume formats (NIfTI, MGH/MGZ, MIF, NRRD, MetaImage), not a clinical viewer or an analysis tool.
 
 ## See it in action
 

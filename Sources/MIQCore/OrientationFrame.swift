@@ -9,6 +9,8 @@ public enum OrientationSource: String, Sendable, Hashable {
     case mifLayout
     case mghDirectionCosines
     case nrrdSpaceDirections
+    /// ITK MetaImage `TransformMatrix` (LPS world, converted to RAS at parse time).
+    case metaImageTransform
 }
 
 /// Authoritative per-storage-axis anatomical mapping for a volume. When non-nil,
