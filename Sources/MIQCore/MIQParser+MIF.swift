@@ -35,6 +35,15 @@ extension MIQParser {
         return try buildMifImage(data: data, dataOffset: dataOffset, header: mifHeader)
     }
 
+    /// Header-only parse for `probeHeader`: no payload is read or validated, and
+    /// an external `file:` reference is not rejected (only the size estimate is
+    /// wanted).
+    func parseMifHeaderOnly(from data: Data) throws -> MIQHeader {
+        let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
+        let dataOffset = mifHeader.dataOffset > 0 ? mifHeader.dataOffset : embeddedDataOffset
+        return try buildMifMIQHeader(dataOffset: dataOffset, header: mifHeader).header
+    }
+
     // MARK: - Header lines
 
     private func parseMifHeader(from data: Data) throws -> (MifHeader, Int) {

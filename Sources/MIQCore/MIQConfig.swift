@@ -3,14 +3,34 @@ import os.log
 
 public enum MIQConfig {
     private static let configLogger = Logger(subsystem: "miq.core", category: "config")
-    nonisolated(unsafe) private static var loggedMissingAppGroupID = false
+    /// One-shot guard for the missing-App-Group notice. `appGroupID` is read from
+    /// any thread (extension tasks, the app's main actor), so the flag sits behind
+    /// a lock rather than in a `nonisolated(unsafe)` static.
+    private static let loggedMissingAppGroupID = OnceFlag()
+
+    /// Lock-protected "has this happened yet" flag. `NSLock` (not
+    /// `OSAllocatedUnfairLock`, Apple-only, or `Mutex`, macOS 15+) keeps MIQCore
+    /// portable at the macOS 14 deployment target. `@unchecked Sendable` is sound:
+    /// the only stored state is mutated while holding `lock`.
+    private final class OnceFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var fired = false
+
+        /// `true` exactly once: on the first call, from whichever thread wins.
+        func claim() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !fired else { return false }
+            fired = true
+            return true
+        }
+    }
 
     public static var appGroupID: String {
         if let value = Bundle.main.object(forInfoDictionaryKey: "MIQAppGroupID") as? String, !value.isEmpty {
             return value
         }
-        if !loggedMissingAppGroupID {
-            loggedMissingAppGroupID = true
+        if loggedMissingAppGroupID.claim() {
             configLogger.notice("MIQAppGroupID missing from Info.plist — falling back to UserDefaults.standard; settings won't propagate between app and extension")
         }
         return ""
