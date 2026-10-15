@@ -8,6 +8,8 @@ public enum MIQFileKind: Sendable, CaseIterable {
     case mif
     case mifGz
     case nrrd
+    /// Zarr directory store (`.zarr`, `.ome.zarr`, `.nii.zarr`); see `MIQParser.parseZarr`.
+    case zarr
 
     public init?(url: URL) {
         let path = url.path.lowercased()
@@ -15,6 +17,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         if path.hasSuffix(".nii.gz") { self = .niiGz; return }
         if path.hasSuffix(".mgh.gz") { self = .mgz; return }
         if path.hasSuffix(".mif.gz") { self = .mifGz; return }
+        if path.hasSuffix(".zarr") { self = .zarr; return }
 
         switch url.pathExtension.lowercased() {
         case "nii": self = .nii
@@ -29,7 +32,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
     public var isCompressed: Bool {
         switch self {
         case .niiGz, .mgz, .mifGz: return true
-        case .nii, .mgh, .mif, .nrrd: return false
+        case .nii, .mgh, .mif, .nrrd, .zarr: return false
         }
     }
 
@@ -39,7 +42,8 @@ public enum MIQFileKind: Sendable, CaseIterable {
     /// which is what the large-network preview gate defers.
     public var supportsBoundedNetworkRead: Bool {
         switch self {
-        case .nii, .niiGz: return true
+        // Zarr reads only the coarsest pyramid level's chunks, never the whole store.
+        case .nii, .niiGz, .zarr: return true
         case .mgh, .mgz, .mif, .mifGz, .nrrd: return false
         }
     }
@@ -68,6 +72,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case .mif: return "MRtrix MIF"
         case .mifGz: return "Compressed MRtrix MIF"
         case .nrrd: return "NRRD"
+        case .zarr: return "OME-Zarr"
         }
     }
 
@@ -80,6 +85,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case .mif: return [".mif"]
         case .mifGz: return [".mif.gz"]
         case .nrrd: return [".nrrd"]
+        case .zarr: return [".zarr", ".ome.zarr", ".nii.zarr"]
         }
     }
 }
