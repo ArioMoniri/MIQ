@@ -48,6 +48,7 @@ final class MIQAlternateViewRenderer {
     private var projectionOrder: [ProjectionKey] = []
     private static let projectionCacheLimit = 12
     private static let projectionUnavailable = "Projection not available for this image"
+    private static let renderFailed = "3D rendering failed"
     private var projectionTask: Task<Void, Never>?
     private var projectionTaskKey: ProjectionKey?
     /// Projections that came back empty (RGB data): not retried per scroll step.
@@ -131,6 +132,9 @@ final class MIQAlternateViewRenderer {
         renderMode = .dvr
         lastRenderedSignature = nil
         placeholder = nil
+        // The renderer caches the last grid's textures process-wide; a new
+        // file must not keep the previous one's alive.
+        VolumeRenderer.releaseCachedResources()
     }
 
     // MARK: Projections
@@ -291,19 +295,26 @@ final class MIQAlternateViewRenderer {
                 let low = try await MIQAlternateViewRenderer.render(
                     grid: grid, camera: camera, mode: mode, labelColors: labelColors, width: quick.width, height: quick.height
                 )
-                guard let self, !Task.isCancelled else { return }
-                if let lowImage = MIQImageBridge.makeNSImage(from: low) { self.setImage(lowImage, busy: false) }
+                // `self` is re-acquired weakly per step so a closed preview
+                // isn't kept alive across the refine sleep / render.
+                guard self != nil, !Task.isCancelled else { return }
+                if let lowImage = MIQImageBridge.makeNSImage(from: low) { self?.setImage(lowImage, busy: false) }
                 try await Task.sleep(nanoseconds: MIQAlternateViewRenderer.refineDelayNanoseconds)
                 let high = try await MIQAlternateViewRenderer.render(
                     grid: grid, camera: camera, mode: mode, labelColors: labelColors, width: full.width, height: full.height
                 )
-                guard !Task.isCancelled else { return }
+                guard let self, !Task.isCancelled else { return }
                 if let highImage = MIQImageBridge.makeNSImage(from: high) { self.setImage(highImage, busy: false) }
                 self.lastRenderedSignature = signature
                 self.renderTask = nil
             } catch {
-                // Cancelled by a newer camera change, or a render error; the
-                // next interaction retries.
+                // Cancelled by a newer camera change: the newer task owns the
+                // busy state. A real render error must not leave the spinner
+                // up forever; the next interaction retries.
+                guard !Task.isCancelled, !(error is CancellationError), let self else { return }
+                self.renderTask = nil
+                if self.image == nil { self.placeholder = MIQAlternateViewRenderer.renderFailed }
+                self.setImage(self.image, busy: false)
             }
         }
     }
