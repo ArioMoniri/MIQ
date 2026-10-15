@@ -48,6 +48,7 @@
 		5D0A5E000000000000000023 /* schema.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000016 /* schema.strings */; };
 		5D0A5E000000000000000024 /* MIQCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5D0A5E000000000000000052 /* MIQCore */; };
 		5D0A5E000000000000000025 /* MIQSpotlightImporter.mdimporter in Embed Spotlight Importer */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		5E77B00000000000000000A2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 5E77B00000000000000000A1 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,6 +143,7 @@
 		5D0A5E000000000000000013 /* schema.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = schema.xml; sourceTree = "<group>"; };
 		5D0A5E000000000000000014 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/schema.strings; sourceTree = "<group>"; };
 		5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MIQSpotlightImporter.mdimporter; sourceTree = BUILT_PRODUCTS_DIR; };
+		5E77B00000000000000000A1 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -214,6 +216,7 @@
 				5E77A0000000000000000001 /* SettingsSamplePreview.swift */,
 				5E77A0000000000000000006 /* SettingsSamples */,
 				5D0A5E000000000000000009 /* Intents */,
+				5E77B00000000000000000A1 /* Localizable.xcstrings */,
 			);
 			path = MIQApp;
 			sourceTree = "<group>";
@@ -402,6 +405,8 @@
 			knownRegions = (
 				Base,
 				en,
+				de,
+				tr,
 			);
 			mainGroup = 8101F0FD020FAD658B294485;
 			minimizedProjectReferenceProxies = 1;
@@ -432,6 +437,7 @@
 				5E77A000000000000000000A /* SampleLabels.nii.gz in Resources */,
 				5E77A000000000000000000F /* SampleIntensity.window.json in Resources */,
 				5E77A0000000000000000011 /* SampleLabels.window.json in Resources */,
+				5E77B00000000000000000A2 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -559,6 +565,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Medical Image Quick Look";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Debug;
 		};
@@ -609,6 +616,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Medical Image Quick Look";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = MIQ_Provisioning;
 			};
 			name = Release;

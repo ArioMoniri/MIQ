@@ -17,12 +17,13 @@ struct PercentileRangeControl<Label: View>: View {
             HStack(spacing: 6) {
                 label()
                 Spacer()
-                PercentField(value: $lower, range: Self.lowerRange, accessibilityName: "Lower percentile")
+                PercentField(value: $lower, range: Self.lowerRange, accessibilityName: String(localized: "Lower percentile"))
                 Text("–").foregroundStyle(.secondary)
-                PercentField(value: $upper, range: Self.upperRange, accessibilityName: "Upper percentile")
+                PercentField(value: $upper, range: Self.upperRange, accessibilityName: String(localized: "Upper percentile"))
                 Text("%").foregroundStyle(.secondary)
             }
             PercentileRangeSlider(lower: $lower, upper: $upper)
+                .help("Drag either end, or focus it and use the arrow keys.")
         }
     }
 }
@@ -49,6 +50,7 @@ private struct PercentField: View {
                 .frame(width: 36)
             Stepper(accessibilityName, value: clamped, in: range, step: 1)
                 .labelsHidden()
+                .help(accessibilityName)
         }
     }
 }
@@ -75,9 +77,9 @@ struct PercentileRangeSlider: View {
                     .fill(Color.accentColor)
                     .frame(width: max(x(upper) - x(lower), 0), height: trackHeight)
                     .offset(x: x(lower) + thumbSize / 2)
-                thumb(value: $lower, range: PercentileRangeControl<EmptyView>.lowerRange, name: "Lower percentile", usable: usable)
+                thumb(value: $lower, range: PercentileRangeControl<EmptyView>.lowerRange, name: String(localized: "Lower percentile"), usable: usable)
                     .offset(x: x(lower))
-                thumb(value: $upper, range: PercentileRangeControl<EmptyView>.upperRange, name: "Upper percentile", usable: usable)
+                thumb(value: $upper, range: PercentileRangeControl<EmptyView>.upperRange, name: String(localized: "Upper percentile"), usable: usable)
                     .offset(x: x(upper))
             }
             .frame(maxHeight: .infinity)
@@ -107,7 +109,7 @@ struct PercentileRangeSlider: View {
             .onKeyPress(.rightArrow) { set(value.wrappedValue + 1); return .handled }
             .accessibilityElement()
             .accessibilityLabel(name)
-            .accessibilityValue("\(Int(value.wrappedValue)) percent")
+            .accessibilityValue(String(localized: "\(Int(value.wrappedValue)) percent"))
             .accessibilityAdjustableAction { direction in
                 switch direction {
                 case .increment: set(value.wrappedValue + 1)
