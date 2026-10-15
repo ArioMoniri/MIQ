@@ -31,6 +31,13 @@ public enum MIQConfig {
         public static let showMetadataVolumes     = "showMetadataVolumes"
         public static let showMetadataScaling     = "showMetadataScaling"
         public static let showMetadataValue       = "showMetadataValue"
+        public static let showMetadataRepetitionTime = "showMetadataRepetitionTime"
+        public static let showMetadataIntent         = "showMetadataIntent"
+        public static let showMetadataDiffusion      = "showMetadataDiffusion"
+        public static let showMetadataSidecar        = "showMetadataSidecar"
+        public static let showMetadataVoxelPosition  = "showMetadataVoxelPosition"
+        public static let showMetadataDescription    = "showMetadataDescription"
+        public static let showMetadataProvenance     = "showMetadataProvenance"
         public static let metadataOrder           = "metadataOrder"
         public static let segmentationColoring           = "segmentationColoring"
         public static let hideDisclaimerInPreview = "hideDisclaimerInPreview"
@@ -62,7 +69,20 @@ public enum MIQConfig {
         public static let showMetadataVolumes     = true
         public static let showMetadataScaling     = true
         public static let showMetadataValue       = true
-        public static let metadataOrder           = "format,dimensions,spacing,orientation,datatype,volumes,scaling,value"
+        public static let showMetadataRepetitionTime = true
+        public static let showMetadataIntent         = true
+        public static let showMetadataDiffusion      = true
+        public static let showMetadataSidecar        = true
+        public static let showMetadataVoxelPosition  = true
+        /// Free-text header fields (NIfTI `descrip` / `intent_name`; MIF
+        /// `command_history`) can hold identifying details, so they are opt-in.
+        public static let showMetadataDescription    = false
+        public static let showMetadataProvenance     = false
+        /// Every `MetadataField` in `allCases` order. A saved order from before a
+        /// field existed decodes to the same list via `parseMetadataOrder`, which
+        /// appends missing fields in this same order — so upgrading users keep
+        /// their arrangement with the new rows at the end.
+        public static let metadataOrder           = "format,dimensions,spacing,orientation,datatype,volumes,scaling,value,repetitionTime,intent,diffusion,sidecar,voxelPosition,description,provenance"
         public static let segmentationColoring           = "auto"
         public static let hideDisclaimerInPreview = false
         public static let deferLargeNetworkPreviews = true
@@ -242,20 +262,49 @@ public enum MIQConfig {
     #endif
 
     public static func showMetadataField(_ field: MetadataField) -> Bool {
-        let d = defaults
-        let (key, fallback): (String, Bool) = {
-            switch field {
-            case .format:      return (Keys.showMetadataFormat,      Defaults.showMetadataFormat)
-            case .dimensions:  return (Keys.showMetadataDimensions,  Defaults.showMetadataDimensions)
-            case .spacing:     return (Keys.showMetadataSpacing,     Defaults.showMetadataSpacing)
-            case .orientation: return (Keys.showMetadataOrientation, Defaults.showMetadataOrientation)
-            case .datatype:    return (Keys.showMetadataDatatype,    Defaults.showMetadataDatatype)
-            case .volumes:     return (Keys.showMetadataVolumes,     Defaults.showMetadataVolumes)
-            case .scaling:     return (Keys.showMetadataScaling,     Defaults.showMetadataScaling)
-            case .value:       return (Keys.showMetadataValue,       Defaults.showMetadataValue)
-            }
-        }()
-        return d.object(forKey: key) as? Bool ?? fallback
+        defaults.object(forKey: metadataVisibilityKey(field)) as? Bool ?? defaultVisibility(field)
+    }
+
+    /// The `UserDefaults` key holding `field`'s visibility toggle.
+    public static func metadataVisibilityKey(_ field: MetadataField) -> String {
+        switch field {
+        case .format:         return Keys.showMetadataFormat
+        case .dimensions:     return Keys.showMetadataDimensions
+        case .spacing:        return Keys.showMetadataSpacing
+        case .orientation:    return Keys.showMetadataOrientation
+        case .datatype:       return Keys.showMetadataDatatype
+        case .volumes:        return Keys.showMetadataVolumes
+        case .scaling:        return Keys.showMetadataScaling
+        case .value:          return Keys.showMetadataValue
+        case .repetitionTime: return Keys.showMetadataRepetitionTime
+        case .intent:         return Keys.showMetadataIntent
+        case .diffusion:      return Keys.showMetadataDiffusion
+        case .sidecar:        return Keys.showMetadataSidecar
+        case .voxelPosition:  return Keys.showMetadataVoxelPosition
+        case .description:    return Keys.showMetadataDescription
+        case .provenance:     return Keys.showMetadataProvenance
+        }
+    }
+
+    /// `field`'s visibility when the user never toggled it.
+    public static func defaultVisibility(_ field: MetadataField) -> Bool {
+        switch field {
+        case .format:         return Defaults.showMetadataFormat
+        case .dimensions:     return Defaults.showMetadataDimensions
+        case .spacing:        return Defaults.showMetadataSpacing
+        case .orientation:    return Defaults.showMetadataOrientation
+        case .datatype:       return Defaults.showMetadataDatatype
+        case .volumes:        return Defaults.showMetadataVolumes
+        case .scaling:        return Defaults.showMetadataScaling
+        case .value:          return Defaults.showMetadataValue
+        case .repetitionTime: return Defaults.showMetadataRepetitionTime
+        case .intent:         return Defaults.showMetadataIntent
+        case .diffusion:      return Defaults.showMetadataDiffusion
+        case .sidecar:        return Defaults.showMetadataSidecar
+        case .voxelPosition:  return Defaults.showMetadataVoxelPosition
+        case .description:    return Defaults.showMetadataDescription
+        case .provenance:     return Defaults.showMetadataProvenance
+        }
     }
 
     private static func parseColor(_ str: String) -> MIQColor? {

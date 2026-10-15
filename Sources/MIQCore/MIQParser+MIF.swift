@@ -24,6 +24,9 @@ extension MIQParser {
         /// The voxel→scanner affine's three rows, when the (optional) `transform:` field
         /// is present and well-formed. `nil` means an identity affine, per the MIF spec.
         let transform: [[Float]]?
+        /// Display-only fields (`dw_scheme`, `command_history`), carried through
+        /// to `MIQHeader.acquisition`.
+        var acquisition = MIQAcquisitionInfo()
     }
 
     func parseMif(_ data: Data) throws -> MIQImage {
@@ -39,8 +42,42 @@ extension MIQParser {
 
     private func parseMifHeader(from data: Data) throws -> (MifHeader, Int) {
         let (lines, embeddedDataOffset) = try parseMifHeaderLines(from: data)
-        let mifHeader = try parseMifHeaderFields(lines: lines)
+        var mifHeader = try parseMifHeaderFields(lines: lines)
+        mifHeader.acquisition = parseMifAcquisition(lines: lines)
         return (mifHeader, embeddedDataOffset)
+    }
+
+    // MARK: - Acquisition & provenance (dw_scheme, command_history)
+
+    /// Display-only fields from the header's key-value lines:
+    /// - `dw_scheme`: one `gx,gy,gz,b` line per volume (MRtrix writes the key
+    ///   repeatedly); the 4th column is the b-value. A row with fewer than four
+    ///   numbers invalidates the scheme rather than mis-assigning b-values.
+    /// - `command_history`: one entry per processing step; the last is kept.
+    func parseMifAcquisition(lines: [String]) -> MIQAcquisitionInfo {
+        var info = MIQAcquisitionInfo()
+        var bValues: [Double] = []
+        var schemeValid = true
+        for line in lines.dropFirst() {
+            guard let sep = line.firstIndex(of: ":") else { continue }
+            let key = line[..<sep].trimmingCharacters(in: .whitespaces).lowercased()
+            let value = line[line.index(after: sep)...].trimmingCharacters(in: .whitespaces)
+            switch key {
+            case "dw_scheme":
+                let numbers = value.split(whereSeparator: { $0 == "," || $0.isWhitespace }).map { Double($0) }
+                if numbers.count >= 4, let b = numbers[3], numbers.allSatisfy({ $0 != nil }) {
+                    bValues.append(b)
+                } else {
+                    schemeValid = false
+                }
+            case "command_history":
+                if !value.isEmpty { info.lastCommand = value }
+            default:
+                continue
+            }
+        }
+        if schemeValid, !bValues.isEmpty { info.bValues = bValues }
+        return info
     }
 
     private func parseMifHeaderLines(from data: Data) throws -> ([String], Int) {
@@ -185,7 +222,7 @@ extension MIQParser {
             MIFAxisLayout.storageFrame(imageFrame: $0, spatialAxes: spatialAxes, layout: header.layout)
         }
 
-        let miqHeader = MIQHeader(
+        var miqHeader = MIQHeader(
             littleEndian: header.littleEndian,
             dimensions: [dim0, dim1, dim2, volumes],
             pixdim: [1.0, pixX, pixY, pixZ],
@@ -201,6 +238,8 @@ extension MIQParser {
             datatypeLabel: header.bitPacked ? "bit" : nil,
             orientationFrame: storageFrame
         )
+
+        miqHeader.acquisition = header.acquisition
 
         return MifImageDescriptor(
             header: miqHeader,

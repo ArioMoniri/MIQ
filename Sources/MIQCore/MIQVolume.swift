@@ -919,6 +919,13 @@ public struct MIQVolume: Sendable {
             }
         }
 
+        // A label table stored in the file (TotalSegmentator & co.) names its own
+        // labels, so it outranks the FreeSurfer guess. Only in `.auto`: `.random`
+        // promises the random palette.
+        let embeddedLabels = image.header.acquisition.embeddedLabels
+        if options.segmentationColoring == .auto, !embeddedLabels.isEmpty {
+            return .embedded(embeddedLabels, labels: labelSet)
+        }
         let useFreeSurfer = options.segmentationColoring == .auto
             && SegmentationLut.looksLikeFreeSurfer(labelSet)
         return useFreeSurfer ? .freeSurfer : .random(labels: labelSet)
