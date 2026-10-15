@@ -650,9 +650,7 @@ final class MIQPreviewAppKitView: NSView {
 
     private func showDeferredPlaceholder(name: String, sizeBytes: Int, isDataless: Bool) {
         let size = ByteCountFormatter.string(fromByteCount: Int64(sizeBytes), countStyle: .file)
-        deferredLabel.stringValue = PreviewL10n.core(
-            PreviewStatusText.deferredMessage(name: name, sizeText: size, isDataless: isDataless)
-        )
+        deferredLabel.stringValue = PreviewL10n.deferredMessage(name: name, sizeText: size, isDataless: isDataless)
         deferredPlaceholder.isHidden = false
         status.isHidden = true
     }

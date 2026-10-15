@@ -105,6 +105,29 @@ struct DetachedHeaderTests {
         Self.expectRamp(try MIQParser().parse(url: header))
     }
 
+    /// `byte skip: -1` is raw-only per the NRRD spec: with gzip it must be a
+    /// clear malformed-file error (parse and header probe), never a silent
+    /// read of the wrong bytes.
+    @Test func nhdrGzipWithTailByteSkipIsRejected() throws {
+        let dir = try Self.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try TestZlib.gzip(Data(repeating: 0xEE, count: 7) + Self.ramp).write(to: dir.appendingPathComponent("vol.raw.gz"))
+        let header = dir.appendingPathComponent("vol.nhdr")
+        try Self.write(Self.nhdrGeometry + "\nencoding: gzip\nbyte skip: -1\ndata file: vol.raw.gz\n", to: header)
+        let attempts: [() throws -> Void] = [
+            { _ = try MIQParser().parse(url: header) },
+            { _ = try MIQParser().probeHeader(url: header) },
+        ]
+        for attempt in attempts {
+            do {
+                try attempt()
+                Issue.record("expected malformedFile for gzip + byte skip -1")
+            } catch MIQError.malformedFile(let message) {
+                #expect(message.contains("byte skip: -1"))
+            }
+        }
+    }
+
     @Test func nhdrWithGzipDataFileInSubdirectory() throws {
         let dir = try Self.makeDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }

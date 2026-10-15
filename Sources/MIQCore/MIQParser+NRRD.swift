@@ -49,6 +49,21 @@ extension MIQParser {
         return try buildNrrdMIQHeader(nrrd: nrrd, payloadOffset: payloadOffset).header
     }
 
+    /// Where the payload lives, for `MIQColdPreviewGate` (header prefix only).
+    /// Raw encoding in this file or in exactly one data file is sliced in place
+    /// from the memory-mapped file; gzip or several data files are built in RAM.
+    func nrrdColdPayloadLayout(from data: Data) throws -> ColdPayloadLayout {
+        let (nrrd, payloadIndex) = try parseNrrdHeaderBlock(data: data)
+        guard nrrd.encoding == .raw else { return .materialized }
+        guard let files = nrrd.dataFiles else {
+            return .mapped(dataFile: nil, payloadOffset: data.distance(from: data.startIndex, to: payloadIndex))
+        }
+        guard files.names.count == 1, let name = files.names.first else { return .materialized }
+        // `line skip` lines come first; their length is unknown, so `byte skip`
+        // is a lower bound — the parse still checks the exact extent.
+        return .mapped(dataFile: name, payloadOffset: nrrd.byteSkip == -1 ? nil : nrrd.byteSkip)
+    }
+
     // MARK: - Loading
 
     private func parseNrrdHeaderBlock(data: Data) throws -> (NrrdParsedHeader, Data.Index) {
@@ -302,6 +317,13 @@ extension MIQParser {
             )
         default:
             throw MIQError.malformedFile("Unknown NRRD encoding '\(encodingStr)'")
+        }
+        // The spec allows `byte skip: -1` ("payload is the file's tail") only for
+        // raw data: a compressed stream's decoded length isn't known from its size.
+        // Rejected at header parse so no path (probe, summary, attached or
+        // detached load) can read the wrong bytes.
+        if byteSkip == -1, encoding != .raw {
+            throw MIQError.malformedFile("NRRD 'byte skip: -1' is only valid with raw encoding, not \(encodingStr)")
         }
 
         guard let sizesStr = fields["sizes"] else {

@@ -164,6 +164,73 @@ struct SecurityHardeningTests {
         #expect(throws: MIQError.self) { try MIQParser().parseZarr(url: root) }
     }
 
+    // MARK: - Zarr in a DataLad / git-annex dataset
+
+    /// `<base>/ds/.git/annex/objects/Xk/Pq/KEY/KEY` holding `bytes`; returns its URL.
+    private static func annexObject(in dataset: URL, bytes: [UInt8]) throws -> URL {
+        let object = dataset.appendingPathComponent(".git/annex/objects/Xk/Pq/SHA256E-s4--abc/SHA256E-s4--abc")
+        try write(Data(bytes), object)
+        return object
+    }
+
+    /// Replaces the store's only chunk with a relative symlink to `target`
+    /// (`target` relative to the chunk's folder, as git-annex writes it).
+    private static func linkChunk(of root: URL, to relativeTarget: String) throws {
+        let chunk = root.appendingPathComponent("0/0.0.0")
+        try FileManager.default.removeItem(at: chunk)
+        try FileManager.default.createSymbolicLink(atPath: chunk.path, withDestinationPath: relativeTarget)
+    }
+
+    @Test func zarrChunkInEnclosingAnnexObjectStoreIsRead() throws {
+        let base = try Self.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let dataset = base.appendingPathComponent("ds", isDirectory: true)
+        _ = try Self.annexObject(in: dataset, bytes: [5, 6, 7, 8])
+        let root = dataset.appendingPathComponent("sub/s.zarr", isDirectory: true)
+        try Self.omeGroup(root, datasetPath: "0")
+        try Self.writeTinyV2Array(root.appendingPathComponent("0", isDirectory: true))
+        // ds/sub/s.zarr/0/0.0.0 → ../../../.git/annex/objects/…
+        try Self.linkChunk(of: root, to: "../../../.git/annex/objects/Xk/Pq/SHA256E-s4--abc/SHA256E-s4--abc")
+
+        let image = try MIQParser().parseZarr(url: root).image
+        let bytes = [UInt8](image.storage[(image.storage.startIndex + image.payloadOffset)...].prefix(4))
+        #expect(bytes == [5, 6, 7, 8])
+    }
+
+    @Test func zarrChunkOutsideStoreButNotInAnAncestorAnnexIsRejected() throws {
+        let base = try Self.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: base) }
+        // An annex of a *sibling* dataset is not the store's own dataset.
+        _ = try Self.annexObject(in: base.appendingPathComponent("other", isDirectory: true), bytes: [9, 9, 9, 9])
+        // A look-alike path without `.git` is not an annex either.
+        try Self.write(Data([9, 9, 9, 9]), base.appendingPathComponent("ds/annex/objects/k/k"))
+        let root = base.appendingPathComponent("ds/s.zarr", isDirectory: true)
+        try Self.omeGroup(root, datasetPath: "0")
+        try Self.writeTinyV2Array(root.appendingPathComponent("0", isDirectory: true))
+
+        try Self.linkChunk(of: root, to: "../../../other/.git/annex/objects/Xk/Pq/SHA256E-s4--abc/SHA256E-s4--abc")
+        #expect(throws: MIQError.self) { try MIQParser().parseZarr(url: root) }
+        try Self.linkChunk(of: root, to: "../../annex/objects/k/k")
+        #expect(throws: MIQError.self) { try MIQParser().parseZarr(url: root) }
+    }
+
+    @Test func zarrContainmentChecksTheUnresolvedPathLexically() throws {
+        let base = try Self.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let dataset = base.appendingPathComponent("ds", isDirectory: true)
+        let object = try Self.annexObject(in: dataset, bytes: [1, 2, 3, 4])
+        let store = dataset.appendingPathComponent("s.zarr", isDirectory: true)
+        try FileManager.default.createDirectory(at: store, withIntermediateDirectories: true)
+        // A metadata path climbing out with `..` straight into the annex is still
+        // an escape, even though the annex would be allowed as a symlink target.
+        let climbed = store.appendingPathComponent("../.git/annex/objects/Xk/Pq/SHA256E-s4--abc/SHA256E-s4--abc")
+        #expect(ZarrStoreContainment.resolvedChunkURL(climbed, storeRoot: store) == nil)
+        #expect(ZarrStoreContainment.resolvedChunkURL(object, storeRoot: store) == nil)
+        #expect(ZarrStoreContainment.resolvedChunkURL(store, storeRoot: store) == nil)
+        try Self.write(Data([0]), store.appendingPathComponent("0/0.0.0"))
+        #expect(ZarrStoreContainment.resolvedChunkURL(store.appendingPathComponent("0/0.0.0"), storeRoot: store) != nil)
+    }
+
     // MARK: - L1: printf pattern arithmetic
 
     @Test func detachedPatternArithmeticNeverTraps() throws {

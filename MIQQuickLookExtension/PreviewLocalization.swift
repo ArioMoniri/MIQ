@@ -26,10 +26,24 @@ enum PreviewL10n {
     /// `english` (text produced by MIQCore) in the user's language, falling back
     /// to the English for anything the catalog doesn't cover.
     static func core(_ english: String) -> String {
-        CoreUIText.localize(english) { key in
-            let value = Bundle.main.localizedString(forKey: key, value: missing, table: table)
-            return value == missing ? nil : value
-        }
+        CoreUIText.localize(english, lookup: lookup)
+    }
+
+    /// A MIQCore template (`CoreUIText.templates`) in the user's language, filled
+    /// with `arguments` verbatim — for text whose arguments are file names,
+    /// which must never be matched against the catalog or split.
+    static func core(template: String, arguments: [String]) -> String {
+        CoreUIText.localize(template: template, arguments: arguments, lookup: lookup)
+    }
+
+    /// The deferred-preview placeholder text, localised from its parts.
+    static func deferredMessage(name: String, sizeText: String, isDataless: Bool) -> String {
+        core(template: PreviewStatusText.deferredTemplate(isDataless: isDataless), arguments: [name, sizeText])
+    }
+
+    private static func lookup(_ key: String) -> String? {
+        let value = Bundle.main.localizedString(forKey: key, value: missing, table: table)
+        return value == missing ? nil : value
     }
 
     /// Opacity menu titles: "25%" / "25 %" / "%25" by locale.

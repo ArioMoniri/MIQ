@@ -51,6 +51,20 @@ enum MetadataPanelText {
     struct Section: Sendable {
         let title: String?
         let entries: [MetadataEntry]
+        /// Whether row *values* go through the catalog too. Only for rows whose
+        /// values are MIQ-generated phrases (Data QC: "12.3 · Typical", "no spike
+        /// frames"). DICOM rows carry header values — a ConvolutionKernel "Bone"
+        /// or "Brain" must not come out as "Knochen" / "Gehirn" — so only their
+        /// labels are translated.
+        let translatesValues: Bool
+
+        /// `translatesValues` nil: true only for the Data QC section
+        /// (`PreviewDataSummaries.sectionTitle`), false for anything else.
+        init(title: String?, entries: [MetadataEntry], translatesValues: Bool? = nil) {
+            self.title = title
+            self.entries = entries
+            self.translatesValues = translatesValues ?? (title == PreviewDataSummaries.sectionTitle)
+        }
     }
 
     struct Layout {
@@ -157,7 +171,7 @@ enum MetadataPanelText {
             for entry in section.entries {
                 rows.append(Row(
                     label: singleLine(PreviewL10n.core(entry.label)),
-                    value: singleLine(PreviewL10n.core(entry.value))
+                    value: singleLine(section.translatesValues ? PreviewL10n.core(entry.value) : entry.value)
                 ))
             }
         }

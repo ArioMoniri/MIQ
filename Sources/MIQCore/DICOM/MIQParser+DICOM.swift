@@ -24,7 +24,14 @@ extension MIQParser {
         try decodeDicom(data).image
     }
 
-    func decodeDicom(_ data: Data) throws -> (image: MIQImage, info: DICOMTechnicalInfo) {
+    /// - Parameter maxRealWorldFloatBytes: Budget for the float32 copy an enhanced
+    ///   multi-frame object with differing per-frame rescale needs (the integer
+    ///   payload itself stays memory-mapped). Same default as the series
+    ///   assembler's `maxTotalBytes`; a parameter only so tests can shrink it.
+    func decodeDicom(
+        _ data: Data,
+        maxRealWorldFloatBytes: Int = DICOMSeriesAssembler.defaultMaxTotalBytes
+    ) throws -> (image: MIQImage, info: DICOMTechnicalInfo) {
         var reader = DICOMReader(data: data)
         let descriptor = try DICOMImageDescriptor(file: reader.read())
         try validateDimensionExtent(
@@ -47,7 +54,9 @@ extension MIQParser {
         if let frameRescale = descriptor.frameRescale {
             // Enhanced multi-frame whose frames disagree on rescale: materialise
             // real-world values as float32, as `DICOMSeriesAssembler` does for slices.
-            storage = descriptor.realWorldFloats(storage, offset: offset, rescale: frameRescale)
+            storage = try descriptor.realWorldFloats(
+                storage, offset: offset, rescale: frameRescale, maxBytes: maxRealWorldFloatBytes
+            )
             offset = 0
             datatypeOverride = .float32
             scalingOverride = (0, 0)
@@ -269,18 +278,34 @@ struct DICOMImageDescriptor: Sendable {
 
     /// The whole payload as little-endian float32 real-world values, frame `f`
     /// rescaled with `rescale[f]` (grayscale only).
-    func realWorldFloats(_ storage: Data, offset: Int, rescale: [DICOMRescale]) -> Data {
+    ///
+    /// Throws `unsupportedFeature` when the float32 copy would exceed `maxBytes`
+    /// (header-declared sizes can be huge; the integer payload is mapped, this
+    /// copy is not). Floats are written straight into the result buffer, so
+    /// peak memory is the copy itself, not twice it.
+    func realWorldFloats(_ storage: Data, offset: Int, rescale: [DICOMRescale], maxBytes: Int) throws -> Data {
         let samples = frameSamples
-        var floats = [Float]()
-        floats.reserveCapacity(samples * frames)
-        for f in 0..<frames {
-            let r = rescale[safe: f] ?? DICOMRescale(slope: rescaleSlope, intercept: rescaleIntercept)
-            for i in 0..<samples {
-                let raw = rawSample(storage, offset: offset, index: f * samples + i)
-                floats.append(Float(raw * r.slope + r.intercept))
+        let (count, countOverflow) = samples.multipliedReportingOverflow(by: frames)
+        let (bytes, bytesOverflow) = count.multipliedReportingOverflow(by: MemoryLayout<Float>.size)
+        guard !countOverflow, !bytesOverflow, bytes <= maxBytes else {
+            let size = countOverflow || bytesOverflow ? "too large" : MIQPayloadSizeEstimate.gigabytesText(bytes)
+            throw MIQError.unsupportedFeature(
+                "this multi-frame DICOM rescales each frame differently and needs a \(size) float32 copy, over the \(MIQPayloadSizeEstimate.gigabytesText(maxBytes)) limit"
+            )
+        }
+        var out = Data(count: bytes)
+        out.withUnsafeMutableBytes { (raw: UnsafeMutableRawBufferPointer) in
+            let floats = raw.bindMemory(to: Float.self)
+            for f in 0..<frames {
+                let r = rescale[safe: f] ?? DICOMRescale(slope: rescaleSlope, intercept: rescaleIntercept)
+                let base = f * samples
+                for i in 0..<samples {
+                    let value = rawSample(storage, offset: offset, index: base + i)
+                    floats[base + i] = Float(value * r.slope + r.intercept)
+                }
             }
         }
-        return floats.withUnsafeBufferPointer { Data(buffer: $0) }
+        return out
     }
 
     func header(

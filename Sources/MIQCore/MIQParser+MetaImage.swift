@@ -92,6 +92,17 @@ extension MIQParser {
         try buildMetaImageMIQHeader(parseMetaImageHeader(data))
     }
 
+    /// Where the payload lives, for `MIQColdPreviewGate` (header prefix only).
+    /// Uncompressed `LOCAL` or a single raw data file is sliced in place from the
+    /// memory-mapped file; `CompressedData` or several data files are built in RAM.
+    func metaImageColdPayloadLayout(from data: Data) throws -> ColdPayloadLayout {
+        let meta = try parseMetaImageHeader(data)
+        guard !meta.compressed else { return .materialized }
+        guard let files = meta.dataFiles else { return .mapped(dataFile: nil, payloadOffset: meta.headerLength) }
+        guard files.names.count == 1, let name = files.names.first else { return .materialized }
+        return .mapped(dataFile: name, payloadOffset: meta.headerSize == -1 ? nil : meta.headerSize)
+    }
+
     // MARK: - Header
 
     private func parseMetaImageHeader(_ data: Data) throws -> MetaImageHeader {

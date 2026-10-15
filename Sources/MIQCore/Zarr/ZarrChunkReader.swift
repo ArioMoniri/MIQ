@@ -10,9 +10,10 @@ import zlib
 ///
 /// Chunk sizes are bounded by `ZarrArrayMetadata.validateChunkSize`, so the
 /// element-count products below cannot overflow. Every chunk or shard file is
-/// opened only after its symlink-resolved path is checked to lie inside
-/// `storeRoot` (see `MIQParser.containedResolvedURL`), so a chunk symlinked to
-/// some other file can't be rendered as voxels.
+/// opened only after its path is checked to lie inside `storeRoot` and its
+/// symlink target inside the store or the enclosing dataset's git-annex objects
+/// (see `ZarrStoreContainment`), so a chunk symlinked to some other file can't
+/// be rendered as voxels.
 struct ZarrChunkReader {
     let directory: URL
     let metadata: ZarrArrayMetadata
@@ -127,9 +128,11 @@ struct ZarrChunkReader {
         return try Self.decode(stored, codecs: sharding.inner.bytesCodecs, expectedBytes: expected)
     }
 
-    /// Throws unless `url` (after symlink resolution) lies inside `storeRoot`.
+    /// Throws unless `url` lies inside `storeRoot` lexically and its symlink
+    /// target lies inside the store or the enclosing dataset's git-annex object
+    /// store (see `ZarrStoreContainment`).
     private func requireInsideStore(_ url: URL) throws {
-        guard MIQParser.containedResolvedURL(url, inside: storeRoot) != nil else {
+        guard ZarrStoreContainment.resolvedChunkURL(url, storeRoot: storeRoot) != nil else {
             throw MIQError.unsupportedFeature("Zarr chunk points outside the store; only files inside the store are read")
         }
     }

@@ -216,10 +216,20 @@ public enum PreviewStatusText {
     /// Message of the deferred-preview placeholder. A dataless cloud file (iCloud
     /// Drive "Optimize Mac Storage", other File Providers) is not on a network
     /// volume — reading it downloads it — so it gets its own wording.
+    ///
+    /// English only. A localising caller translates the template instead
+    /// (`deferredTemplate` + `CoreUIText.localize(template:arguments:lookup:)`
+    /// with `[name, sizeText]`), so the file name is never matched or translated.
     public static func deferredMessage(name: String, sizeText: String, isDataless: Bool) -> String {
+        CoreUIText.substitute(format: deferredTemplate(isDataless: isDataless), arguments: [name, sizeText])
+    }
+
+    /// The deferred-preview template (a `CoreUIText.templates` catalog key):
+    /// the first `%@` is the file name, the second the formatted size.
+    public static func deferredTemplate(isDataless: Bool) -> String {
         if isDataless {
-            return "\(name) is \(sizeText) in iCloud (not downloaded).\nLoading it now downloads the whole file, which could make Finder unresponsive."
+            return "%@ is %@ in iCloud (not downloaded).\nLoading it now downloads the whole file, which could make Finder unresponsive."
         }
-        return "\(name) is \(sizeText) on a network volume.\nLoading it now could make Finder unresponsive while it transfers."
+        return "%@ is %@ on a network volume.\nLoading it now could make Finder unresponsive while it transfers."
     }
 }

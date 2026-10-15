@@ -25,7 +25,11 @@ public struct DICOMSeriesAssembler: Sendable {
     /// Maximum size of the assembled pixel payload.
     public let maxTotalBytes: Int
 
-    public init(maxFiles: Int = 2048, maxTotalBytes: Int = 1 << 30) {
+    /// Default `maxTotalBytes` (1 GiB); also bounds the single-file float32 copy
+    /// in `MIQParser.decodeDicom`.
+    public static let defaultMaxTotalBytes = 1 << 30
+
+    public init(maxFiles: Int = 2048, maxTotalBytes: Int = DICOMSeriesAssembler.defaultMaxTotalBytes) {
         self.maxFiles = maxFiles
         self.maxTotalBytes = maxTotalBytes
     }
@@ -98,16 +102,20 @@ public struct DICOMSeriesAssembler: Sendable {
             let samples = anchor.frameSamples
             guard samples.multipliedReportingOverflow(by: 4 * ordered.count).overflow == false,
                   samples * 4 * ordered.count <= maxTotalBytes else { return nil }
-            var floats = [Float]()
-            floats.reserveCapacity(samples * ordered.count)
-            for slice in ordered {
-                let (bytes, offset) = slice.pixelStorage()
-                for i in 0..<samples {
-                    let raw = slice.rawSample(bytes, offset: offset, index: i)
-                    floats.append(Float(raw * slice.rescaleSlope + slice.rescaleIntercept))
+            // Written straight into the result: peak memory is one copy, not two.
+            var out = Data(count: samples * 4 * ordered.count)
+            out.withUnsafeMutableBytes { (raw: UnsafeMutableRawBufferPointer) in
+                let floats = raw.bindMemory(to: Float.self)
+                for (s, slice) in ordered.enumerated() {
+                    let (bytes, offset) = slice.pixelStorage()
+                    let base = s * samples
+                    for i in 0..<samples {
+                        let value = slice.rawSample(bytes, offset: offset, index: i)
+                        floats[base + i] = Float(value * slice.rescaleSlope + slice.rescaleIntercept)
+                    }
                 }
             }
-            storage = floats.withUnsafeBufferPointer { Data(buffer: $0) }
+            storage = out
             datatypeOverride = .float32
             scalingOverride = (0, 0)
         }

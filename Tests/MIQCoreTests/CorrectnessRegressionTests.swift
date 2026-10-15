@@ -193,6 +193,17 @@ struct CorrectnessRegressionTests {
         let (uniform, _) = try MIQParser().decodeDicom(file(slopes: ["10", "10"]))
         #expect(uniform.header.datatype == .uint8)
         #expect(MIQVolume(image: uniform).voxel(x: 0, y: 0, z: 1) == 50)
+
+        // The float32 copy has a budget (2 frames × 1 voxel × 4 B = 8 B here).
+        #expect(throws: MIQError.self) {
+            try MIQParser().decodeDicom(file(slopes: ["1", "10"]), maxRealWorldFloatBytes: 7)
+        }
+        do {
+            _ = try MIQParser().decodeDicom(file(slopes: ["1", "10"]), maxRealWorldFloatBytes: 7)
+        } catch MIQError.unsupportedFeature(let message) {
+            #expect(message.contains("float32 copy"))
+        }
+        #expect(try MIQParser().decodeDicom(file(slopes: ["1", "10"]), maxRealWorldFloatBytes: 8).image.header.datatype == .float32)
     }
 
     // MARK: - CT detection
