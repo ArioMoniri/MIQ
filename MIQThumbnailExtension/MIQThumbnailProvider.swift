@@ -128,7 +128,12 @@ final class MIQThumbnailProvider: QLThumbnailProvider {
                 lut: lut
             )
 
-            guard let nsImage = MIQImageBridge.makeNSImage(from: slice) else {
+            // A grayscale slice becomes an 8-bit single-channel grey image
+            // (`makeGray8()`, a quarter of the RGBA memory); colour data and a
+            // segmentation LUT's output stay RGBA.
+            let bitmap = slice.makeGray8().map(PreviewSliceBitmap.gray)
+                ?? slice.rgbaBitmap().map(PreviewSliceBitmap.rgba)
+            guard let bitmap, let nsImage = MIQImageBridge.makeNSImage(from: bitmap) else {
                 throw MIQError.malformedFile("thumbnail: could not build an image from the axial centre slice")
             }
             return nsImage

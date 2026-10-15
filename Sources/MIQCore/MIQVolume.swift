@@ -185,13 +185,17 @@ public struct MIQVolume: Sendable {
     /// Used by the cache-hit interactive path, which only needs the window + cursor
     /// to render subsequently scrolled slices — decoding the center slices here and
     /// rendering them would be wasted work on that path.
+    ///
+    /// - Parameter headMask: when non-`nil`, the percentiles are taken only over
+    ///   center-slice voxels inside the mask (see `windowingHeadMask()`).
     public func fixedCenterWindow(
         planes: [SlicePlane] = SlicePlane.allCases,
         volumeIndex: Int = 0,
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> MIQIntensityWindowBounds? {
         let prepared = prepareCenterSlices(planes: planes, volumeIndex: volumeIndex, options: options)
-        let bounds = pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options)
+        let bounds = pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options, headMask: headMask)
         return bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }
     }
 
@@ -201,14 +205,16 @@ public struct MIQVolume: Sendable {
     /// `fixedCenterWindow(volumeIndex: 0, options:)`, but without the second
     /// decode those two would each perform. When a LUT is active, windowing is
     /// replaced, so `windowBounds` is `nil` (matching `centerPreview`).
+    /// `headMask` restricts the window like `fixedCenterWindow(headMask:)`.
     public func centerInteractiveState(
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> (windowBounds: MIQIntensityWindowBounds?, segmentationLut: SegmentationLut?) {
         let prepared = prepareCenterSlices(planes: SlicePlane.allCases, volumeIndex: 0, options: options)
         if let lut = buildSegmentationLut(options: options, preparedCenterSlices: prepared) {
             return (nil, lut)
         }
-        let bounds = pooledBounds(from: prepared, volumeIndex: 0, options: options)
+        let bounds = pooledBounds(from: prepared, volumeIndex: 0, options: options, headMask: headMask)
         return (bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }, nil)
     }
 
@@ -264,11 +270,15 @@ public struct MIQVolume: Sendable {
     ///
     /// This decodes each center slice exactly once: the pooled buffer used to derive
     /// the window is the same buffer that gets finalized into the returned images.
+    ///
+    /// `headMask` restricts the shared window to voxels inside the mask, like
+    /// `fixedCenterWindow(headMask:)`; the slices themselves are unchanged.
     public func centerPreview(
         planes: [SlicePlane] = SlicePlane.allCases,
         volumeIndex: Int = 0,
         maxDimension: Int = 512,
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> MIQCenterPreview {
         // Decode the center slices once, then detect segmentation from the very
         // same decoded buffers instead of decoding a second time. Detection is
@@ -282,7 +292,7 @@ public struct MIQVolume: Sendable {
         let lut = (volumeIndex == 0 && planes == SlicePlane.allCases)
             ? buildSegmentationLut(options: options, preparedCenterSlices: prepared)
             : buildSegmentationLut(options: options)
-        let bounds = lut == nil ? pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options) : nil
+        let bounds = lut == nil ? pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options, headMask: headMask) : nil
         var slices: [SlicePlane: SliceImage] = [:]
         slices.reserveCapacity(prepared.count)
         for entry in prepared {
@@ -335,10 +345,17 @@ public struct MIQVolume: Sendable {
     /// whose foreground misses all three planes), that window is missing or
     /// zero-width and would render every slice black; `volumeBounds` then derives
     /// one from the whole of `volumeIndex` instead. Ordinary images never reach it.
+    ///
+    /// With a `headMask`, every pooled value is tagged with whether its storage
+    /// voxel lies in a foreground cell, and the percentiles use only those
+    /// (`IntensityWindow.bounds(for:…including:)`, which ignores a mask that
+    /// leaves too few values). `prepared` must be center slices — every caller
+    /// passes `prepareCenterSlices` output — since the tag recomputes their index.
     private func pooledBounds(
         from prepared: [(plane: SlicePlane, slice: PreparedSlice)],
         volumeIndex: Int,
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> IntensityWindow.Bounds? {
         var pooledFloatCount = 0
         for entry in prepared {
@@ -356,14 +373,47 @@ public struct MIQVolume: Sendable {
                 pooled.append(contentsOf: values)
             }
         }
+        var inMask: [Bool]?
+        if let headMask {
+            var tags = [Bool]()
+            tags.reserveCapacity(pooledFloatCount)
+            for entry in prepared {
+                if case .grayscale(_, let config, _) = entry.slice {
+                    appendCenterMaskTags(&tags, plane: entry.plane, config: config, options: options, mask: headMask)
+                }
+            }
+            inMask = tags
+        }
         let bounds = IntensityWindow.bounds(
             for: pooled,
             lowerPercentile: options.lowerPercentile,
-            upperPercentile: options.upperPercentile
+            upperPercentile: options.upperPercentile,
+            including: inMask.map { tags in { tags[$0] } }
         )
         if let bounds, bounds.high > bounds.low { return bounds }
         // A zero-width window here means every finite center voxel had this value.
         return volumeBounds(volumeIndex: volumeIndex, excluding: bounds?.low, options: options) ?? bounds
+    }
+
+    /// Appends, in `prepareSlice`'s row-major order, whether each voxel of
+    /// `plane`'s center slice falls inside `mask` (storage voxel → downsampled
+    /// mask cell via `QCHeadMask.containsSourceVoxel`).
+    private func appendCenterMaskTags(
+        _ tags: inout [Bool],
+        plane: SlicePlane,
+        config: SliceConfig,
+        options: RenderingOptions,
+        mask: QCHeadMask
+    ) {
+        let plan = orientation.plan(for: plane, mode: options.orientation)
+        let dims = [width, height, depth]
+        let center = max(0, dims[plan.sliceAxis] / 2)
+        for row in 0..<config.outerCount {
+            for col in 0..<config.innerCount {
+                let c = config.coordinate(slice: center, row: row, col: col)
+                tags.append(mask.containsSourceVoxel(x: c.x, y: c.y, z: c.z))
+            }
+        }
     }
 
     /// Upper bound on the voxels `volumeBounds` hands to the percentile selection;
