@@ -28,7 +28,7 @@ final class MIQAlternateViewTile: NSView {
     var onActivate: (@MainActor () -> Void)?
 
     private let spinner = NSProgressIndicator()
-    private let busyLabel = NSTextField(labelWithString: "Computing…")
+    private let busyLabel = NSTextField(labelWithString: String(localized: "Computing…", table: "Preview"))
     private var lastDragLocation: NSPoint?
     private var secondaryDragged = false
 

@@ -57,6 +57,11 @@
 		5D0A5E000000000000000024 /* MIQCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5D0A5E000000000000000052 /* MIQCore */; };
 		5D0A5E000000000000000025 /* MIQSpotlightImporter.mdimporter in Embed Spotlight Importer */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5E77B00000000000000000A2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 5E77B00000000000000000A1 /* Localizable.xcstrings */; };
+		1A1000000000000000000011 /* Preview.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000001 /* Preview.xcstrings */; };
+		1A1000000000000000000012 /* Preview.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000001 /* Preview.xcstrings */; };
+		1A1000000000000000000013 /* Preview.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000001 /* Preview.xcstrings */; };
+		1A1000000000000000000021 /* PreviewLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000002 /* PreviewLocalization.swift */; };
+		1A1000000000000000000023 /* PreviewLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000002 /* PreviewLocalization.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -160,6 +165,8 @@
 		5D0A5E000000000000000014 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/schema.strings; sourceTree = "<group>"; };
 		5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MIQSpotlightImporter.mdimporter; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E77B00000000000000000A1 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		1A1000000000000000000001 /* Preview.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Preview.xcstrings; sourceTree = "<group>"; };
+		1A1000000000000000000002 /* PreviewLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewLocalization.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -275,6 +282,8 @@
 				7A11000000000000000000A2 /* MIQViewModes.swift */,
 				7A11000000000000000000A3 /* MIQVolumeRenderTile.swift */,
 				7A11000000000000000000A4 /* MIQExport.swift */,
+				1A1000000000000000000002 /* PreviewLocalization.swift */,
+				1A1000000000000000000001 /* Preview.xcstrings */,
 			);
 			path = MIQQuickLookExtension;
 			sourceTree = "<group>";
@@ -370,6 +379,7 @@
 			buildPhases = (
 				8DB6FB9A7CFA2F97620EB353 /* Sources */,
 				8C48C992A41DE01638927B3B /* Frameworks */,
+				1A1000000000000000000031 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -389,6 +399,7 @@
 			buildPhases = (
 				BB100000000000000000A005 /* Sources */,
 				BB100000000000000000A006 /* Frameworks */,
+				1A1000000000000000000032 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -473,6 +484,7 @@
 				4B3A00000000000000000006 /* model5_gw_ae in Resources */,
 				4B3A00000000000000000008 /* LICENSE-brainchop in Resources */,
 				5E77B00000000000000000A2 /* Localizable.xcstrings in Resources */,
+				1A1000000000000000000013 /* Preview.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -485,6 +497,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1A1000000000000000000031 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A1000000000000000000011 /* Preview.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1000000000000000000032 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A1000000000000000000012 /* Preview.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -492,6 +520,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A1000000000000000000023 /* PreviewLocalization.swift in Sources */,
 				5EC0A0000000000000000002 /* CaptionFeature.swift in Sources */,
 				4B3A00000000000000000002 /* BrainMaskTool.swift in Sources */,
 				1525C5A90753349409A6DC7B /* ContentView.swift in Sources */,
@@ -512,6 +541,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A1000000000000000000021 /* PreviewLocalization.swift in Sources */,
 				00B97D85B148478FBA844F26 /* MIQImageBridge.swift in Sources */,
 				BA1109BAE7000001000003E5 /* MIQLogger.swift in Sources */,
 				E9B000A957C87B753436028A /* MIQPreviewController.swift in Sources */,

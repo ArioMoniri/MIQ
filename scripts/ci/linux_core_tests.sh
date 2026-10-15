@@ -117,4 +117,7 @@ if ! "$SWIFT" build --build-tests >"$W/build.log" 2>&1; then
 fi
 grep -E "warning: unre" "$W/build.log" || true
 echo "==> swift test"
+# CoreUITextTests check the Quick Look extension's string catalog, which the
+# scratch package doesn't copy; point them at the checkout's.
+export MIQ_PREVIEW_CATALOG="$SRC/MIQQuickLookExtension/Preview.xcstrings"
 "$SWIFT" test --skip-build "$@"
