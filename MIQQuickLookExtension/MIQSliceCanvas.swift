@@ -24,6 +24,35 @@ enum FullScreenEventRescue {
     static var scrubInProgress = false
 }
 
+/// Input state shared by the three canvases.
+@MainActor
+enum MIQPanKeyState {
+    /// Space-bar state for Space-drag panning, tracked by the preview root
+    /// view's key handling (Space is not a modifier flag, so the canvases can't
+    /// read it off the event).
+    static var spaceHeld = false
+    /// The left-button press already handled — by whichever canvas saw it
+    /// first, through the early monitor or `mouseDown`. Shared, not per
+    /// canvas: a double-click that maximises/restores re-arranges the panels
+    /// mid-dispatch, and a sibling (whose stale frame still covers the point)
+    /// must not act on the same press again.
+    static var lastHandledClickEventNumber: Int?
+}
+
+extension ViewportRect {
+    init(_ rect: NSRect) {
+        self.init(x: Double(rect.minX), y: Double(rect.minY), width: Double(rect.width), height: Double(rect.height))
+    }
+
+    var nsRect: NSRect { NSRect(x: x, y: y, width: width, height: height) }
+}
+
+extension ViewportPoint {
+    init(_ point: NSPoint) {
+        self.init(x: Double(point.x), y: Double(point.y))
+    }
+}
+
 final class MIQSliceCanvas: NSView {
     enum HorizontalImageAlignment {
         case leading
@@ -64,6 +93,22 @@ final class MIQSliceCanvas: NSView {
         didSet { needsDisplay = true }
     }
 
+    /// Zoom / pan relative to the aspect-fit rect. Identity = the classic view.
+    var viewport: ViewportTransform = .identity {
+        didSet { if viewport != oldValue { needsDisplay = true } }
+    }
+
+    /// Window/level text ("W 80 / L 40") drawn in the top-left corner, or
+    /// `nil` to hide it.
+    var windowBadge: String? {
+        didSet { if windowBadge != oldValue { needsDisplay = true } }
+    }
+
+    /// VoiceOver label, e.g. "Axial slice 45 of 90, window W 80 / L 40".
+    var accessibilitySliceLabel: String = "" {
+        didSet { if accessibilitySliceLabel != oldValue { setAccessibilityLabel(accessibilitySliceLabel) } }
+    }
+
     var onScrollGestureBegan: (@MainActor () -> Void)?
     var onScroll: (@MainActor (SlicePlane, Int) -> Void)?
     /// Option-modifier scroll: step the 4th (volume/time) axis instead of the
@@ -71,12 +116,21 @@ final class MIQSliceCanvas: NSView {
     var onVolumeScroll: (@MainActor (Int) -> Void)?
     var onCursorPosition: (@MainActor (SlicePlane, MIQNormalizedPoint) -> Void)?
     var onWindowAdjust: (@MainActor (CGFloat, CGFloat) -> Void)?
+    var onDoubleClick: (@MainActor (SlicePlane) -> Void)?
+    /// Secondary click without a drag, or ⌃-click: show the context menu.
+    var onContextMenu: (@MainActor (SlicePlane, NSEvent) -> Void)?
+    /// Any primary click: this plane becomes the active one (keyboard focus,
+    /// projection plane).
+    var onActivate: (@MainActor (SlicePlane) -> Void)?
 
     private let plane: SlicePlane
     private let imageAlignment: ImageAlignment
     private var scrollResolver = ScrollStepResolver()
     private var earlyClickMonitor: Any?
-    private var lastEarlyClickEventNumber: Int?
+    /// Pan drag in progress (⇧- or Space-drag, middle-drag) and its last point.
+    private var panAnchor: NSPoint?
+    /// A secondary-button press moved: it was a W/L drag, not a menu click.
+    private var secondaryDragged = false
     #if DEBUG
     var debugBorderColor: NSColor = .cyan
     #endif
@@ -88,6 +142,8 @@ final class MIQSliceCanvas: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        setAccessibilityElement(true)
+        setAccessibilityRole(.image)
     }
 
     required init?(coder _: NSCoder) {
@@ -113,7 +169,9 @@ final class MIQSliceCanvas: NSView {
         ]
         earlyClickMonitor = NSEvent.addLocalMonitorForEvents(matching: observed) { [weak self] event in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                // The monitor is process-wide: a canvas hidden behind a
+                // maximised panel shares its frame and must not react.
+                guard let self, !self.isHiddenOrHasHiddenAncestor else { return }
                 if event.type == .leftMouseDown {
                     self.handleEarlyMouseDown(event)
                 } else if event.window == nil {
@@ -144,17 +202,16 @@ final class MIQSliceCanvas: NSView {
         switch event.type {
         case .leftMouseDragged:
             guard !FullScreenEventRescue.scrubInProgress else { return }
-            notifyCursorPosition(at: location)
+            if panAnchor != nil {
+                continuePan(to: location)
+            } else {
+                notifyCursorPosition(at: location)
+            }
         case .rightMouseDragged:
+            secondaryDragged = true
             onWindowAdjust?(event.deltaX, event.deltaY)
         case .scrollWheel:
-            guard let outcome = scrollResolver.resolve(ScrollStepInput(event), onBegan: { [weak self] in
-                self?.onScrollGestureBegan?()
-            }) else { return }
-            switch outcome.axis {
-            case .slice:  onScroll?(plane, outcome.step)
-            case .volume: onVolumeScroll?(outcome.step)
-            }
+            handleScroll(event, at: location)
         default:
             break
         }
@@ -162,9 +219,36 @@ final class MIQSliceCanvas: NSView {
 
     private func handleEarlyMouseDown(_ event: NSEvent) {
         guard let window, event.window === window else { return }
+        // ⌃-click opens a menu: leave it to the normal mouseDown rather than
+        // running a modal menu loop from inside an event monitor.
+        guard !event.modifierFlags.contains(.control) else { return }
         let location = convert(event.locationInWindow, from: nil)
-        guard imageRect().contains(location) else { return }
-        lastEarlyClickEventNumber = event.eventNumber
+        guard imageRect().contains(location),
+              MIQPanKeyState.lastHandledClickEventNumber != event.eventNumber else { return }
+        MIQPanKeyState.lastHandledClickEventNumber = event.eventNumber
+        handlePrimaryMouseDown(event, at: location)
+    }
+
+    /// Shared by the early monitor and `mouseDown` (whichever sees the press
+    /// first): ⌃-click → menu, double-click → maximise / reset zoom,
+    /// ⇧- or Space-press on a zoomed panel → start a pan, else crosshair.
+    private func handlePrimaryMouseDown(_ event: NSEvent, at location: NSPoint) {
+        onActivate?(plane)
+        if event.modifierFlags.contains(.control) {
+            panAnchor = nil
+            onContextMenu?(plane, event)
+            return
+        }
+        if event.clickCount >= 2 {
+            panAnchor = nil
+            onDoubleClick?(plane)
+            return
+        }
+        if !viewport.isIdentity, event.modifierFlags.contains(.shift) || MIQPanKeyState.spaceHeld {
+            panAnchor = location
+            return
+        }
+        panAnchor = nil
         notifyCursorPosition(at: location)
     }
 
@@ -185,8 +269,26 @@ final class MIQSliceCanvas: NSView {
         }
         // The early local monitor already handled this click immediately on press,
         // bypassing the QuickLook host's gesture-recognizer delay. Skip the duplicate.
-        if lastEarlyClickEventNumber == event.eventNumber { return }
-        notifyCursorPosition(at: location)
+        if MIQPanKeyState.lastHandledClickEventNumber == event.eventNumber { return }
+        MIQPanKeyState.lastHandledClickEventNumber = event.eventNumber
+        handlePrimaryMouseDown(event, at: location)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        panAnchor = nil
+        super.mouseUp(with: event)
+    }
+
+    // The secondary button does two things: drag = window/level (unchanged),
+    // click without moving = context menu. The press itself is swallowed so
+    // AppKit's default (an immediate menu-on-press) can't pre-empt the drag.
+    override func rightMouseDown(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        guard imageRect().contains(location) else {
+            super.rightMouseDown(with: event)
+            return
+        }
+        secondaryDragged = false
     }
 
     override func rightMouseDragged(with event: NSEvent) {
@@ -195,11 +297,26 @@ final class MIQSliceCanvas: NSView {
             super.rightMouseDragged(with: event)
             return
         }
+        secondaryDragged = true
         onWindowAdjust?(event.deltaX, event.deltaY)
+    }
+
+    override func rightMouseUp(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        defer { secondaryDragged = false }
+        guard !secondaryDragged, imageRect().contains(location) else {
+            super.rightMouseUp(with: event)
+            return
+        }
+        onContextMenu?(plane, event)
     }
 
     override func mouseDragged(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
+        if panAnchor != nil {
+            continuePan(to: location)
+            return
+        }
         guard imageRect().contains(location) else {
             super.mouseDragged(with: event)
             return
@@ -207,10 +324,53 @@ final class MIQSliceCanvas: NSView {
         notifyCursorPosition(at: location)
     }
 
+    // Middle-button drag pans a zoomed panel too (no modifier needed).
+    override func otherMouseDown(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        guard !viewport.isIdentity, imageRect().contains(location) else {
+            super.otherMouseDown(with: event)
+            return
+        }
+        panAnchor = location
+    }
+
+    override func otherMouseDragged(with event: NSEvent) {
+        guard panAnchor != nil else {
+            super.otherMouseDragged(with: event)
+            return
+        }
+        continuePan(to: convert(event.locationInWindow, from: nil))
+    }
+
+    override func otherMouseUp(with event: NSEvent) {
+        panAnchor = nil
+        super.otherMouseUp(with: event)
+    }
+
     override func scrollWheel(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
         guard imageRect().contains(location) else {
             super.scrollWheel(with: event)
+            return
+        }
+        handleScroll(event, at: location)
+    }
+
+    /// ⌘-scroll zooms about the cursor; on a zoomed panel a precise
+    /// (trackpad) two-finger scroll pans; everything else is the unchanged
+    /// slice / ⌥-volume stepping.
+    private func handleScroll(_ event: NSEvent, at location: NSPoint) {
+        let fitted = ViewportRect(imageRect())
+        if event.modifierFlags.contains(.command) {
+            let delta = Double(event.scrollingDeltaY)
+            guard delta != 0 else { return }
+            let perPoint = event.hasPreciseScrollingDeltas ? 0.01 : 0.1
+            viewport = viewport.zoomed(by: exp(delta * perPoint), anchor: ViewportPoint(location), fitted: fitted)
+            return
+        }
+        if !viewport.isIdentity, event.hasPreciseScrollingDeltas, !event.modifierFlags.contains(.option) {
+            // Content follows the fingers: +deltaY moves it down (y-up: negative).
+            viewport = viewport.panned(dx: Double(event.scrollingDeltaX), dy: -Double(event.scrollingDeltaY), fitted: fitted)
             return
         }
         guard let outcome = scrollResolver.resolve(ScrollStepInput(event), onBegan: { [weak self] in
@@ -223,11 +383,40 @@ final class MIQSliceCanvas: NSView {
         }
     }
 
+    override func magnify(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        viewport = viewport.zoomed(
+            by: 1 + Double(event.magnification),
+            anchor: ViewportPoint(location),
+            fitted: ViewportRect(imageRect())
+        )
+    }
+
+    /// Two-finger double-tap: zoom 2× at the pointer, or back to fit.
+    override func smartMagnify(with event: NSEvent) {
+        if viewport.isIdentity {
+            let location = convert(event.locationInWindow, from: nil)
+            viewport = viewport.zoomed(by: 2, anchor: ViewportPoint(location), fitted: ViewportRect(imageRect()))
+        } else {
+            viewport = .identity
+        }
+    }
+
+    private func continuePan(to location: NSPoint) {
+        guard let anchor = panAnchor else { return }
+        panAnchor = location
+        viewport = viewport.panned(
+            dx: Double(location.x - anchor.x),
+            dy: Double(location.y - anchor.y),
+            fitted: ViewportRect(imageRect())
+        )
+    }
+
     override func draw(_: NSRect) {
         NSColor.black.setFill()
         bounds.fill()
 
-        let viewport = bounds
+        let viewportRect = bounds
 
         #if DEBUG
         if MIQConfig.debugShowLayoutBorders {
@@ -239,10 +428,13 @@ final class MIQSliceCanvas: NSView {
         #endif
 
         if let image {
-            let imageRect = aspectFitRect(for: image.size, inside: viewport)
+            // `fitted` is where the whole image sits unzoomed (and the clip);
+            // `drawn` is the zoomed image, larger than `fitted` when zoomed in.
+            let fitted = aspectFitRect(for: image.size, inside: viewportRect)
+            let drawn = viewport.drawnRect(fitted: ViewportRect(fitted)).nsRect
 
             NSGraphicsContext.saveGraphicsState()
-            let clip = NSBezierPath(rect: imageRect)
+            let clip = NSBezierPath(rect: fitted)
             clip.addClip()
             // Voxels must stay crisp blocks when upscaled: the default interpolation
             // (usually bilinear or better) would blur them and invent intermediate
@@ -253,7 +445,7 @@ final class MIQSliceCanvas: NSView {
             context?.imageInterpolation = .none
 
             image.draw(
-                in: imageRect,
+                in: drawn,
                 from: .zero,
                 operation: .copy,
                 fraction: 1.0,
@@ -262,16 +454,48 @@ final class MIQSliceCanvas: NSView {
             )
 
             if let previousInterpolation { context?.imageInterpolation = previousInterpolation }
+
+            // Inside the clip: under zoom the crosshair lines extend past the
+            // visible area.
+            if let crosshair {
+                drawCrosshair(crosshair, in: drawn)
+            }
             NSGraphicsContext.restoreGraphicsState()
 
             if showAxisLabels {
-                drawAxisLabels(for: imageRect, within: viewport)
+                drawAxisLabels(for: fitted, within: viewportRect)
             }
 
-            if let crosshair {
-                drawCrosshair(crosshair, in: imageRect)
+            if !viewport.isIdentity {
+                drawBadge(String(format: "%.1f×", viewport.zoom), trailing: true, top: false)
             }
         }
+
+        // Top-left: the root view's display-mode badge owns the window's
+        // bottom-left corner (the axial / maximised panel's bottom-left).
+        if let windowBadge {
+            drawBadge(windowBadge, trailing: false, top: true)
+        }
+    }
+
+    /// Small legible text in a corner of the panel, on a dark pill so it reads
+    /// over bright anatomy.
+    private func drawBadge(_ text: String, trailing: Bool, top: Bool) {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: max(9, labelFontSize), weight: .medium),
+            .foregroundColor: labelColor
+        ]
+        let size = (text as NSString).size(withAttributes: attrs)
+        let padding: CGFloat = 3
+        let inset: CGFloat = 4
+        let width = size.width + 2 * padding
+        let x = trailing ? bounds.maxX - inset - width : bounds.minX + inset
+        let height = size.height + padding
+        let y = top ? bounds.maxY - inset - height : bounds.minY + inset
+        let pill = NSRect(x: x, y: y, width: width, height: height)
+        NSColor.black.withAlphaComponent(0.6).setFill()
+        NSBezierPath(roundedRect: pill, xRadius: 3, yRadius: 3).fill()
+        (text as NSString).draw(at: NSPoint(x: pill.minX + padding, y: pill.minY + padding / 2), withAttributes: attrs)
     }
 
     private func aspectFitRect(for size: NSSize, inside rect: NSRect) -> NSRect {
@@ -352,6 +576,9 @@ final class MIQSliceCanvas: NSView {
         (text as NSString).draw(at: point, withAttributes: attrs)
     }
 
+    /// The image's aspect-fit rect: the whole image unzoomed, and the visible
+    /// window (clip + hit area) when zoomed. Zoomed drawing goes through
+    /// `viewport.drawnRect(fitted:)`.
     private func imageRect() -> NSRect {
         guard let image else { return .zero }
         return aspectFitRect(for: image.size, inside: bounds)
@@ -369,9 +596,20 @@ final class MIQSliceCanvas: NSView {
         let imageRect = imageRect()
         guard imageRect.width > 0, imageRect.height > 0 else { return }
 
-        let normalizedX = max(0, min(1, Double((location.x - imageRect.minX) / imageRect.width)))
-        let normalizedY = max(0, min(1, Double((imageRect.maxY - location.y) / imageRect.height)))
-        onCursorPosition?(plane, MIQNormalizedPoint(x: normalizedX, y: normalizedY))
+        // Clamp into the visible (fitted) area, then map through the zoom: the
+        // model receives the same image-normalized point it always did, so its
+        // normalized-point → voxel mapping is untouched by zoom/pan.
+        let clamped = ViewportPoint(
+            x: Double(min(max(location.x, imageRect.minX), imageRect.maxX - 0.001)),
+            y: Double(min(max(location.y, imageRect.minY), imageRect.maxY - 0.001))
+        )
+        guard let normalized = viewport.normalizedPoint(at: clamped, fitted: ViewportRect(imageRect)) else { return }
+        onCursorPosition?(plane, MIQNormalizedPoint(x: normalized.x, y: normalized.y))
+    }
+
+    /// Back to the plain aspect-fit view ("0", double-click on a zoomed panel).
+    func resetViewport() {
+        viewport = .identity
     }
 
     private func drawCrosshair(_ crosshair: MIQNormalizedPoint, in imageRect: NSRect) {

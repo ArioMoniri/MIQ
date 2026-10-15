@@ -107,6 +107,20 @@ final class MIQPreviewAppKitView: NSView {
     /// "Radiological") over the slice area's bottom-leading corner.
     private let displayModeBadge = PassthroughLabel(labelWithString: "")
 
+    // MARK: Interaction state (ui-interaction)
+    /// View features (presets, colour maps, overlays, alternate views). See
+    /// MIQPreviewInteraction.swift.
+    let interaction = MIQInteractionController()
+    /// Fourth-quadrant MIP / MinIP / 3D tile, laid out over the metadata panel.
+    private let alternateTile = MIQAlternateViewTile()
+    private let gridLikeLayout = NSView()
+    /// The 2×2 constraints (minus the two FOV ratios), swapped out while a
+    /// panel is maximised.
+    private var gridConstraints: [NSLayoutConstraint] = []
+    private var maximizedConstraints: [NSLayoutConstraint] = []
+    private var appliedLayout = PreviewLayoutState()
+    private weak var currentModel: MIQPreviewModel?
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         buildUI()
@@ -127,45 +141,17 @@ final class MIQPreviewAppKitView: NSView {
     }
 
     func update(from model: MIQPreviewModel) {
-        let configuredShowLabels = MIQConfig.showAxisLabels
+        if model !== currentModel {
+            // New file: back to the plain, unzoomed 2×2 view.
+            currentModel = model
+            for canvas in sliceCanvases { canvas.resetViewport() }
+        }
+        interaction.modelDidChange(model)
         let c = MIQConfig.axisLabelColor
         let labelNSColor = NSColor(calibratedRed: c.red, green: c.green, blue: c.blue, alpha: c.alpha)
-        // "As stored" keeps the patient L/R letters even with axis labels off:
-        // without them the stored left/right is ambiguous.
-        let displayMode = model.displayMode
-        let forceLeftRight = !configuredShowLabels && displayMode.requiresLeftRightLabels
-        let showLabels = configuredShowLabels || forceLeftRight
-        func labels(_ orientation: SliceOrientationLabels) -> SliceOrientationLabels {
-            forceLeftRight ? orientation.leftRightOnly() : orientation
-        }
-
-        applyCanvasUpdate(
-            to: coronal,
-            image: model.coronal,
-            orientation: labels(model.coronalOrientation),
-            crosshair: model.crosshairPoint(for: .coronal),
-            showAxisLabels: showLabels,
-            labelColor: labelNSColor
-        )
-        applyCanvasUpdate(
-            to: sagittal,
-            image: model.sagittal,
-            orientation: labels(model.sagittalOrientation),
-            crosshair: model.crosshairPoint(for: .sagittal),
-            showAxisLabels: showLabels,
-            labelColor: labelNSColor
-        )
-        applyCanvasUpdate(
-            to: axial,
-            image: model.axial,
-            orientation: labels(model.axialOrientation),
-            crosshair: model.crosshairPoint(for: .axial),
-            showAxisLabels: showLabels,
-            labelColor: labelNSColor
-        )
-        updateDisplayModeBadge(displayMode, visible: model.axial != nil)
-
-        updateFOVLayoutRatios()
+        applyCanvasUpdates(from: model, labelColor: labelNSColor)
+        updateDisplayModeBadge(model.displayMode, visible: model.axial != nil)
+        applyInteractionLayout(labelColor: labelNSColor)
         if !areMetadataEntriesEqual(metadataEntries, model.metadataEntries) {
             metadataEntries = model.metadataEntries
             lastMetadataRenderInputs = nil
@@ -250,6 +236,46 @@ final class MIQPreviewAppKitView: NSView {
     override func layout() {
         super.layout()
         refreshMetadataText()
+        if !alternateTile.isHidden {
+            let pixels = alternateTile.convertToBacking(alternateTile.bounds).size
+            if pixels.width >= 1, pixels.height >= 1 {
+                interaction.alternatePixelSize = CGSize(width: abs(pixels.width), height: abs(pixels.height))
+            }
+        }
+    }
+
+    // MARK: Keyboard (ui-interaction)
+    // The root view takes keyboard focus when a panel is clicked (never on
+    // appear, so a Finder-column preview doesn't steal focus). Unhandled keys —
+    // and Space, which the Quick Look host uses to close the panel — continue
+    // up the responder chain unchanged.
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        if handleInteractionKey(event) { return }
+        super.keyDown(with: event)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        if event.keyCode == Self.spaceKeyCode { MIQPanKeyState.spaceHeld = false }
+        super.keyUp(with: event)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        MIQPanKeyState.spaceHeld = false
+        return super.resignFirstResponder()
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if flags == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "c",
+           window?.firstResponder === self {
+            copyCurrentView()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
     }
 
     private func refreshMetadataText() {
@@ -377,7 +403,7 @@ final class MIQPreviewAppKitView: NSView {
 
         let meta = metadata
 
-        let gridLikeLayout = NSView()
+        let gridLikeLayout = self.gridLikeLayout
         gridLikeLayout.translatesAutoresizingMaskIntoConstraints = false
         let verticalSplitGuide = NSLayoutGuide()
         let horizontalSplitGuide = NSLayoutGuide()
@@ -437,16 +463,20 @@ final class MIQPreviewAppKitView: NSView {
             self?.onSliceCursorPosition?(plane, point)
         }
 
-        coronal.onWindowAdjust = { [weak self] dx, dy in self?.onSliceWindowAdjust?(dx, dy) }
-        sagittal.onWindowAdjust = { [weak self] dx, dy in self?.onSliceWindowAdjust?(dx, dy) }
-        axial.onWindowAdjust = { [weak self] dx, dy in self?.onSliceWindowAdjust?(dx, dy) }
+        // W/L drag: the badge shows while adjusting (the interaction layer
+        // must hear it before the model re-renders).
+        coronal.onWindowAdjust = { [weak self] dx, dy in self?.windowAdjust(dx, dy) }
+        sagittal.onWindowAdjust = { [weak self] dx, dy in self?.windowAdjust(dx, dy) }
+        axial.onWindowAdjust = { [weak self] dx, dy in self?.windowAdjust(dx, dy) }
+
+        wireInteraction()
 
         let columnRatio = coronal.widthAnchor.constraint(equalTo: sagittal.widthAnchor, multiplier: 1.0)
         let rowRatio = axial.heightAnchor.constraint(equalTo: coronal.heightAnchor, multiplier: 1.0)
         self.columnRatioConstraint = columnRatio
         self.rowRatioConstraint = rowRatio
 
-        NSLayoutConstraint.activate([
+        gridConstraints = [
             verticalSplitGuide.widthAnchor.constraint(equalToConstant: 5),
             verticalSplitGuide.topAnchor.constraint(equalTo: gridLikeLayout.topAnchor),
             verticalSplitGuide.bottomAnchor.constraint(equalTo: gridLikeLayout.bottomAnchor),
@@ -479,8 +509,19 @@ final class MIQPreviewAppKitView: NSView {
             axial.heightAnchor.constraint(equalTo: meta.heightAnchor),
             axial.widthAnchor.constraint(equalTo: coronal.widthAnchor),
             meta.widthAnchor.constraint(equalTo: sagittal.widthAnchor),
-            columnRatio,
-            rowRatio,
+        ]
+        NSLayoutConstraint.activate(gridConstraints + [columnRatio, rowRatio])
+
+        // The alternate tile always covers the metadata quadrant, so it follows
+        // it into the maximised layout too.
+        alternateTile.translatesAutoresizingMaskIntoConstraints = false
+        alternateTile.isHidden = true
+        gridLikeLayout.addSubview(alternateTile)
+        NSLayoutConstraint.activate([
+            alternateTile.leadingAnchor.constraint(equalTo: meta.leadingAnchor),
+            alternateTile.trailingAnchor.constraint(equalTo: meta.trailingAnchor),
+            alternateTile.topAnchor.constraint(equalTo: meta.topAnchor),
+            alternateTile.bottomAnchor.constraint(equalTo: meta.bottomAnchor),
         ])
 
         status.translatesAutoresizingMaskIntoConstraints = false
@@ -724,11 +765,452 @@ final class MIQPreviewAppKitView: NSView {
     private func replaceConstraint(_ existing: inout NSLayoutConstraint?, with newConstraint: NSLayoutConstraint) {
         existing?.isActive = false
         existing = newConstraint
-        existing?.isActive = true
+        // While a panel is maximised the 2×2 set is inactive; the new ratio is
+        // only stored and comes back with the layout.
+        existing?.isActive = appliedLayout.maximized == nil
     }
 
     private func clamp(_ value: CGFloat, min minValue: CGFloat, max maxValue: CGFloat) -> CGFloat {
         max(minValue, min(maxValue, value))
+    }
+}
+
+// MARK: - Interaction (ui-interaction)
+//
+// Maximise / zoom / view modes / presets / colour maps / overlays / export /
+// accessibility for the preview. Pure rules live in MIQCore
+// (ViewportTransform, PreviewInteractionState); asynchronous state in
+// MIQInteractionController. This extension only wires events to them and
+// pushes their state into the panels.
+
+/// Wraps a context-menu command for `NSMenuItem.representedObject`.
+private final class MIQMenuCommandBox: NSObject {
+    let command: MIQPreviewAppKitView.MenuCommand
+    init(_ command: MIQPreviewAppKitView.MenuCommand) { self.command = command }
+}
+
+extension MIQPreviewAppKitView {
+    fileprivate static let spaceKeyCode: UInt16 = 49
+    fileprivate static let escapeKeyCode: UInt16 = 53
+
+    enum MenuCommand {
+        case toggleMaximize(PreviewPanel)
+        case resetZoom(PreviewPanel)
+        case preset(WindowPreset)
+        case colormap(Colormap)
+        case viewMode(PreviewViewMode)
+        case renderMode(VolumeRenderMode)
+        case resetCamera
+        case overlay(MIQOverlayCandidate)
+        case removeOverlay
+        case toggleOutline
+        case opacity(Float)
+        case toggleDEC
+        case copy
+    }
+
+    fileprivate var sliceCanvases: [MIQSliceCanvas] { [coronal, sagittal, axial] }
+
+    fileprivate func canvas(for panel: PreviewPanel) -> MIQSliceCanvas? {
+        switch panel {
+        case .coronal: return coronal
+        case .sagittal: return sagittal
+        case .axial: return axial
+        case .auxiliary: return nil
+        }
+    }
+
+    fileprivate func wireInteraction() {
+        interaction.onChange = { [weak self] in self?.refreshFromInteraction() }
+
+        for canvas in sliceCanvases {
+            canvas.onDoubleClick = { [weak self] plane in
+                self?.handleDoubleClick(on: PreviewPanel(plane: plane))
+            }
+            canvas.onContextMenu = { [weak self, weak canvas] plane, event in
+                guard let self, let canvas else { return }
+                self.showContextMenu(for: PreviewPanel(plane: plane), event: event, in: canvas)
+            }
+            canvas.onActivate = { [weak self] plane in
+                self?.interaction.noteActive(plane: plane)
+                self?.focusForKeyboard()
+            }
+            // ⌥-scroll on a 3D file with an overlay has no volume axis to step:
+            // it adjusts the overlay opacity instead. 4D files keep stepping
+            // volumes (opacity is then in the menu and on [ / ]).
+            canvas.onVolumeScroll = { [weak self] step in
+                guard let self else { return }
+                if self.interaction.hasOverlay, self.volumeCount <= 1 {
+                    self.interaction.stepOverlayOpacity(step)
+                } else {
+                    self.onSliceVolumeScroll?(step)
+                }
+            }
+        }
+
+        alternateTile.onDoubleClick = { [weak self] in self?.handleDoubleClick(on: .auxiliary) }
+        alternateTile.onRotate = { [weak self] dx, dy in self?.interaction.alternate.rotate(dx: dx, dy: dy) }
+        alternateTile.onZoom = { [weak self] factor in self?.interaction.alternate.zoom(by: factor) }
+        alternateTile.onActivate = { [weak self] in self?.focusForKeyboard() }
+        alternateTile.onContextMenu = { [weak self] event in
+            guard let self else { return }
+            self.showContextMenu(for: .auxiliary, event: event, in: self.alternateTile)
+        }
+    }
+
+    fileprivate func focusForKeyboard() {
+        guard let window, window.firstResponder !== self else { return }
+        window.makeFirstResponder(self)
+    }
+
+    fileprivate func windowAdjust(_ dx: CGFloat, _ dy: CGFloat) {
+        interaction.noteWindowAdjusting()
+        onSliceWindowAdjust?(dx, dy)
+    }
+
+    /// Interaction state changed without a model change (decorated slices
+    /// landed, badge timeout, alternate image, layout).
+    fileprivate func refreshFromInteraction() {
+        let c = MIQConfig.axisLabelColor
+        let labelColor = NSColor(calibratedRed: c.red, green: c.green, blue: c.blue, alpha: c.alpha)
+        if let model = currentModel {
+            applyCanvasUpdates(from: model, labelColor: labelColor)
+        }
+        applyInteractionLayout(labelColor: labelColor)
+    }
+
+    /// Slice images (decorated when a colour map / overlay / DEC is active),
+    /// crosshairs, W/L badges and accessibility labels.
+    fileprivate func applyCanvasUpdates(from model: MIQPreviewModel, labelColor: NSColor) {
+        let configuredShowLabels = MIQConfig.showAxisLabels
+        // "As stored" keeps the patient L/R letters even with axis labels off:
+        // without them the stored left/right is ambiguous.
+        let forceLeftRight = !configuredShowLabels && model.displayMode.requiresLeftRightLabels
+        let showLabels = configuredShowLabels || forceLeftRight
+        let badge = interaction.windowBadgeText
+        let windowText = interaction.windowAccessibilityText
+        let entries: [(MIQSliceCanvas, SlicePlane, NSImage?, SliceOrientationLabels)] = [
+            (coronal, .coronal, model.coronal, model.coronalOrientation),
+            (sagittal, .sagittal, model.sagittal, model.sagittalOrientation),
+            (axial, .axial, model.axial, model.axialOrientation),
+        ]
+        for (canvas, plane, modelImage, orientation) in entries {
+            applyCanvasUpdate(
+                to: canvas,
+                image: interaction.decoratedImage(for: plane) ?? modelImage,
+                orientation: forceLeftRight ? orientation.leftRightOnly() : orientation,
+                crosshair: model.crosshairPoint(for: plane),
+                showAxisLabels: showLabels,
+                labelColor: labelColor
+            )
+            canvas.windowBadge = badge
+            if let slice = model.displayedSlice(for: plane) {
+                canvas.accessibilitySliceLabel = PreviewAccessibility.sliceLabel(
+                    plane: plane, sliceIndex: slice.index, sliceCount: slice.count, window: windowText
+                )
+            } else {
+                canvas.accessibilitySliceLabel = "\(PreviewAccessibility.planeName(plane)) slice"
+            }
+        }
+        updateFOVLayoutRatios()
+    }
+
+    /// Maximise constraints, fourth-quadrant content and the alternate tile.
+    fileprivate func applyInteractionLayout(labelColor: NSColor) {
+        let layout = interaction.layout
+        if layout.maximized != appliedLayout.maximized {
+            NSLayoutConstraint.deactivate(maximizedConstraints)
+            maximizedConstraints = []
+            let ratios = [columnRatioConstraint, rowRatioConstraint].compactMap { $0 }
+            if layout.maximized != nil {
+                NSLayoutConstraint.deactivate(gridConstraints + ratios)
+                // Every panel takes the whole canvas; all but the maximised one
+                // are hidden (so the layout stays unambiguous and the hidden
+                // ones keep a sane frame).
+                let panels: [NSView] = [coronal, sagittal, axial, metadata]
+                maximizedConstraints = panels.flatMap { panel in [
+                    panel.leadingAnchor.constraint(equalTo: gridLikeLayout.leadingAnchor),
+                    panel.trailingAnchor.constraint(equalTo: gridLikeLayout.trailingAnchor),
+                    panel.topAnchor.constraint(equalTo: gridLikeLayout.topAnchor),
+                    panel.bottomAnchor.constraint(equalTo: gridLikeLayout.bottomAnchor),
+                ] }
+                NSLayoutConstraint.activate(maximizedConstraints)
+            } else {
+                NSLayoutConstraint.activate(gridConstraints + ratios)
+            }
+            needsLayout = true
+        }
+        appliedLayout = layout
+
+        for panel in [PreviewPanel.coronal, .sagittal, .axial] {
+            canvas(for: panel)?.isHidden = !layout.isVisible(panel)
+        }
+        let auxiliaryVisible = layout.isVisible(.auxiliary)
+        let showsAlternate = layout.showsAlternateView
+        if metadata.isHidden != (!auxiliaryVisible || showsAlternate) {
+            metadata.isHidden = !auxiliaryVisible || showsAlternate
+        }
+        let tileHidden = !auxiliaryVisible || !showsAlternate
+        if alternateTile.isHidden != tileHidden {
+            alternateTile.isHidden = tileHidden
+            needsLayout = true
+        }
+
+        let alternate = interaction.alternate
+        if !alternateTile.labelColor.isEqual(labelColor) { alternateTile.labelColor = labelColor }
+        alternateTile.isInteractive3D = layout.viewMode == .volume3D
+        alternateTile.smoothsImage = alternate.smoothsImage
+        alternateTile.image = showsAlternate ? alternate.image : nil
+        alternateTile.caption = showsAlternate ? alternate.caption : ""
+        alternateTile.placeholder = alternate.placeholder
+        alternateTile.isBusy = showsAlternate && alternate.isBusy
+    }
+
+    fileprivate func handleDoubleClick(on panel: PreviewPanel) {
+        let canvas = canvas(for: panel)
+        let zoomed = canvas.map { !$0.viewport.isIdentity } ?? false
+        if interaction.handleDoubleClick(on: panel, isZoomed: zoomed) == .resetZoom {
+            canvas?.resetViewport()
+        }
+    }
+
+    fileprivate func resetZoom() {
+        for canvas in sliceCanvases { canvas.resetViewport() }
+        if interaction.layout.viewMode == .volume3D { interaction.alternate.resetCamera() }
+    }
+
+    fileprivate func copyCurrentView() {
+        if !MIQExport.copyToPasteboard(gridLikeLayout) { NSSound.beep() }
+    }
+
+    // MARK: Keys
+
+    /// Single-key shortcuts (no ⌘/⌃/⌥). Returns false to let the key continue
+    /// up the responder chain.
+    fileprivate func handleInteractionKey(_ event: NSEvent) -> Bool {
+        if event.keyCode == Self.spaceKeyCode {
+            // Tracked for Space-drag panning but never consumed.
+            MIQPanKeyState.spaceHeld = true
+            return false
+        }
+        guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
+        if event.keyCode == Self.escapeKeyCode {
+            guard interaction.layout.maximized != nil else { return false }
+            interaction.restoreLayout()
+            return true
+        }
+        guard let key = event.charactersIgnoringModifiers?.lowercased(), key.count == 1 else { return false }
+        if let digit = Int(key) {
+            if digit == 0 {
+                resetZoom()
+                return true
+            }
+            guard interaction.presetShortcutsEnabled,
+                  let preset = WindowPresetShortcuts.preset(forDigit: digit) else { return false }
+            interaction.applyPreset(preset)
+            return true
+        }
+        switch key {
+        case "a":
+            guard interaction.traits?.isScalar == true else { return false }
+            interaction.applyPreset(.auto)
+        case "c":
+            guard interaction.colormapAvailable else { return false }
+            interaction.cycleColormap()
+        case "m":
+            interaction.toggleMetadata()
+        case "p":
+            interaction.cycleViewMode()
+        case "o":
+            guard interaction.overlay?.labelLut != nil else { return false }
+            interaction.toggleOverlayOutline()
+        case "d":
+            guard interaction.decAvailable else { return false }
+            interaction.toggleDEC()
+        case "r":
+            guard interaction.layout.viewMode == .volume3D else { return false }
+            interaction.alternate.cycleRenderMode()
+        case "[":
+            guard interaction.hasOverlay else { return false }
+            interaction.stepOverlayOpacity(-2)
+        case "]":
+            guard interaction.hasOverlay else { return false }
+            interaction.stepOverlayOpacity(2)
+        default:
+            return false
+        }
+        return true
+    }
+
+    // MARK: Context menu
+
+    fileprivate func showContextMenu(for panel: PreviewPanel, event: NSEvent, in view: NSView) {
+        focusForKeyboard()
+        NSMenu.popUpContextMenu(buildContextMenu(for: panel), with: event, for: view)
+    }
+
+    fileprivate func buildContextMenu(for panel: PreviewPanel) -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let layout = interaction.layout
+        let traits = interaction.traits
+
+        // Layout
+        let panelName = panel.plane.map(PreviewAccessibility.planeName) ?? layout.viewMode.displayName
+        if layout.maximized == panel {
+            menu.addItem(item("Restore Layout", .toggleMaximize(panel)))
+        } else if panel != .auxiliary || layout.showsAlternateView {
+            menu.addItem(item("Maximize \(panelName)", .toggleMaximize(panel)))
+        }
+        if let canvas = canvas(for: panel), !canvas.viewport.isIdentity {
+            menu.addItem(item("Reset Zoom", .resetZoom(panel), key: "0"))
+        }
+
+        // Window / level
+        if traits?.isScalar == true, interaction.decAvailable == false || !interaction.decEnabled {
+            menu.addItem(.separator())
+            let manual = currentModel?.hasManualWindow ?? false
+            menu.addItem(item("Auto Window", .preset(.auto), key: "a", checked: !manual))
+            let presetItems = WindowPreset.fixedPresets.map { preset -> NSMenuItem in
+                let digit = interaction.presetShortcutsEnabled ? WindowPresetShortcuts.digit(for: preset).map(String.init) ?? "" : ""
+                return item(
+                    "\(preset.displayName)  \(preset.bounds?.widthLevelLabel ?? "")",
+                    .preset(preset),
+                    key: digit,
+                    checked: manual && interaction.activePreset == preset
+                )
+            }
+            if interaction.presetShortcutsEnabled {
+                for presetItem in presetItems { menu.addItem(presetItem) }
+            } else {
+                menu.addItem(submenu("CT Window Presets", presetItems))
+            }
+        }
+
+        // Colour map
+        if interaction.colormapAvailable {
+            let maps = interaction.colormapOptions.map { map in
+                item(ColormapCycle.displayName(map), .colormap(map), checked: map == interaction.colormap)
+            }
+            menu.addItem(submenu("Colormap (C)", maps))
+        }
+        if interaction.decAvailable {
+            menu.addItem(item("Direction-Encoded Colour", .toggleDEC, key: "d", checked: interaction.decEnabled))
+        }
+
+        // Fourth panel
+        let modes = interaction.availableViewModes
+        if modes.count > 1 {
+            menu.addItem(.separator())
+            let modeItems = modes.map { mode in
+                item(mode == .slices ? "Metadata" : mode.displayName, .viewMode(mode), checked: mode == layout.viewMode)
+            }
+            menu.addItem(submenu("Fourth Panel (P / M)", modeItems))
+            if layout.viewMode == .volume3D {
+                let alternate = interaction.alternate
+                let renderModes = VolumeRenderModeCycle.available(isLabelVolume: alternate.isLabelVolume)
+                if renderModes.count > 1 {
+                    for mode in renderModes {
+                        menu.addItem(item("3D: \(VolumeRenderModeCycle.displayName(mode))", .renderMode(mode), checked: mode == alternate.renderMode))
+                    }
+                }
+                menu.addItem(item("Reset 3D View", .resetCamera, key: "0"))
+            }
+        }
+
+        // Overlays (only when the sibling listing was allowed)
+        let candidates = interaction.overlayCandidates ?? []
+        if !candidates.isEmpty || interaction.hasOverlay {
+            menu.addItem(.separator())
+            for candidate in candidates {
+                let loading = interaction.loadingOverlay == candidate
+                let active = interaction.overlay?.candidate == candidate || interaction.fractionalAnisotropyName == candidate.fileName
+                let title = loading ? candidate.menuTitle + " (loading…)" : candidate.menuTitle
+                menu.addItem(item(title, .overlay(candidate), checked: active, enabled: !loading))
+            }
+            if interaction.hasOverlay || interaction.fractionalAnisotropyName != nil {
+                menu.addItem(item("Remove Overlay", .removeOverlay))
+            }
+            if interaction.overlay?.labelLut != nil {
+                menu.addItem(item("Outline Labels", .toggleOutline, key: "o", checked: interaction.overlayOutlineOnly))
+            }
+            if interaction.hasOverlay {
+                let current = interaction.overlayOpacity
+                let levels: [Float] = [0.25, 0.5, 0.75, 1]
+                let nearest = levels.min { abs($0 - current) < abs($1 - current) }
+                let opacityItems = levels.map { level in
+                    item("\(Int(level * 100))%", .opacity(level), checked: level == nearest)
+                }
+                menu.addItem(submenu("Overlay Opacity", opacityItems))
+            }
+        }
+
+        menu.addItem(.separator())
+        let copy = item("Copy Image", .copy, key: "c")
+        copy.keyEquivalentModifierMask = .command
+        menu.addItem(copy)
+        return menu
+    }
+
+    private func item(
+        _ title: String,
+        _ command: MenuCommand,
+        key: String = "",
+        checked: Bool = false,
+        enabled: Bool = true
+    ) -> NSMenuItem {
+        let menuItem = NSMenuItem(title: title, action: #selector(performMenuCommand(_:)), keyEquivalent: key)
+        menuItem.keyEquivalentModifierMask = []
+        menuItem.target = self
+        menuItem.representedObject = MIQMenuCommandBox(command)
+        menuItem.state = checked ? .on : .off
+        menuItem.isEnabled = enabled
+        return menuItem
+    }
+
+    private func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let sub = NSMenu(title: title)
+        sub.autoenablesItems = false
+        for subItem in items { sub.addItem(subItem) }
+        parent.submenu = sub
+        return parent
+    }
+
+    @objc fileprivate func performMenuCommand(_ sender: NSMenuItem) {
+        guard let box = sender.representedObject as? MIQMenuCommandBox else { return }
+        switch box.command {
+        case .toggleMaximize(let panel):
+            if interaction.layout.maximized == panel {
+                interaction.restoreLayout()
+            } else {
+                interaction.toggleMaximize(panel)
+            }
+        case .resetZoom(let panel):
+            canvas(for: panel)?.resetViewport()
+        case .preset(let preset):
+            interaction.applyPreset(preset)
+        case .colormap(let map):
+            interaction.setColormap(map)
+        case .viewMode(let mode):
+            interaction.setViewMode(mode)
+        case .renderMode(let mode):
+            interaction.alternate.setRenderMode(mode)
+        case .resetCamera:
+            interaction.alternate.resetCamera()
+        case .overlay(let candidate):
+            interaction.loadOverlay(candidate)
+        case .removeOverlay:
+            interaction.removeOverlay()
+        case .toggleOutline:
+            interaction.toggleOverlayOutline()
+        case .opacity(let value):
+            interaction.setOverlayOpacity(value)
+        case .toggleDEC:
+            interaction.toggleDEC()
+        case .copy:
+            copyCurrentView()
+        }
     }
 }
 
@@ -1308,6 +1790,30 @@ private final class MIQVolumeScrubber: NSView {
         let fraction = (clamped - track.minX) / span
         let target = Int((fraction * CGFloat(count - 1)).rounded())
         if target != index { onScrub?(target) }
+    }
+}
+
+// MARK: - Scrubber accessibility (ui-interaction)
+//
+// VoiceOver sees the 4D scrubber as an adjustable slider ("Volume 3 of 20");
+// increment / decrement step one timepoint through the same seek callback a
+// click uses.
+extension MIQVolumeScrubber {
+    override func isAccessibilityElement() -> Bool { !isHidden && count > 1 }
+    override func accessibilityRole() -> NSAccessibility.Role? { .slider }
+    override func accessibilityLabel() -> String? { "Volumes" }
+    override func accessibilityValue() -> Any? {
+        PreviewAccessibility.volumeValue(index: index, count: count)
+    }
+    override func accessibilityPerformIncrement() -> Bool {
+        guard index + 1 < count else { return false }
+        onScrub?(index + 1)
+        return true
+    }
+    override func accessibilityPerformDecrement() -> Bool {
+        guard index > 0 else { return false }
+        onScrub?(index - 1)
+        return true
     }
 }
 

@@ -1364,10 +1364,26 @@ struct ContentView: View {
     }
 
     /// The single reference for the preview's input model — keep it in sync
-    /// with MIQSliceCanvas, MIQVolumeScrubber, ScrollStepResolver and the
-    /// model's cursor/volume methods.
+    /// with MIQSliceCanvas, MIQVolumeScrubber, ScrollStepResolver, the
+    /// model's cursor/volume methods and the preview's key handling
+    /// (MIQPreviewAppKitView.handleInteractionKey).
     private var controlsPane: some View {
         let trackpad = inputDevice == .trackpad
+        // Key, action. Keys act once a slice has been clicked (keyboard focus).
+        let shortcuts: [(key: String, action: String)] = [
+            ("1 – 6", "CT window presets: Brain, Subdural, Stroke, Bone, Lung, Soft Tissue"),
+            ("A", "Automatic window"),
+            ("C", "Next colormap (grayscale, hot, viridis, inferno)"),
+            ("P", "Fourth panel: Metadata → MIP → MinIP → 3D"),
+            ("M", "Metadata ⇄ the last MIP / MinIP / 3D view"),
+            ("O", "Overlay labels: outline ⇄ filled"),
+            ("[  ]", "Overlay opacity (also ⌥ + scroll on 3D images)"),
+            ("D", "Direction-encoded colour on/off (diffusion vectors)"),
+            ("R", "3D rendering mode"),
+            ("0", "Reset zoom and the 3D view"),
+            ("Esc", "Restore the four panels"),
+            ("⌘C", "Copy the current view as an image"),
+        ]
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Text("Show gestures for")
@@ -1381,38 +1397,91 @@ struct ContentView: View {
                 .labelsHidden()
                 .fixedSize()
             }
-            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                GridRow {
-                    GestureCard(
-                        title: "Move the crosshair",
-                        systemImage: "dot.scope",
-                        gesture: trackpad ? "Click, tap or one-finger drag" : "Click or drag"
-                    )
-                    GestureCard(
-                        title: "Scroll through slices",
-                        systemImage: "square.stack",
-                        gesture: trackpad ? "Two-finger scroll" : "Scroll wheel"
-                    )
-                }
-                GridRow {
-                    GestureCard(
-                        title: "Adjust brightness & contrast",
-                        systemImage: "circle.lefthalf.filled",
-                        gesture: "Secondary-click + drag",
-                        note: "Up/down changes brightness (level), left/right changes contrast (window)."
-                    )
-                    GestureCard(
-                        title: "Change volume (4D)",
-                        systemImage: "square.stack.3d.down.forward",
-                        gesture: trackpad ? "Two-finger scroll" : "Scroll wheel",
-                        modifierKey: "⌥",
-                        note: "Over any slice or the metadata panel. Or drag the Volumes slider in the metadata panel, or click anywhere on it."
-                    )
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                        GridRow {
+                            GestureCard(
+                                title: "Move the crosshair",
+                                systemImage: "dot.scope",
+                                gesture: trackpad ? "Click, tap or one-finger drag" : "Click or drag"
+                            )
+                            GestureCard(
+                                title: "Scroll through slices",
+                                systemImage: "square.stack",
+                                gesture: trackpad ? "Two-finger scroll" : "Scroll wheel"
+                            )
+                        }
+                        GridRow {
+                            GestureCard(
+                                title: "Adjust brightness & contrast",
+                                systemImage: "circle.lefthalf.filled",
+                                gesture: "Secondary-click + drag",
+                                note: "Up/down changes brightness (level), left/right changes contrast (window)."
+                            )
+                            GestureCard(
+                                title: "Change volume (4D)",
+                                systemImage: "square.stack.3d.down.forward",
+                                gesture: trackpad ? "Two-finger scroll" : "Scroll wheel",
+                                modifierKey: "⌥",
+                                note: "Over any slice or the metadata panel. Or drag the Volumes slider in the metadata panel, or click anywhere on it."
+                            )
+                        }
+                        GridRow {
+                            GestureCard(
+                                title: "Zoom & pan",
+                                systemImage: "plus.magnifyingglass",
+                                gesture: trackpad ? "Pinch" : "Scroll wheel",
+                                modifierKey: trackpad ? nil : "⌘",
+                                note: trackpad
+                                    ? "Pinch (or ⌘ + scroll) zooms around the pointer. Zoomed in, two-finger scroll or ⇧-drag pans. Press 0 to reset."
+                                    : "Zooms around the pointer. Zoomed in, ⇧-drag, Space-drag or middle-drag pans; the wheel still changes slices. Press 0 to reset."
+                            )
+                            GestureCard(
+                                title: "Maximize a panel",
+                                systemImage: "arrow.up.left.and.arrow.down.right",
+                                gesture: "Double-click",
+                                note: "Double-click again, or press Esc, to restore the four panels. On a zoomed panel the first double-click resets the zoom."
+                            )
+                        }
+                        GridRow {
+                            GestureCard(
+                                title: "Presets, colormaps & more",
+                                systemImage: "contextualmenu.and.cursorarrow",
+                                gesture: "Secondary-click",
+                                note: "Or ⌃-click. Window presets, colormaps, overlays, the fourth panel (MIP, MinIP, 3D) and Copy Image."
+                            )
+                            GestureCard(
+                                title: "Rotate the 3D view",
+                                systemImage: "rotate.3d",
+                                gesture: trackpad ? "Drag; pinch to zoom" : "Drag; scroll to zoom",
+                                note: "In the 3D fourth panel (press P to get there). R switches between MIP and DVR."
+                            )
+                        }
+                    }
+                    // Only as tall as its content; the cards' maxHeight then just
+                    // equalises the two cards in a row instead of filling the pane.
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    GroupBox("Keyboard (click a slice first)") {
+                        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+                            ForEach(shortcuts.indices, id: \.self) { index in
+                                GridRow {
+                                    Text(shortcuts[index].key)
+                                        .fontWeight(.semibold)
+                                        .monospacedDigit()
+                                        .gridColumnAlignment(.trailing)
+                                    Text(shortcuts[index].action)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .font(.callout)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
-            // Only as tall as its content; the cards' maxHeight then just
-            // equalises the two cards in a row instead of filling the pane.
-            .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
     }
