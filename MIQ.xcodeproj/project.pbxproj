@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4B3A00000000000000000002 /* BrainMaskTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000001 /* BrainMaskTool.swift */; };
+		4B3A00000000000000000004 /* mindgrab in Resources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000003 /* mindgrab */; };
+		4B3A00000000000000000006 /* model5_gw_ae in Resources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000005 /* model5_gw_ae */; };
+		4B3A00000000000000000008 /* LICENSE-brainchop in Resources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000007 /* LICENSE-brainchop */; };
 		5EC0A0000000000000000002 /* CaptionFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC0A0000000000000000001 /* CaptionFeature.swift */; };
 		5E77A000000000000000000F /* SampleIntensity.window.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E77A000000000000000000E /* SampleIntensity.window.json */; };
 		5E77A0000000000000000011 /* SampleLabels.window.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E77A0000000000000000010 /* SampleLabels.window.json */; };
@@ -101,6 +105,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4B3A00000000000000000001 /* BrainMaskTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainMaskTool.swift; sourceTree = "<group>"; };
+		4B3A00000000000000000003 /* mindgrab */ = {isa = PBXFileReference; lastKnownFileType = folder; path = mindgrab; sourceTree = "<group>"; };
+		4B3A00000000000000000005 /* model5_gw_ae */ = {isa = PBXFileReference; lastKnownFileType = folder; path = model5_gw_ae; sourceTree = "<group>"; };
+		4B3A00000000000000000007 /* LICENSE-brainchop */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-brainchop"; sourceTree = "<group>"; };
 		5EC0A0000000000000000001 /* CaptionFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionFeature.swift; sourceTree = "<group>"; };
 		5E77A000000000000000000E /* SampleIntensity.window.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SampleIntensity.window.json; sourceTree = "<group>"; };
 		5E77A0000000000000000010 /* SampleLabels.window.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SampleLabels.window.json; sourceTree = "<group>"; };
@@ -181,6 +189,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4B3A00000000000000000009 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				4B3A00000000000000000003 /* mindgrab */,
+				4B3A00000000000000000005 /* model5_gw_ae */,
+				4B3A00000000000000000007 /* LICENSE-brainchop */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		5E77A0000000000000000006 /* SettingsSamples */ = {
 			isa = PBXGroup;
 			children = (
@@ -204,6 +222,7 @@
 			isa = PBXGroup;
 			children = (
 				5EC0A0000000000000000001 /* CaptionFeature.swift */,
+				4B3A00000000000000000001 /* BrainMaskTool.swift */,
 				00FF4BD21CCF016F9EE93B3D /* ContentView.swift */,
 				1069830D6ED40B3AB5757858 /* Info.plist */,
 				38D75F862B31E42F5A44BD93 /* MIQ.entitlements */,
@@ -259,6 +278,7 @@
 			isa = PBXGroup;
 			children = (
 				295F76FA9C1925A5383F55EA /* MIQApp */,
+				4B3A00000000000000000009 /* Models */,
 				0ED64C3613347F16C87F4D91 /* Packages */,
 				6BD9CA3ED049BC872048F4E5 /* MIQQuickLookExtension */,
 				BB100000000000000000A010 /* MIQThumbnailExtension */,
@@ -432,6 +452,9 @@
 				5E77A000000000000000000A /* SampleLabels.nii.gz in Resources */,
 				5E77A000000000000000000F /* SampleIntensity.window.json in Resources */,
 				5E77A0000000000000000011 /* SampleLabels.window.json in Resources */,
+				4B3A00000000000000000004 /* mindgrab in Resources */,
+				4B3A00000000000000000006 /* model5_gw_ae in Resources */,
+				4B3A00000000000000000008 /* LICENSE-brainchop in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -452,6 +475,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5EC0A0000000000000000002 /* CaptionFeature.swift in Sources */,
+				4B3A00000000000000000002 /* BrainMaskTool.swift in Sources */,
 				1525C5A90753349409A6DC7B /* ContentView.swift in Sources */,
 				E9D1739EF930782E62D9FE97 /* MIQApp.swift in Sources */,
 				0F5A0000000000000000A005 /* UpdaterController.swift in Sources */,
