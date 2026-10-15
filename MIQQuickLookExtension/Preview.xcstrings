@@ -1,0 +1,1930 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ (%@, heuristic)" : {
+      "comment" : "Data QC summary.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@, heuristisch)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@, sezgisel)"
+          }
+        }
+      }
+    },
+    "%@ (heuristic)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (heuristisch)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (sezgisel)"
+          }
+        }
+      }
+    },
+    "%@ (loading…)" : {
+      "comment" : "Overlay menu item while the overlay loads.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (wird geladen …)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (yükleniyor…)"
+          }
+        }
+      }
+    },
+    "%@ is %@ in iCloud (not downloaded).\nLoading it now downloads the whole file, which could make Finder unresponsive." : {
+      "comment" : "Deferred-preview placeholder; %1$@ is the file name, %2$@ its size.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ist %2$@ groß und liegt in iCloud (nicht geladen).\nBeim Laden wird die ganze Datei heruntergeladen; der Finder reagiert dann möglicherweise nicht."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, iCloud’da %2$@ boyutunda (indirilmemiş).\nŞimdi yüklemek tüm dosyayı indirir; bu da Finder’ın yanıt vermemesine yol açabilir."
+          }
+        }
+      }
+    },
+    "%@ is %@ on a network volume.\nLoading it now could make Finder unresponsive while it transfers." : {
+      "comment" : "Deferred-preview placeholder; %1$@ is the file name, %2$@ its size.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ist %2$@ groß und liegt auf einem Netzwerkvolume.\nBeim Laden reagiert der Finder während der Übertragung möglicherweise nicht."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, bir ağ biriminde %2$@ boyutunda.\nŞimdi yüklemek, aktarım sürerken Finder’ın yanıt vermemesine yol açabilir."
+          }
+        }
+      }
+    },
+    "%@ metrics" : {
+      "comment" : "Data QC summary.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Metriken"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ metrik"
+          }
+        }
+      }
+    },
+    "%@ of %@ metrics flagged" : {
+      "comment" : "Data QC summary.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ von %2$@ Metriken auffällig"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ metrikten %1$@ tanesi işaretli"
+          }
+        }
+      }
+    },
+    "%@ slice" : {
+      "comment" : "Accessibility label of a slice panel; %@ is Axial / Coronal / Sagittal.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@-Schicht"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kesit"
+          }
+        }
+      }
+    },
+    "%@ slice %@ of %@" : {
+      "comment" : "Accessibility; %1$@ plane, %2$@ index, %3$@ count.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, Schicht %2$@ von %3$@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ kesit %2$@ / %3$@"
+          }
+        }
+      }
+    },
+    "%@ slice %@ of %@, window %@" : {
+      "comment" : "Accessibility; %1$@ plane, %2$@ index, %3$@ count, %4$@ W/L text.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, Schicht %2$@ von %3$@, Fenster %4$@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ kesit %2$@ / %3$@, pencere %4$@"
+          }
+        }
+      }
+    },
+    "%@ spike frames" : {
+      "comment" : "fMRI temporal QC.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Spike-Frames"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ani artış karesi"
+          }
+        }
+      }
+    },
+    ".bval has %@ entries for %@ volumes" : {
+      "comment" : "Diffusion sidecar warning.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".bval hat %1$@ Einträge für %2$@ Volumina"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".bval dosyasında %2$@ hacim için %1$@ girdi var"
+          }
+        }
+      }
+    },
+    "1 spike frame" : {
+      "comment" : "fMRI temporal QC.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 Spike-Frame"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 ani artış karesi"
+          }
+        }
+      }
+    },
+    "3D" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3B"
+          }
+        }
+      }
+    },
+    "3D: %@" : {
+      "comment" : "Context menu; %@ is MIP / DVR / Labels.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3B: %@"
+          }
+        }
+      }
+    },
+    "As stored" : {
+      "comment" : "Display-mode badge: voxels in file order.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie gespeichert"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaydedildiği gibi"
+          }
+        }
+      }
+    },
+    "Atypical" : {
+      "comment" : "QC level.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Untypisch"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atipik"
+          }
+        }
+      }
+    },
+    "Auto" : {
+      "comment" : "Window preset.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otomatik"
+          }
+        }
+      }
+    },
+    "Auto Window" : {
+      "comment" : "Context menu: automatic window/level.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisches Fenster"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otomatik pencere"
+          }
+        }
+      }
+    },
+    "Axial" : {
+      "comment" : "Slice plane.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Axial"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aksiyel"
+          }
+        }
+      }
+    },
+    "Background signal" : {
+      "comment" : "QC metric.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hintergrundsignal"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arka plan sinyali"
+          }
+        }
+      }
+    },
+    "Bone" : {
+      "comment" : "CT window preset.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Knochen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kemik"
+          }
+        }
+      }
+    },
+    "Borderline" : {
+      "comment" : "QC level.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grenzwertig"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sınırda"
+          }
+        }
+      }
+    },
+    "Brain" : {
+      "comment" : "CT window preset.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gehirn"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beyin"
+          }
+        }
+      }
+    },
+    "CT Window Presets" : {
+      "comment" : "Context submenu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CT-Fenstervorgaben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BT pencere ön ayarları"
+          }
+        }
+      }
+    },
+    "Colormap (C)" : {
+      "comment" : "Context submenu; C is the keyboard shortcut.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbtabelle (C)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renk haritası (C)"
+          }
+        }
+      }
+    },
+    "Computing…" : {
+      "comment" : "3D / projection tile while rendering.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird berechnet …"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hesaplanıyor…"
+          }
+        }
+      }
+    },
+    "Copy Image" : {
+      "comment" : "Context menu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild kopieren"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görüntüyü kopyala"
+          }
+        }
+      }
+    },
+    "Coronal" : {
+      "comment" : "Slice plane.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koronal"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koronal"
+          }
+        }
+      }
+    },
+    "Data QC" : {
+      "comment" : "Section title: heuristic data quality control.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daten-QC"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veri kalite kontrolü"
+          }
+        }
+      }
+    },
+    "Datatype" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datentyp"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veri türü"
+          }
+        }
+      }
+    },
+    "Description" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beschreibung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Açıklama"
+          }
+        }
+      }
+    },
+    "Diffusion" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diffusion"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Difüzyon"
+          }
+        }
+      }
+    },
+    "Dimensions" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abmessungen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boyutlar"
+          }
+        }
+      }
+    },
+    "Direction-Encoded Colour" : {
+      "comment" : "Context menu: diffusion direction-encoded colour (DEC).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Richtungskodierte Farbe"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yön kodlu renk"
+          }
+        }
+      }
+    },
+    "Display mode: %@" : {
+      "comment" : "Accessibility label of the display-mode badge; %@ is As stored / Neurological / Radiological.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Darstellungsmodus: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görüntüleme modu: %@"
+          }
+        }
+      }
+    },
+    "Diverging" : {
+      "comment" : "Colour map for signed statistics.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Divergierend"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iraksak"
+          }
+        }
+      }
+    },
+    "Face" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesicht"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yüz"
+          }
+        }
+      }
+    },
+    "Failed to decompress gzipped data." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die gzip-komprimierten Daten konnten nicht entpackt werden."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gzip ile sıkıştırılmış veriler açılamadı."
+          }
+        }
+      }
+    },
+    "File appears truncated." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Datei scheint abgeschnitten zu sein."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosya kesik görünüyor."
+          }
+        }
+      }
+    },
+    "Format" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biçim"
+          }
+        }
+      }
+    },
+    "Fourth Panel (P / M)" : {
+      "comment" : "Context submenu; P and M are keyboard shortcuts.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viertes Feld (P / M)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dördüncü panel (P / M)"
+          }
+        }
+      }
+    },
+    "Grayscale" : {
+      "comment" : "Colour map.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graustufen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gri tonlama"
+          }
+        }
+      }
+    },
+    "Head mask" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopfmaske"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baş maskesi"
+          }
+        }
+      }
+    },
+    "Header has no anatomical orientation — labels unknown" : {
+      "comment" : "Orientation warning.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Header enthält keine anatomische Ausrichtung – Beschriftungen unbekannt"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başlıkta anatomik yönelim yok — etiketler bilinmiyor"
+          }
+        }
+      }
+    },
+    "Image information" : {
+      "comment" : "Accessibility label of the metadata panel.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildinformationen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görüntü bilgileri"
+          }
+        }
+      }
+    },
+    "Intent" : {
+      "comment" : "NIfTI intent code; kept as the NIfTI term.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intent"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intent"
+          }
+        }
+      }
+    },
+    "Invalid NIfTI header size: %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ungültige NIfTI-Headergröße: %@."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geçersiz NIfTI başlık boyutu: %@."
+          }
+        }
+      }
+    },
+    "Invalid or missing image dimensions." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ungültige oder fehlende Bildabmessungen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geçersiz veya eksik görüntü boyutları."
+          }
+        }
+      }
+    },
+    "Labels" : {
+      "comment" : "3D render mode for segmentations.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Labels"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiketler"
+          }
+        }
+      }
+    },
+    "Likely present" : {
+      "comment" : "Face check.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wahrscheinlich vorhanden"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muhtemelen mevcut"
+          }
+        }
+      }
+    },
+    "Likely removed" : {
+      "comment" : "Face check (defaced).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wahrscheinlich entfernt"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muhtemelen kaldırılmış"
+          }
+        }
+      }
+    },
+    "Likely sequence" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vermutete Sequenz"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olası sekans"
+          }
+        }
+      }
+    },
+    "Load preview" : {
+      "comment" : "Button on the placeholder for a large network or iCloud file.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschau laden"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizlemeyi yükle"
+          }
+        }
+      }
+    },
+    "Loading image preview…" : {
+      "comment" : "Status line while the preview loads.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildvorschau wird geladen …"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görüntü önizlemesi yükleniyor…"
+          }
+        }
+      }
+    },
+    "Lung" : {
+      "comment" : "CT window preset.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lunge"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akciğer"
+          }
+        }
+      }
+    },
+    "MIF default" : {
+      "comment" : "Orientation transform source.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIF-Standard"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIF varsayılanı"
+          }
+        }
+      }
+    },
+    "MIF transform" : {
+      "comment" : "Orientation transform source.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIF-Transformation"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIF dönüşümü"
+          }
+        }
+      }
+    },
+    "Malformed file: %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fehlerhafte Datei: %@."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bozuk dosya: %@."
+          }
+        }
+      }
+    },
+    "Maximize %@" : {
+      "comment" : "Context menu; %@ is a panel name (Axial, Coronal, Sagittal, MIP, 3D).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ maximieren"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ panelini büyüt"
+          }
+        }
+      }
+    },
+    "MetaImage transform" : {
+      "comment" : "Orientation transform source.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MetaImage-Transformation"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MetaImage dönüşümü"
+          }
+        }
+      }
+    },
+    "Metadata" : {
+      "comment" : "Fourth-panel option showing the metadata panel.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metadaten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meta veriler"
+          }
+        }
+      }
+    },
+    "Modulate DEC by: %@" : {
+      "comment" : "Overlay menu; %@ is a fractional-anisotropy file name.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DEC modulieren mit: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DEC’yi şununla modüle et: %@"
+          }
+        }
+      }
+    },
+    "NRRD space" : {
+      "comment" : "Orientation transform source.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NRRD-Raum"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NRRD uzayı"
+          }
+        }
+      }
+    },
+    "Neurological" : {
+      "comment" : "Display-mode badge: patient right on screen right.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neurologisch"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nörolojik görünüm"
+          }
+        }
+      }
+    },
+    "No finite voxel values to display — the volume is entirely NaN or infinite." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine endlichen Voxelwerte zum Anzeigen – das Volumen enthält nur NaN- oder unendliche Werte."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gösterilecek sonlu voksel değeri yok — hacim tamamen NaN ya da sonsuz değerlerden oluşuyor."
+          }
+        }
+      }
+    },
+    "No warranty expressed or implied." : {
+      "comment" : "Metadata panel disclaimer.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine ausdrückliche oder stillschweigende Gewährleistung."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Açık veya örtülü hiçbir garanti verilmez."
+          }
+        }
+      }
+    },
+    "Not assessed" : {
+      "comment" : "QC level.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht bewertet"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Değerlendirilmedi"
+          }
+        }
+      }
+    },
+    "Not for clinical or diagnostic use." : {
+      "comment" : "Metadata panel disclaimer.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht für klinische oder diagnostische Zwecke."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klinik veya tanı amaçlı kullanım için değildir."
+          }
+        }
+      }
+    },
+    "Orientation" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausrichtung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yönelim"
+          }
+        }
+      }
+    },
+    "Outline Labels" : {
+      "comment" : "Context menu: draw segmentation labels as outlines.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Labels als Umriss"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiketleri dış hat olarak göster"
+          }
+        }
+      }
+    },
+    "Overlay Opacity" : {
+      "comment" : "Context submenu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deckkraft der Überlagerung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katman opaklığı"
+          }
+        }
+      }
+    },
+    "Overlay: %@" : {
+      "comment" : "Overlay menu; %@ is a file name.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Überlagerung: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katman: %@"
+          }
+        }
+      }
+    },
+    "Position" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Position"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konum"
+          }
+        }
+      }
+    },
+    "Preview failed: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschau fehlgeschlagen: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizleme başarısız: %@"
+          }
+        }
+      }
+    },
+    "Projection not available for this image" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für dieses Bild ist keine Projektion verfügbar"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu görüntü için projeksiyon kullanılamıyor"
+          }
+        }
+      }
+    },
+    "Provenance" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herkunft"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köken"
+          }
+        }
+      }
+    },
+    "Radiological" : {
+      "comment" : "Display-mode badge: patient right on screen left.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Radiologisch"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Radyolojik görünüm"
+          }
+        }
+      }
+    },
+    "Remove Overlay" : {
+      "comment" : "Context menu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Überlagerung entfernen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katmanı kaldır"
+          }
+        }
+      }
+    },
+    "Reset 3D View" : {
+      "comment" : "Context menu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D-Ansicht zurücksetzen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3B görünümü sıfırla"
+          }
+        }
+      }
+    },
+    "Reset Zoom" : {
+      "comment" : "Context menu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom zurücksetzen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yakınlaştırmayı sıfırla"
+          }
+        }
+      }
+    },
+    "Restore Layout" : {
+      "comment" : "Context menu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layout wiederherstellen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Düzeni geri yükle"
+          }
+        }
+      }
+    },
+    "SNR (air-based)" : {
+      "comment" : "QC metric.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SNR (luftbasiert)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SNR (hava tabanlı)"
+          }
+        }
+      }
+    },
+    "Sagittal" : {
+      "comment" : "Slice plane.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sagittal"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sagital"
+          }
+        }
+      }
+    },
+    "Scaling" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skalierung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ölçekleme"
+          }
+        }
+      }
+    },
+    "Slices" : {
+      "comment" : "Fourth-panel view mode.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schichten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kesitler"
+          }
+        }
+      }
+    },
+    "Soft Tissue" : {
+      "comment" : "CT window preset.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weichgewebe"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yumuşak doku"
+          }
+        }
+      }
+    },
+    "Spacing" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voxelgröße"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voksel aralığı"
+          }
+        }
+      }
+    },
+    "Stroke" : {
+      "comment" : "CT window preset.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schlaganfall"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İnme"
+          }
+        }
+      }
+    },
+    "TR mismatch: sidecar %@, header %@" : {
+      "comment" : "BIDS sidecar warning.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TR-Abweichung: Sidecar %1$@, Header %2$@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TR uyuşmazlığı: yan dosya %1$@, başlık %2$@"
+          }
+        }
+      }
+    },
+    "Too large for 4D in Quick Look (%@)" : {
+      "comment" : "%@ is a size such as 3.2 GB.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu groß für 4D in Quick Look (%@)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Look’ta 4D için çok büyük (%@)"
+          }
+        }
+      }
+    },
+    "Typical" : {
+      "comment" : "QC level.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Typisch"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipik"
+          }
+        }
+      }
+    },
+    "Underlay: %@" : {
+      "comment" : "Overlay menu; %@ is a file name.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterlage: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alt katman: %@"
+          }
+        }
+      }
+    },
+    "Unknown" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unbekannt"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bilinmiyor"
+          }
+        }
+      }
+    },
+    "Unsupported datatype code: %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht unterstützter Datentyp-Code: %@."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desteklenmeyen veri türü kodu: %@."
+          }
+        }
+      }
+    },
+    "Unsupported feature: %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht unterstützte Funktion: %@."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desteklenmeyen özellik: %@."
+          }
+        }
+      }
+    },
+    "Unsupported file format version: %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht unterstützte Dateiformatversion: %@."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desteklenmeyen dosya biçimi sürümü: %@."
+          }
+        }
+      }
+    },
+    "Unsupported file format. Expected .nii, .nii.gz, .mgh, .mgz, .mgh.gz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha, .mhd, .dcm, or a .zarr store." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht unterstütztes Dateiformat. Erwartet: .nii, .nii.gz, .mgh, .mgz, .mgh.gz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha, .mhd, .dcm oder ein .zarr-Speicher."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desteklenmeyen dosya biçimi. Beklenen: .nii, .nii.gz, .mgh, .mgz, .mgh.gz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha, .mhd, .dcm veya bir .zarr deposu."
+          }
+        }
+      }
+    },
+    "Volume %@ of %@" : {
+      "comment" : "Accessibility value of the 4D scrubber.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumen %1$@ von %2$@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim %1$@ / %2$@"
+          }
+        }
+      }
+    },
+    "Volumes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumina"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacimler"
+          }
+        }
+      }
+    },
+    "Voxel value" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voxelwert"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voksel değeri"
+          }
+        }
+      }
+    },
+    "Warning: %@" : {
+      "comment" : "Spoken form of a metadata-panel warning.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warnung: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uyarı: %@"
+          }
+        }
+      }
+    },
+    "Window" : {
+      "comment" : "4D window mode row label.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fenster"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pencere"
+          }
+        }
+      }
+    },
+    "You can turn this off in MIQ Settings ▸ Image Display." : {
+      "comment" : "Hint under the Load preview button.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie können dies in den MIQ-Einstellungen ▸ Bilddarstellung ausschalten."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bunu MIQ Ayarları ▸ Görüntü Gösterimi bölümünden kapatabilirsiniz."
+          }
+        }
+      }
+    },
+    "decompressing…" : {
+      "comment" : "4D volume scrubber status.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wird entpackt …"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "açılıyor…"
+          }
+        }
+      }
+    },
+    "full load failed" : {
+      "comment" : "4D volume scrubber status.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vollständiges Laden fehlgeschlagen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tam yükleme başarısız"
+          }
+        }
+      }
+    },
+    "no spike frames" : {
+      "comment" : "fMRI temporal QC.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "keine Spike-Frames"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ani artış karesi yok"
+          }
+        }
+      }
+    },
+    "no transform" : {
+      "comment" : "Orientation transform source.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "keine Transformation"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dönüşüm yok"
+          }
+        }
+      }
+    },
+    "oblique %@" : {
+      "comment" : "Orientation summary; %@ is an angle such as 23°.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schräg %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eğik %@"
+          }
+        }
+      }
+    },
+    "per volume" : {
+      "comment" : "4D window mode.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pro Volumen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "hacim başına"
+          }
+        }
+      }
+    },
+    "qform (%@) and sform (%@) disagree — other tools may orient this image differently" : {
+      "comment" : "Orientation warning; arguments are axis codes such as RAS.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "qform (%1$@) und sform (%2$@) widersprechen sich – andere Programme richten dieses Bild möglicherweise anders aus"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "qform (%1$@) ve sform (%2$@) uyuşmuyor — diğer araçlar bu görüntüyü farklı yönlendirebilir"
+          }
+        }
+      }
+    },
+    "qform and sform disagree on left/right — other tools may show this image flipped" : {
+      "comment" : "Orientation warning.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "qform und sform widersprechen sich bei links/rechts – andere Programme zeigen dieses Bild möglicherweise gespiegelt"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "qform ve sform sol/sağ konusunda uyuşmuyor — diğer araçlar bu görüntüyü ters çevrilmiş gösterebilir"
+          }
+        }
+      }
+    },
+    "qform and sform disagree — other tools may orient this image differently" : {
+      "comment" : "Orientation warning.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "qform und sform widersprechen sich – andere Programme richten dieses Bild möglicherweise anders aus"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "qform ve sform uyuşmuyor — diğer araçlar bu görüntüyü farklı yönlendirebilir"
+          }
+        }
+      }
+    },
+    "shared" : {
+      "comment" : "4D window mode.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gemeinsam"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ortak"
+          }
+        }
+      }
+    },
+    "tSNR (median)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tSNR (Median)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tSNR (medyan)"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

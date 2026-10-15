@@ -47,7 +47,7 @@ final class MIQAlternateViewRenderer {
     private var projectionCache: [ProjectionKey: NSImage] = [:]
     private var projectionOrder: [ProjectionKey] = []
     private static let projectionCacheLimit = 12
-    private static let projectionUnavailable = "Projection not available for this image"
+    private static let projectionUnavailable = String(localized: "Projection not available for this image", table: "Preview")
     private var projectionTask: Task<Void, Never>?
     private var projectionTaskKey: ProjectionKey?
     /// Projections that came back empty (RGB data): not retried per scroll step.
@@ -137,7 +137,7 @@ final class MIQAlternateViewRenderer {
 
     private func updateProjection(plane: SlicePlane, mode: ProjectionMode, snapshot: MIQInteractionSnapshot, colormap: Colormap) {
         let key = ProjectionKey(plane: plane, mode: mode, t: snapshot.cursor.t, colormap: colormap, generation: snapshot.generation)
-        caption = "\(mode.displayName) · \(PreviewAccessibility.planeName(plane))"
+        caption = PreviewL10n.core("\(mode.displayName) · \(PreviewAccessibility.planeName(plane))")
         smoothsImage = false
         if let cached = projectionCache[key] {
             cancelProjection()
@@ -269,7 +269,7 @@ final class MIQAlternateViewRenderer {
     }
 
     private func updateCaption3D() {
-        caption = "3D · \(VolumeRenderModeCycle.displayName(renderMode))"
+        caption = PreviewL10n.core("3D · \(VolumeRenderModeCycle.displayName(renderMode))")
     }
 
     /// Debounced render: cancels the previous frame, shows a quick low-res

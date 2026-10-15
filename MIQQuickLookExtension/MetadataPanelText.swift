@@ -20,9 +20,9 @@ enum MetadataPanelText {
 
     /// Labels drawn by the preview's overlays rather than by the text, still
     /// measured when sizing the label column.
-    static let volumesRowLabel = "Volumes"
-    static let valueRowLabel = "Voxel value"
-    static let positionRowLabel = MetadataField.voxelPosition.displayLabel
+    static let volumesRowLabel = PreviewL10n.core(MetadataField.volumes.displayLabel)
+    static let valueRowLabel = PreviewL10n.core(MetadataField.value.displayLabel)
+    static let positionRowLabel = PreviewL10n.core(MetadataField.voxelPosition.displayLabel)
     /// Prefix of every warning line (text presentation selector: a monochrome
     /// glyph that takes the warning colour instead of an emoji).
     static let warningPrefix = "\u{26A0}\u{FE0E} "
@@ -117,7 +117,9 @@ enum MetadataPanelText {
         // empty line of identical height: the matching overlay draws over exactly
         // that slot, every other line keeps its position. For the Volumes case
         // the live value renders inside the scrubber instead.
-        var rows: [Row] = warnings.map { Row(label: "", value: warningPrefix + singleLine($0), style: .warning) }
+        var rows: [Row] = warnings.map {
+            Row(label: "", value: warningPrefix + singleLine(PreviewL10n.core($0)), style: .warning)
+        }
         var volumesLineIndex: Int?
         var valueLineIndex: Int?
         var positionLineIndex: Int?
@@ -127,7 +129,10 @@ enum MetadataPanelText {
                 volumesLineIndex = rows.count
                 rows.append(Row(label: "", value: ""))
                 if let volumesWindowText {
-                    rows.append(Row(label: PreviewDataSummaries.windowModeLabel, value: volumesWindowText))
+                    rows.append(Row(
+                        label: PreviewL10n.core(PreviewDataSummaries.windowModeLabel),
+                        value: PreviewL10n.core(volumesWindowText)
+                    ))
                 }
             } else if entry.field == .value, staticValueText == nil {
                 valueLineIndex = rows.count
@@ -140,17 +145,20 @@ enum MetadataPanelText {
                 // panel rather than joining the column, whose width it would
                 // otherwise drive — "DEBUG BUILD" is wider than any shipping label,
                 // so a Debug build would misrepresent Release geometry.
-                rows.append(Row(label: "", value: entry.text))
+                rows.append(Row(label: "", value: localizedText(entry)))
             } else {
-                rows.append(Row(label: singleLine(entry.label), value: singleLine(entry.value)))
+                rows.append(Row(label: singleLine(localizedLabel(entry)), value: singleLine(localizedValue(entry))))
             }
         }
         for section in appendix where !section.entries.isEmpty {
             if let title = section.title {
-                rows.append(Row(label: "", value: singleLine(title), style: .subheading))
+                rows.append(Row(label: "", value: singleLine(PreviewL10n.core(title)), style: .subheading))
             }
             for entry in section.entries {
-                rows.append(Row(label: singleLine(entry.label), value: singleLine(entry.value)))
+                rows.append(Row(
+                    label: singleLine(PreviewL10n.core(entry.label)),
+                    value: singleLine(PreviewL10n.core(entry.value))
+                ))
             }
         }
         return Layout(
@@ -168,6 +176,28 @@ enum MetadataPanelText {
         return text.split(whereSeparator: \.isNewline).joined(separator: " ")
     }
 
+    /// A row label in the user's language: MIQCore's English field labels and
+    /// QC labels go through the Preview catalog; untranslated ones (TR, BIDS,
+    /// DICOM attribute names) come back as is.
+    private static func localizedLabel(_ entry: MetadataEntry) -> String {
+        PreviewL10n.core(entry.label)
+    }
+
+    /// A row value in the user's language — only for rows whose value is
+    /// MIQCore prose (the orientation summary, an "Unknown" format). Header
+    /// values (dimensions, datatype, intent names, sidecar text) stay verbatim.
+    private static func localizedValue(_ entry: MetadataEntry) -> String {
+        switch entry.field {
+        case .orientation, .format: return PreviewL10n.core(entry.value)
+        default: return entry.value
+        }
+    }
+
+    /// `entry.text` with its label translated (spanning rows: the debug stamp).
+    private static func localizedText(_ entry: MetadataEntry) -> String {
+        entry.label.isEmpty ? entry.value : "\(localizedLabel(entry)): \(entry.value)"
+    }
+
     /// Plain-text rendering of `rows` for VoiceOver: "Label: value" per row;
     /// a reserved (overlay-drawn) row is replaced by `reserved(index)`, or
     /// skipped when that returns `nil`.
@@ -178,7 +208,8 @@ enum MetadataPanelText {
                 if let text = reserved(index) { lines.append(text) }
             } else if row.label.isEmpty {
                 if row.style == .warning {
-                    lines.append("Warning: " + row.value.replacingOccurrences(of: warningPrefix, with: ""))
+                    let warning = row.value.replacingOccurrences(of: warningPrefix, with: "")
+                    lines.append(String(localized: "Warning: \(warning)", table: "Preview"))
                 } else {
                     lines.append(row.value)
                 }
@@ -292,8 +323,8 @@ enum MetadataPanelText {
                 .font: disclaimerFont,
                 .foregroundColor: disclaimerColor
             ]
-            result.append(NSAttributedString(string: "\nNot for clinical or diagnostic use.", attributes: firstLineAttrs))
-            result.append(NSAttributedString(string: "\nNo warranty expressed or implied.", attributes: secondLineAttrs))
+            result.append(NSAttributedString(string: "\n" + String(localized: "Not for clinical or diagnostic use.", table: "Preview"), attributes: firstLineAttrs))
+            result.append(NSAttributedString(string: "\n" + String(localized: "No warranty expressed or implied.", table: "Preview"), attributes: secondLineAttrs))
         }
 
         return result

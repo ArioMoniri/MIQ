@@ -26,7 +26,7 @@ private enum Metrics {
 }
 
 final class MIQPreviewAppKitView: NSView {
-    private static let loadingStatusText = "Loading image preview..."
+    private static let loadingStatusText = String(localized: "Loading image preview…", table: "Preview")
 
     private struct MetadataRenderInputs {
         let entries: [MetadataEntry]
@@ -79,7 +79,7 @@ final class MIQPreviewAppKitView: NSView {
     // "Load preview" button that triggers the (throttled, cancelable) full read.
     private let deferredPlaceholder = NSView()
     private let deferredLabel = NSTextField(wrappingLabelWithString: "")
-    private let deferredButton = NSButton(title: "Load preview", target: nil, action: nil)
+    private let deferredButton = NSButton(title: String(localized: "Load preview", table: "Preview"), target: nil, action: nil)
     private let deferredHint = NSTextField(wrappingLabelWithString: "")
     private var columnRatioConstraint: NSLayoutConstraint?
     private var rowRatioConstraint: NSLayoutConstraint?
@@ -217,13 +217,13 @@ final class MIQPreviewAppKitView: NSView {
             // The model's message is display-ready ("Preview failed: …", or an
             // unsupported-feature reason verbatim).
             deferredPlaceholder.isHidden = true
-            status.stringValue = message
+            status.stringValue = PreviewL10n.core(message)
             status.isHidden = false
         case .noFiniteVoxels:
             // Not phrased as a failure — the file parsed fine. The metadata panel
             // stays populated alongside, which is what shows it is intact.
             deferredPlaceholder.isHidden = true
-            status.stringValue = "No finite voxel values to display — the volume is entirely NaN or infinite."
+            status.stringValue = String(localized: "No finite voxel values to display — the volume is entirely NaN or infinite.", table: "Preview")
             status.isHidden = false
         case .ready:
             deferredPlaceholder.isHidden = true
@@ -382,10 +382,10 @@ final class MIQPreviewAppKitView: NSView {
     }
 
     private func updateDisplayModeBadge(_ mode: ViewOrientation, visible: Bool) {
-        let text = mode.badgeLabel
+        let text = PreviewL10n.core(mode.badgeLabel)
         if displayModeBadge.stringValue != text {
             displayModeBadge.stringValue = text
-            displayModeBadge.setAccessibilityLabel("Display mode: \(text)")
+            displayModeBadge.setAccessibilityLabel(String(localized: "Display mode: \(text)", table: "Preview"))
         }
         // Only once there is an image to qualify (not over the loading text).
         if displayModeBadge.isHidden == visible { displayModeBadge.isHidden = !visible }
@@ -589,7 +589,7 @@ final class MIQPreviewAppKitView: NSView {
         // black background in both the dark space window and the light Finder pane.
         deferredButton.bezelColor = .controlAccentColor
         deferredButton.attributedTitle = NSAttributedString(
-            string: "Load preview",
+            string: String(localized: "Load preview", table: "Preview"),
             attributes: [
                 .foregroundColor: NSColor.white,
                 .font: NSFont.systemFont(ofSize: 13, weight: .medium)
@@ -604,7 +604,7 @@ final class MIQPreviewAppKitView: NSView {
         deferredHint.textColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
         deferredHint.maximumNumberOfLines = 0
         deferredHint.lineBreakMode = .byWordWrapping
-        deferredHint.stringValue = "You can turn this off in MIQ Settings ▸ Image Display."
+        deferredHint.stringValue = String(localized: "You can turn this off in MIQ Settings ▸ Image Display.", table: "Preview")
 
         deferredPlaceholder.addSubview(deferredLabel)
         deferredPlaceholder.addSubview(deferredButton)
@@ -629,7 +629,9 @@ final class MIQPreviewAppKitView: NSView {
 
     private func showDeferredPlaceholder(name: String, sizeBytes: Int, isDataless: Bool) {
         let size = ByteCountFormatter.string(fromByteCount: Int64(sizeBytes), countStyle: .file)
-        deferredLabel.stringValue = PreviewStatusText.deferredMessage(name: name, sizeText: size, isDataless: isDataless)
+        deferredLabel.stringValue = PreviewL10n.core(
+            PreviewStatusText.deferredMessage(name: name, sizeText: size, isDataless: isDataless)
+        )
         deferredPlaceholder.isHidden = false
         status.isHidden = true
     }
@@ -905,11 +907,12 @@ extension MIQPreviewAppKitView {
             )
             canvas.windowBadge = badge
             if let slice = model.displayedSlice(for: plane) {
-                canvas.accessibilitySliceLabel = PreviewAccessibility.sliceLabel(
+                canvas.accessibilitySliceLabel = PreviewL10n.core(PreviewAccessibility.sliceLabel(
                     plane: plane, sliceIndex: slice.index, sliceCount: slice.count, window: windowText
-                )
+                ))
             } else {
-                canvas.accessibilitySliceLabel = "\(PreviewAccessibility.planeName(plane)) slice"
+                let planeName = PreviewL10n.core(PreviewAccessibility.planeName(plane))
+                canvas.accessibilitySliceLabel = String(localized: "\(planeName) slice", table: "Preview")
             }
         }
         updateFOVLayoutRatios()
@@ -1056,25 +1059,25 @@ extension MIQPreviewAppKitView {
         let traits = interaction.traits
 
         // Layout
-        let panelName = panel.plane.map(PreviewAccessibility.planeName) ?? layout.viewMode.displayName
+        let panelName = PreviewL10n.core(panel.plane.map(PreviewAccessibility.planeName) ?? layout.viewMode.displayName)
         if layout.maximized == panel {
-            menu.addItem(item("Restore Layout", .toggleMaximize(panel)))
+            menu.addItem(item(String(localized: "Restore Layout", table: "Preview"), .toggleMaximize(panel)))
         } else if panel != .auxiliary || layout.showsAlternateView {
-            menu.addItem(item("Maximize \(panelName)", .toggleMaximize(panel)))
+            menu.addItem(item(String(localized: "Maximize \(panelName)", table: "Preview"), .toggleMaximize(panel)))
         }
         if let canvas = canvas(for: panel), !canvas.viewport.isIdentity {
-            menu.addItem(item("Reset Zoom", .resetZoom(panel), key: "0"))
+            menu.addItem(item(String(localized: "Reset Zoom", table: "Preview"), .resetZoom(panel), key: "0"))
         }
 
         // Window / level
         if traits?.isScalar == true, interaction.decAvailable == false || !interaction.decEnabled {
             menu.addItem(.separator())
             let manual = currentModel?.hasManualWindow ?? false
-            menu.addItem(item("Auto Window", .preset(.auto), key: "a", checked: !manual))
+            menu.addItem(item(String(localized: "Auto Window", table: "Preview"), .preset(.auto), key: "a", checked: !manual))
             let presetItems = WindowPreset.fixedPresets.map { preset -> NSMenuItem in
                 let digit = interaction.presetShortcutsEnabled ? WindowPresetShortcuts.digit(for: preset).map(String.init) ?? "" : ""
                 return item(
-                    "\(preset.displayName)  \(preset.bounds?.widthLevelLabel ?? "")",
+                    "\(PreviewL10n.core(preset.displayName))  \(preset.bounds?.widthLevelLabel ?? "")",
                     .preset(preset),
                     key: digit,
                     checked: manual && interaction.activePreset == preset
@@ -1083,19 +1086,19 @@ extension MIQPreviewAppKitView {
             if interaction.presetShortcutsEnabled {
                 for presetItem in presetItems { menu.addItem(presetItem) }
             } else {
-                menu.addItem(submenu("CT Window Presets", presetItems))
+                menu.addItem(submenu(String(localized: "CT Window Presets", table: "Preview"), presetItems))
             }
         }
 
         // Colour map
         if interaction.colormapAvailable {
             let maps = interaction.colormapOptions.map { map in
-                item(ColormapCycle.displayName(map), .colormap(map), checked: map == interaction.colormap)
+                item(PreviewL10n.core(ColormapCycle.displayName(map)), .colormap(map), checked: map == interaction.colormap)
             }
-            menu.addItem(submenu("Colormap (C)", maps))
+            menu.addItem(submenu(String(localized: "Colormap (C)", table: "Preview"), maps))
         }
         if interaction.decAvailable {
-            menu.addItem(item("Direction-Encoded Colour", .toggleDEC, key: "d", checked: interaction.decEnabled))
+            menu.addItem(item(String(localized: "Direction-Encoded Colour", table: "Preview"), .toggleDEC, key: "d", checked: interaction.decEnabled))
         }
 
         // Fourth panel
@@ -1103,18 +1106,19 @@ extension MIQPreviewAppKitView {
         if modes.count > 1 {
             menu.addItem(.separator())
             let modeItems = modes.map { mode in
-                item(mode == .slices ? "Metadata" : mode.displayName, .viewMode(mode), checked: mode == layout.viewMode)
+                item(mode == .slices ? String(localized: "Metadata", table: "Preview") : PreviewL10n.core(mode.displayName), .viewMode(mode), checked: mode == layout.viewMode)
             }
-            menu.addItem(submenu("Fourth Panel (P / M)", modeItems))
+            menu.addItem(submenu(String(localized: "Fourth Panel (P / M)", table: "Preview"), modeItems))
             if layout.viewMode == .volume3D {
                 let alternate = interaction.alternate
                 let renderModes = VolumeRenderModeCycle.available(isLabelVolume: alternate.isLabelVolume)
                 if renderModes.count > 1 {
                     for mode in renderModes {
-                        menu.addItem(item("3D: \(VolumeRenderModeCycle.displayName(mode))", .renderMode(mode), checked: mode == alternate.renderMode))
+                        let modeName = PreviewL10n.core(VolumeRenderModeCycle.displayName(mode))
+                        menu.addItem(item(String(localized: "3D: \(modeName)", table: "Preview"), .renderMode(mode), checked: mode == alternate.renderMode))
                     }
                 }
-                menu.addItem(item("Reset 3D View", .resetCamera, key: "0"))
+                menu.addItem(item(String(localized: "Reset 3D View", table: "Preview"), .resetCamera, key: "0"))
             }
         }
 
@@ -1125,28 +1129,29 @@ extension MIQPreviewAppKitView {
             for candidate in candidates {
                 let loading = interaction.loadingOverlay == candidate
                 let active = interaction.overlay?.candidate == candidate || interaction.fractionalAnisotropyName == candidate.fileName
-                let title = loading ? candidate.menuTitle + " (loading…)" : candidate.menuTitle
+                let menuTitle = candidate.menuTitle
+                let title = loading ? String(localized: "\(menuTitle) (loading…)", table: "Preview") : menuTitle
                 menu.addItem(item(title, .overlay(candidate), checked: active, enabled: !loading))
             }
             if interaction.hasOverlay || interaction.fractionalAnisotropyName != nil {
-                menu.addItem(item("Remove Overlay", .removeOverlay))
+                menu.addItem(item(String(localized: "Remove Overlay", table: "Preview"), .removeOverlay))
             }
             if interaction.overlay?.labelLut != nil {
-                menu.addItem(item("Outline Labels", .toggleOutline, key: "o", checked: interaction.overlayOutlineOnly))
+                menu.addItem(item(String(localized: "Outline Labels", table: "Preview"), .toggleOutline, key: "o", checked: interaction.overlayOutlineOnly))
             }
             if interaction.hasOverlay {
                 let current = interaction.overlayOpacity
                 let levels: [Float] = [0.25, 0.5, 0.75, 1]
                 let nearest = levels.min { abs($0 - current) < abs($1 - current) }
                 let opacityItems = levels.map { level in
-                    item("\(Int(level * 100))%", .opacity(level), checked: level == nearest)
+                    item(PreviewL10n.percent(level), .opacity(level), checked: level == nearest)
                 }
-                menu.addItem(submenu("Overlay Opacity", opacityItems))
+                menu.addItem(submenu(String(localized: "Overlay Opacity", table: "Preview"), opacityItems))
             }
         }
 
         menu.addItem(.separator())
-        let copy = item("Copy Image", .copy, key: "c")
+        let copy = item(String(localized: "Copy Image", table: "Preview"), .copy, key: "c")
         copy.keyEquivalentModifierMask = .command
         menu.addItem(copy)
         return menu
@@ -1339,7 +1344,7 @@ private final class MetadataView: NSView {
 
     override func isAccessibilityElement() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role? { .staticText }
-    override func accessibilityLabel() -> String? { "Image information" }
+    override func accessibilityLabel() -> String? { String(localized: "Image information", table: "Preview") }
     override func accessibilityValue() -> Any? {
         MetadataPanelText.accessibilityText(rows: accessibilityRows) { [self] index in
             if index == volumesLineIndex, !scrubber.isHidden {
@@ -1648,11 +1653,11 @@ private final class MIQVolumeScrubber: NSView {
         let base = "\(index + 1) / \(count)"
         switch expansion {
         case .idle: return base
-        case .expanding: return base + "  decompressing…"
+        case .expanding: return base + "  " + String(localized: "decompressing…", table: "Preview")
         // Volumes > 0 show the zero backstop; a new scroll gesture retries.
-        case .failed: return base + "  full load failed"
+        case .failed: return base + "  " + String(localized: "full load failed", table: "Preview")
         // Over the decompression budget: volume 0 only, and this says why.
-        case .tooLarge(let message): return base + "  " + message
+        case .tooLarge(let message): return base + "  " + PreviewL10n.core(message)
         }
     }
 
@@ -1801,9 +1806,9 @@ private final class MIQVolumeScrubber: NSView {
 extension MIQVolumeScrubber {
     override func isAccessibilityElement() -> Bool { !isHidden && count > 1 }
     override func accessibilityRole() -> NSAccessibility.Role? { .slider }
-    override func accessibilityLabel() -> String? { "Volumes" }
+    override func accessibilityLabel() -> String? { MetadataPanelText.volumesRowLabel }
     override func accessibilityValue() -> Any? {
-        PreviewAccessibility.volumeValue(index: index, count: count)
+        PreviewL10n.core(PreviewAccessibility.volumeValue(index: index, count: count))
     }
     override func accessibilityPerformIncrement() -> Bool {
         guard index + 1 < count else { return false }

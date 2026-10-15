@@ -76,9 +76,9 @@ struct MIQOverlayCandidate: Sendable, Hashable {
 
     var menuTitle: String {
         switch role {
-        case .anatomical: return "Underlay: \(fileName)"
-        case .fractionalAnisotropy: return "Modulate DEC by: \(fileName)"
-        default: return "Overlay: \(fileName)"
+        case .anatomical: return String(localized: "Underlay: \(fileName)", table: "Preview")
+        case .fractionalAnisotropy: return String(localized: "Modulate DEC by: \(fileName)", table: "Preview")
+        default: return String(localized: "Overlay: \(fileName)", table: "Preview")
         }
     }
 }
@@ -468,7 +468,9 @@ final class MIQInteractionController {
         guard let model, let traits, traits.isScalar, decVolume == nil,
               isAdjustingWindow || model.hasManualWindow,
               let bounds = model.displayedWindowBounds else { return nil }
-        return WindowPresetShortcuts.badgeText(preset: model.hasManualWindow ? activePreset : nil, bounds: bounds)
+        return PreviewL10n.core(
+            WindowPresetShortcuts.badgeText(preset: model.hasManualWindow ? activePreset : nil, bounds: bounds)
+        )
     }
 
     /// The window clause for accessibility labels (always, when there is one).
