@@ -13,6 +13,15 @@ reads them directly; no conversion step is needed.
 Both sets are well under the 2 MB limit for committed weights, so they are vendored here
 unchanged.
 
+## In the app
+
+The MIQ app target bundles `mindgrab/` and `model5_gw_ae/` as folder references (they
+land in `MIQ.app/Contents/Resources/<folder>/`) together with `LICENSE-brainchop`, whose
+text the **Tools → Brain Mask…** window shows under *Acknowledgements*. The Quick Look
+and thumbnail extensions do not ship the models: a run takes seconds and hundreds of
+megabytes. The tool saves masks with `NiftiWriter` (uint8 NIfTI-1, source sform/qform
+copied) as `<stem>_desc-brain_mask.nii.gz`.
+
 ## Provenance and licence
 
 * **Source:** <https://github.com/neuroneural/brainchop>, commit

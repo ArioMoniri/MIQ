@@ -117,11 +117,15 @@ struct MIQApp: App {
                 }
                 .disabled(!updater.canCheckForUpdates)
             }
+            BrainMaskCommands()
             #if DEBUG
             CommandMenu("Debug") {
                 Toggle("Show layout borders in preview", isOn: $debugShowLayoutBorders)
             }
             #endif
         }
+
+        // Tools → Brain Mask… (app only; see BrainMaskTool.swift).
+        BrainMaskWindowScene()
     }
 }
