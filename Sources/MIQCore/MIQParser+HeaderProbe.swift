@@ -18,6 +18,12 @@ extension MIQParser {
         guard let kind = MIQFileKind(url: url) else {
             throw MIQError.unsupportedFileFormat
         }
+        // A Zarr store is a directory: its "header" is JSON metadata spread over
+        // several files, and the preview read is already capped by
+        // `zarrMaxPreviewBytes`, so there is no prefix to probe.
+        if kind == .zarr {
+            throw MIQError.unsupportedFeature("Header-only probe isn't available for Zarr stores")
+        }
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
 
@@ -43,6 +49,8 @@ extension MIQParser {
             return try parseMifHeaderOnly(from: prefix)
         case .nrrd:
             return try parseNrrdHeaderOnly(from: prefix)
+        case .zarr:
+            throw MIQError.unsupportedFeature("Header-only probe isn't available for Zarr stores")
         }
     }
 }
