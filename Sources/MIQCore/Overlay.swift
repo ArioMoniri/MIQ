@@ -183,6 +183,9 @@ extension MIQVolume {
     /// - **NRRD**: the space directions + origin.
     /// - **MIF**: `transform:` composed with `layout:` and `vox:` (rows built by the
     ///   parser, see `mifVoxelToWorldRows`).
+    /// - **OME-Zarr** (no NIfTI header): the srow rows the parser built from the
+    ///   OME scale + translation (`srowIsUnorientedAffine`), so the origin is
+    ///   true even though orientation is unknown.
     /// - **Anything else**: signed axis permutation from `orientationFrame`
     ///   × voxel size, centred on the volume (offset unknown).
     /// - No orientation at all: `diag(pixdim)`, zero origin.
@@ -213,6 +216,7 @@ extension MIQVolume {
         }
         if header.sformCode > 0, let srow, srow.isInvertible { return srow }
         if source == .mifLayout, let srow, srow.isInvertible { return srow }
+        if header.srowIsUnorientedAffine, let srow, srow.isInvertible { return srow }
         if let axes = header.orientationFrame?.axes, axes.count == 3 {
             var rows = [[Double]](repeating: [0, 0, 0, 0], count: 3)
             let scale = [sx, sy, sz]

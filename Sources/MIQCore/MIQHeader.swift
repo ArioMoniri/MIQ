@@ -58,6 +58,12 @@ public struct MIQHeader: Sendable {
     /// Consulted by `WindowPreset.looksLikeCT`.
     public var modality: String?
 
+    /// The srow rows hold a valid voxel → world affine even though `sformCode`
+    /// is 0 and no anatomical orientation is known: OME-Zarr scale and
+    /// translation. `MIQVolume.voxelToWorld` then uses the rows (true origin)
+    /// while `orientationFrame` stays `nil`, so labels remain "?".
+    public var srowIsUnorientedAffine = false
+
     public var width: Int { dimensions[safe: 0] ?? 1 }
     public var height: Int { dimensions[safe: 1] ?? 1 }
     public var depth: Int { dimensions[safe: 2] ?? 1 }
