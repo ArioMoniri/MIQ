@@ -4,8 +4,7 @@ MIQCore previews Zarr directory stores (`MIQFileKind.zarr`, detected by the
 `.zarr` / `.ome.zarr` / `.nii.zarr` directory suffix; `MIQParser.parse(url:)`
 dispatches to `parseZarr(url:)`). Quick Look only hands a *directory* to a
 preview extension when the directory's UTI is a **package**, so the plists need
-the declarations below. They are not applied yet — whoever owns the plists
-should merge them.
+the declarations below (now applied in this repo's plists).
 
 ## 1. `MIQApp/Info.plist` — declare the type
 

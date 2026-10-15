@@ -30,6 +30,21 @@
 				<string>org.mrtrix.mif</string>
 				<string>org.mrtrix.mif-gz</string>
 				<string>org.teem.nrrd</string>
+				<string>org.nema.dicom</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Zarr Image Store</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSTypeIsPackage</key>
+			<true/>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>dev.zarr.zarr</string>
 			</array>
 		</dict>
 		<dict>
@@ -230,6 +245,56 @@
 				<key>public.mime-type</key>
 				<array>
 					<string>application/x-nrrd</string>
+				</array>
+			</dict>
+		</dict>
+		<!-- DICOM Part-10. Imported, not exported: MIQ doesn't own the format. Only
+		     files with a .dcm/.dicom extension reach Quick Look; extensionless
+		     DICOM gets public.data. See docs/dicom-plist-snippets.md. -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.image</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>DICOM Image</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.nema.dicom</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://www.dicomstandard.org/current</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>dcm</string>
+					<string>dicom</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/dicom</string>
+				</array>
+			</dict>
+		</dict>
+		<!-- Zarr store (OME-Zarr / NIfTI-Zarr). Quick Look only hands a directory to
+		     an extension when its UTI is a package, so Finder shows *.zarr folders
+		     as single items while MIQ is installed (Show Package Contents opens
+		     them). See docs/zarr-plist-snippets.md. -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+				<string>public.directory</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Zarr Image Store</string>
+			<key>UTTypeIdentifier</key>
+			<string>dev.zarr.zarr</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>zarr</string>
 				</array>
 			</dict>
 		</dict>

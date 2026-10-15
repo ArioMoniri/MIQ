@@ -96,3 +96,5 @@ jobs:
           python-version: "3.x"
       - name: scripts/check_plists.py
         run: python3 scripts/check_plists.py
+      - name: scripts/check_pbxproj.py
+        run: python3 scripts/check_pbxproj.py MIQ.xcodeproj/project.pbxproj .

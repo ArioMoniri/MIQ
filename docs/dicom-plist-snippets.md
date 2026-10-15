@@ -1,8 +1,8 @@
-# DICOM plist wiring (not yet applied)
+# DICOM plist wiring (applied)
 
 MIQCore can parse DICOM (`MIQFileKind.dicom`, `MIQParser.parse(url:)`), but
 Quick Look only hands a file to an extension whose `QLSupportedContentTypes`
-lists the file's UTI. These snippets are what the Info.plist owner needs to add.
+lists the file's UTI. These snippets are applied in this repo's plists; they are kept here as the record of why.
 
 ## 1. `MIQApp/Info.plist` — imported UTI declaration
 

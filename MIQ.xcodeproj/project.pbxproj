@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5EC0A0000000000000000002 /* CaptionFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC0A0000000000000000001 /* CaptionFeature.swift */; };
 		5E77A000000000000000000F /* SampleIntensity.window.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E77A000000000000000000E /* SampleIntensity.window.json */; };
 		5E77A0000000000000000011 /* SampleLabels.window.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E77A0000000000000000010 /* SampleLabels.window.json */; };
 		5E77A000000000000000000C /* MetadataPanelText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E77A000000000000000000B /* MetadataPanelText.swift */; };
@@ -100,6 +101,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5EC0A0000000000000000001 /* CaptionFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionFeature.swift; sourceTree = "<group>"; };
 		5E77A000000000000000000E /* SampleIntensity.window.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SampleIntensity.window.json; sourceTree = "<group>"; };
 		5E77A0000000000000000010 /* SampleLabels.window.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SampleLabels.window.json; sourceTree = "<group>"; };
 		5E77A000000000000000000B /* MetadataPanelText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPanelText.swift; sourceTree = "<group>"; };
@@ -201,6 +203,7 @@
 		295F76FA9C1925A5383F55EA /* MIQApp */ = {
 			isa = PBXGroup;
 			children = (
+				5EC0A0000000000000000001 /* CaptionFeature.swift */,
 				00FF4BD21CCF016F9EE93B3D /* ContentView.swift */,
 				1069830D6ED40B3AB5757858 /* Info.plist */,
 				38D75F862B31E42F5A44BD93 /* MIQ.entitlements */,
@@ -448,6 +451,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5EC0A0000000000000000002 /* CaptionFeature.swift in Sources */,
 				1525C5A90753349409A6DC7B /* ContentView.swift in Sources */,
 				E9D1739EF930782E62D9FE97 /* MIQApp.swift in Sources */,
 				0F5A0000000000000000A005 /* UpdaterController.swift in Sources */,
