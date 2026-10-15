@@ -2,7 +2,14 @@ import Foundation
 import os.log
 
 public enum MIQConfig {
-    private static let configLogger = Logger(subsystem: "miq.core", category: "config")
+    /// `os.Logger` subsystem for every MIQ target: the running bundle's identifier
+    /// (the app, the Quick Look / thumbnail extensions and the Spotlight importer
+    /// each log under their own bundle id, so `log stream --predicate` can tell
+    /// them apart), or `"miq"` for unbundled processes — the `miq` CLI and tests.
+    /// The single source of truth; targets must not hardcode a subsystem.
+    public static let logSubsystem = Bundle.main.bundleIdentifier ?? "miq"
+
+    private static let configLogger = Logger(subsystem: logSubsystem, category: "config")
     /// One-shot guard for the missing-App-Group notice. `appGroupID` is read from
     /// any thread (extension tasks, the app's main actor), so the flag sits behind
     /// a lock rather than in a `nonisolated(unsafe)` static.

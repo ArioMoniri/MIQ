@@ -83,13 +83,14 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
     /// stream-inflate only until the header is complete. Text headers (MIF, NRRD)
     /// are capped at `MIQParser.maxTextHeaderBytes`.
     ///
+    /// Uses `MIQParser.parseHeaderOnly(url:maxBytes:)`, the single header-only reader.
+    ///
     /// - Throws: `MIQError.unsupportedFileFormat` for an unrecognised extension,
     ///   or the format parser's error for a malformed / truncated header.
     public static func read(contentsOf url: URL) throws -> VolumeSummary {
-        guard let kind = MIQFileKind(url: url) else { throw MIQError.unsupportedFileFormat }
-        let parser = MIQParser()
-        let prefix = try parser.readHeaderPrefix(url: url, kind: kind)
-        let header = try parser.parseHeaderOnly(prefix: prefix, kind: kind)
+        let (header, kind, prefix) = try MIQParser().parseHeaderOnlyWithPrefix(
+            url: url, maxBytes: MIQParser.maxTextHeaderBytes
+        )
         return VolumeSummary(header: header, kind: kind, spacingUnit: spacingUnit(kind: kind, header: header, prefix: prefix))
     }
 
@@ -156,90 +157,6 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
         case .nrrd, .nhdr, .mha, .mhd, .zarr, .dicom:
             // NRRD `space units` isn't read; MetaImage has no unit field (ITK assumes mm).
             return nil
-        }
-    }
-}
-
-// MARK: - Header-only parsing
-
-extension MIQParser {
-    /// Upper bound on a text header (MIF / NRRD) read by the header-only path. Real
-    /// headers are a few KB; MRtrix `command_history` lines can push that higher,
-    /// so the cap is generous while still bounding a pathological file.
-    public static let maxTextHeaderBytes = 4 * 1024 * 1024
-
-    /// Parses only the header of the file at `url`, without reading the payload.
-    /// See `VolumeSummary.read(contentsOf:)` for the I/O guarantees.
-    public func parseHeaderOnly(url: URL) throws -> MIQHeader {
-        guard let kind = MIQFileKind(url: url) else { throw MIQError.unsupportedFileFormat }
-        // Zarr stores are directories and DICOM geometry can sit anywhere before
-        // Pixel Data; neither has a bounded header prefix to read.
-        if kind == .zarr || kind == .dicom {
-            throw MIQError.unsupportedFeature("A header-only summary isn't available for \(kind.displayName)")
-        }
-        return try parseHeaderOnly(prefix: readHeaderPrefix(url: url, kind: kind), kind: kind)
-    }
-
-    func parseHeaderOnly(prefix: Data, kind: MIQFileKind) throws -> MIQHeader {
-        try parseHeaderOnly(prefix, kind: kind)
-    }
-
-    /// Fixed header sizes: NIfTI-2's 540 bytes + 4-byte extension flag covers
-    /// NIfTI-1's 348 as well; MGH's header is 284 bytes.
-    private static let niftiHeaderPrefixBytes = 544
-    private static let mghHeaderPrefixBytes = 284
-    /// Read granularity for the header-only path — small, since typical headers
-    /// are well under this.
-    private static let headerReadChunkBytes = 16 * 1024
-
-    /// Reads (and for gzipped kinds, inflates) just enough of the file to contain
-    /// its header. A file shorter than the header yields what exists; the format
-    /// parser then reports it as truncated.
-    func readHeaderPrefix(url: URL, kind: MIQFileKind) throws -> Data {
-        let isComplete = Self.headerCompleteness(for: kind)
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
-
-        if kind.isCompressed {
-            return try MIQBinaryReader.gunzip(from: handle, inputChunkBytes: Self.headerReadChunkBytes) { produced in
-                isComplete(produced) || produced.count >= Self.maxTextHeaderBytes
-            }
-        }
-
-        var data = Data()
-        while !isComplete(data), data.count < Self.maxTextHeaderBytes {
-            guard let chunk = try handle.read(upToCount: Self.headerReadChunkBytes), !chunk.isEmpty else { break }
-            data.append(chunk)
-        }
-        return data
-    }
-
-    /// Predicate deciding when a prefix holds the whole header for `kind`.
-    private static func headerCompleteness(for kind: MIQFileKind) -> (Data) -> Bool {
-        switch kind {
-        case .nii, .niiGz:
-            return { $0.count >= niftiHeaderPrefixBytes }
-        case .mgh, .mgz:
-            return { $0.count >= mghHeaderPrefixBytes }
-        case .mif, .mifGz, .mih:
-            let marker = Data("\nEND".utf8)
-            return { $0.range(of: marker) != nil }
-        case .nrrd:
-            let lf = Data("\n\n".utf8)
-            let crlf = Data("\n\r\n".utf8)
-            return { $0.range(of: lf) != nil || $0.range(of: crlf) != nil }
-        case .nhdr, .mhd:
-            // The whole (small) file is header: read to EOF, capped by the caller.
-            return { _ in false }
-        case .mha:
-            // `ElementDataFile` is the last header line; complete once its newline is in.
-            let key = Data("ElementDataFile".utf8)
-            return { data in
-                guard let hit = data.range(of: key) else { return false }
-                return data[hit.upperBound...].contains(0x0A)
-            }
-        case .zarr, .dicom:
-            return { _ in true } // rejected in `parseHeaderOnly(url:)` before reading
         }
     }
 }

@@ -296,7 +296,7 @@ public struct MIQVolume: Sendable {
     }
 
     /// Renders the center slice for each requested plane using a shared intensity window.
-    public func centerSlices(
+    func centerSlices(
         planes: [SlicePlane] = SlicePlane.allCases,
         volumeIndex: Int = 0,
         maxDimension: Int = 512,

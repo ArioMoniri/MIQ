@@ -37,7 +37,7 @@ extension MIQParser {
         return try buildNrrdImage(nrrd: nrrd, storage: storage, payloadOffset: payloadOffset)
     }
 
-    /// Header-only parse for `probeHeader`: the payload is neither read nor
+    /// Header-only parse for `parseHeaderOnly(url:maxBytes:)`: the payload is neither read nor
     /// decompressed (a gzip-encoded NRRD keeps its plaintext header in front), and
     /// a detached header's data file is never opened.
     func parseNrrdHeaderOnly(from data: Data) throws -> MIQHeader {

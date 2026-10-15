@@ -42,7 +42,7 @@ public enum LocalEndpointPolicy {
     }
 
     /// Throwing convenience over `validate(_:)`.
-    public static func validatedBaseURL(_ string: String) throws -> URL {
+    static func validatedBaseURL(_ string: String) throws -> URL {
         try validate(string).get()
     }
 

@@ -3,7 +3,7 @@ import Foundation
 extension CaptionPrompt {
     /// Builds the caption metadata for the file at `url` from its header alone —
     /// the voxel payload is never read or decompressed (see
-    /// `MIQParser.parseHeaderOnly(url:)` for the I/O bound). Produces the same
+    /// `MIQParser.parseHeaderOnly(url:maxBytes:)` for the I/O bound). Produces the same
     /// dictionary as `metadata(header:format:orientation:)` fed from a full
     /// parse, so the caption is identical whichever path built it.
     ///

@@ -6,9 +6,10 @@ import Foundation
 /// NIfTI, the whole payload for every other kind) before anything is on screen.
 /// A tiny crafted header — say a 1 KB `.mha` claiming 4096³ doubles — would
 /// otherwise make the extension try to allocate hundreds of GB and be killed.
-/// The gate probes the header only (`MIQParser.probeHeader`, ≤ 64 KB of prefix)
-/// and declines files whose decoded size exceeds the budget, so normal files
-/// pay one small read and keep the fast path.
+/// The gate probes the header only (`MIQParser.parseHeaderOnly(url:maxBytes:)`
+/// with `headerProbeCap`, ≤ 64 KB of prefix) and declines files whose decoded
+/// size exceeds the budget, so normal files pay one small read and keep the
+/// fast path.
 public enum MIQColdPreviewGate {
     /// Largest decoded payload the cold preview parse may materialise. Same as
     /// the 4D expansion budget: past it the extension risks being jetsammed.
@@ -56,7 +57,7 @@ public enum MIQColdPreviewGate {
         budgetBytes: Int = MIQColdPreviewGate.budgetBytes
     ) -> String? {
         guard let kind = MIQFileKind(url: url),
-              let header = try? parser.probeHeader(url: url) else { return nil }
+              let header = try? parser.parseHeaderOnly(url: url, maxBytes: MIQParser.headerProbeCap) else { return nil }
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue
         return refusalMessage(header: header, kind: kind, fileSizeBytes: fileSize, budgetBytes: budgetBytes)
     }

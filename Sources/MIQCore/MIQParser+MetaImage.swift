@@ -86,7 +86,7 @@ extension MIQParser {
         return MIQImage(header: header, storage: storage, payloadOffset: payloadOffset, payloadElementStrides: nil)
     }
 
-    /// Header-only parse for `probeHeader` / `VolumeSummary`: neither the payload
+    /// Header-only parse for `parseHeaderOnly(url:maxBytes:)` / `VolumeSummary`: neither the payload
     /// nor a detached data file is read.
     func parseMetaImageHeaderOnly(from data: Data) throws -> MIQHeader {
         try buildMetaImageMIQHeader(parseMetaImageHeader(data))

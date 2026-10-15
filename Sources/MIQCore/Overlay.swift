@@ -558,7 +558,7 @@ public enum OverlayCompositor {
     /// `anatomical.slice(plane:index:…)`) with `overlay` — already on the
     /// anatomical's grid, e.g. from `OverlayResampler.resampledVolume` — drawn on
     /// top for the same plane/index/options.
-    public static func compositeSlice(
+    static func compositeSlice(
         base: SliceImage,
         overlay: MIQVolume,
         plane: SlicePlane,
