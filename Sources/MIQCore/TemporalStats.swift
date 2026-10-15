@@ -119,16 +119,7 @@ public enum TemporalStats {
         let total = w * h * d
         guard total > 0 else { return nil }
         // Isotropic stride s with ceil(w/s)·ceil(h/s)·ceil(d/s) ≤ maxVoxels.
-        var stride = max(1, Int(pow(Double(total) / Double(max(1, maxVoxels)), 1.0 / 3.0).rounded(.down)))
-        while ((w + stride - 1) / stride) * ((h + stride - 1) / stride) * ((d + stride - 1) / stride) > max(1, maxVoxels) {
-            stride += 1
-        }
-        var coords: [(Int, Int, Int)] = []
-        for z in Swift.stride(from: 0, to: d, by: stride) {
-            for y in Swift.stride(from: 0, to: h, by: stride) {
-                for x in Swift.stride(from: 0, to: w, by: stride) { coords.append((x, y, z)) }
-            }
-        }
+        let coords = traceCoordinates(width: w, height: h, depth: d, maxVoxels: maxVoxels)
         func read(_ t: Int) -> [Float] {
             coords.map { c in
                 let v = volume.voxel(x: c.0, y: c.1, z: c.2, t: t)
@@ -210,6 +201,109 @@ public enum TemporalStats {
               let trace = framewiseDifference(for: volume, maxVoxels: maxTraceVoxels, isCancelled: isCancelled)
         else { return nil }
         return summary(maps: maps, trace: trace, volumeCount: volume.volumes)
+    }
+
+    /// `summary(for:)` for a series that is not in memory, in **one forward
+    /// pass**: `volumeAt(t)` supplies timepoint `t` as a *single-volume*
+    /// `MIQVolume` addressed at `volumeIndex: 0` (`NiftiVolumeReader.volume(at:)`),
+    /// and is called exactly once per `t`, in ascending order — so a gzip
+    /// stream is inflated once and never rewinds, and only one volume (plus the
+    /// running maps) is resident at a time. The sampled volumes feed the maps,
+    /// every volume feeds the framewise trace (its voxel subsample only). The
+    /// result is identical to `summary(for:)` on the same data.
+    ///
+    /// `nil` for fewer than 2 volumes, an empty grid, or cancellation (checked
+    /// per volume, via `isCancelled` and the task). Rethrows `volumeAt`'s errors.
+    public static func summary(
+        volumeCount: Int,
+        width: Int,
+        height: Int,
+        depth: Int,
+        maxVolumes: Int = defaultMaxVolumes,
+        maxTraceVoxels: Int = defaultTraceVoxels,
+        isCancelled: () -> Bool = { false },
+        volumeAt: (Int) throws -> MIQVolume
+    ) throws -> TemporalSummary? {
+        guard volumeCount >= 2 else { return nil }
+        let count = width * height * depth
+        guard count > 0 else { return nil }
+        let indices = sampleIndices(volumeCount: volumeCount, cap: max(2, maxVolumes))
+        let sampled = Set(indices)
+        let coords = traceCoordinates(width: width, height: height, depth: depth, maxVoxels: maxTraceVoxels)
+
+        var mean = [Double](repeating: 0, count: count)
+        var m2 = [Double](repeating: 0, count: count)
+        var n = 0.0
+        var previous: [Float] = []
+        var norm = 1.0
+        var trace: [Float] = []
+        trace.reserveCapacity(volumeCount - 1)
+
+        for t in 0..<volumeCount {
+            if isCancelled() || Task.isCancelled { return nil }
+            let volume = try volumeAt(t)
+            guard volume.width == width, volume.height == height, volume.depth == depth else { return nil }
+            if sampled.contains(t) {
+                guard let values = volume.decodedValues(volumeIndex: 0, isCancelled: isCancelled) else { return nil }
+                n += 1
+                for i in 0..<count {
+                    let x = Double(values[i].isFinite ? values[i] : 0)
+                    let delta = x - mean[i]
+                    mean[i] += delta / n
+                    m2[i] += delta * (x - mean[i])
+                }
+            }
+            let current = coords.map { c -> Float in
+                let v = volume.voxel(x: c.0, y: c.1, z: c.2, t: 0)
+                return v.isFinite ? v : 0
+            }
+            if t == 0 {
+                var scale = 0.0
+                for v in current { scale += Double(abs(v)) }
+                scale /= Double(max(1, current.count))
+                norm = scale > 0 ? 100 / scale : 1
+            } else {
+                var sum = 0.0
+                for i in 0..<current.count { sum += Double(abs(current[i] - previous[i])) }
+                trace.append(Float(sum / Double(max(1, current.count)) * norm))
+            }
+            previous = current
+        }
+
+        var meanF = [Float](repeating: 0, count: count)
+        var stdF = [Float](repeating: 0, count: count)
+        var tsnrF = [Float](repeating: 0, count: count)
+        for i in 0..<count {
+            let s = (max(0, m2[i]) / n).squareRoot()
+            meanF[i] = Float(mean[i])
+            stdF[i] = Float(s)
+            if s > 1e-6 * max(1, abs(mean[i])) {
+                tsnrF[i] = Float(mean[i] / s)
+            }
+        }
+        let maps = TemporalStatMaps(
+            width: width, height: height, depth: depth,
+            mean: meanF, standardDeviation: stdF, tsnr: tsnrF, sampledVolumes: indices
+        )
+        return summary(maps: maps, trace: trace, volumeCount: volumeCount)
+    }
+
+    /// The regular voxel subsample `framewiseDifference` reads (isotropic
+    /// stride, at most `maxVoxels` points), x fastest.
+    static func traceCoordinates(width w: Int, height h: Int, depth d: Int, maxVoxels: Int) -> [(Int, Int, Int)] {
+        let total = w * h * d
+        guard total > 0 else { return [] }
+        var stride = max(1, Int(pow(Double(total) / Double(max(1, maxVoxels)), 1.0 / 3.0).rounded(.down)))
+        while ((w + stride - 1) / stride) * ((h + stride - 1) / stride) * ((d + stride - 1) / stride) > max(1, maxVoxels) {
+            stride += 1
+        }
+        var coords: [(Int, Int, Int)] = []
+        for z in Swift.stride(from: 0, to: d, by: stride) {
+            for y in Swift.stride(from: 0, to: h, by: stride) {
+                for x in Swift.stride(from: 0, to: w, by: stride) { coords.append((x, y, z)) }
+            }
+        }
+        return coords
     }
 
     /// Summary from already-computed maps and trace.
