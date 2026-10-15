@@ -73,8 +73,6 @@ public enum MIQConfig {
         public static let ctWindowPreset          = "ctWindowPreset"
         public static let ctPresetAutoDetect      = "ctPresetAutoDetect"
         // MARK: UI settings workstream (feature availability, colormap)
-        // `qcPanelEnabled` / `temporalSummaryEnabled` may also be added by the
-        // panel workstream; keep one definition when merging.
         public static let defaultColormap         = "defaultColormap"
         public static let volumeRenderingEnabled  = "volumeRenderingEnabled"
         public static let overlayAutoDiscovery    = "overlayAutoDiscovery"
