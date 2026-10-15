@@ -762,11 +762,12 @@ struct MIQCoreTests {
 
         for (url, kind) in [(plainURL, MIQFileKind.nii), (gzURL, MIQFileKind.niiGz)] {
             let task = Task.detached {
-                // Cancellation lands before the body runs; the first per-chunk
-                // check must surface it.
-                try MIQParser().loadBoundedNiftiPrefix(url: url, kind: kind)
+                // Cancel from inside the task before reading, so the first
+                // per-chunk check must surface it. (Cancelling from outside
+                // raced the task body on a loaded machine.)
+                withUnsafeCurrentTask { $0?.cancel() }
+                return try MIQParser().loadBoundedNiftiPrefix(url: url, kind: kind)
             }
-            task.cancel()
             let result = await task.result
             #expect(throws: CancellationError.self) { try result.get() }
         }

@@ -10,6 +10,9 @@ public enum MIQFileKind: Sendable, CaseIterable {
     case nrrd
     /// Zarr directory store (`.zarr`, `.ome.zarr`, `.nii.zarr`); see `MIQParser.parseZarr`.
     case zarr
+    /// DICOM Part-10 (`.dcm`/`.dicom`). Extensionless DICOM files are recognised by
+    /// content via `MIQFileKind.sniffDICOM(url:)`.
+    case dicom
 
     public init?(url: URL) {
         let path = url.path.lowercased()
@@ -25,6 +28,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case "mgz": self = .mgz
         case "mif": self = .mif
         case "nrrd": self = .nrrd
+        case "dcm", "dicom": self = .dicom
         default: return nil
         }
     }
@@ -32,7 +36,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
     public var isCompressed: Bool {
         switch self {
         case .niiGz, .mgz, .mifGz: return true
-        case .nii, .mgh, .mif, .nrrd, .zarr: return false
+        case .nii, .mgh, .mif, .nrrd, .zarr, .dicom: return false
         }
     }
 
@@ -44,7 +48,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         switch self {
         // Zarr reads only the coarsest pyramid level's chunks, never the whole store.
         case .nii, .niiGz, .zarr: return true
-        case .mgh, .mgz, .mif, .mifGz, .nrrd: return false
+        case .mgh, .mgz, .mif, .mifGz, .nrrd, .dicom: return false
         }
     }
 
@@ -94,6 +98,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case .mifGz: return "Compressed MRtrix MIF"
         case .nrrd: return "NRRD"
         case .zarr: return "OME-Zarr"
+        case .dicom: return "DICOM"
         }
     }
 
@@ -107,6 +112,7 @@ public enum MIQFileKind: Sendable, CaseIterable {
         case .mifGz: return [".mif.gz"]
         case .nrrd: return [".nrrd"]
         case .zarr: return [".zarr", ".ome.zarr", ".nii.zarr"]
+        case .dicom: return [".dcm", ".dicom"]
         }
     }
 }

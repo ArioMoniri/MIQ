@@ -51,6 +51,11 @@ extension MIQParser {
             return try parseNrrdHeaderOnly(from: prefix)
         case .zarr:
             throw MIQError.unsupportedFeature("Header-only probe isn't available for Zarr stores")
+        case .dicom:
+            // DICOM geometry tags can sit anywhere before Pixel Data, so a fixed
+            // prefix isn't a reliable header; callers treat a failed probe as
+            // "size unknown".
+            throw MIQError.unsupportedFeature("Header-only probe isn't available for DICOM")
         }
     }
 }

@@ -37,7 +37,8 @@ public struct MIQParser {
     private static let networkReadChunkBytes = 2 * 1024 * 1024
 
     private func loadAndDecompress(url: URL, fullyDecompress: Bool = false) throws -> (Data, MIQFileKind) {
-        guard let kind = MIQFileKind(url: url) else {
+        // Extension first; only an unrecognised name pays for the 132-byte DICOM sniff.
+        guard let kind = MIQFileKind(url: url) ?? MIQFileKind.sniffDICOM(url: url) else {
             throw MIQError.unsupportedFileFormat
         }
 
@@ -303,6 +304,8 @@ public struct MIQParser {
             return try parseNrrd(data)
         case .zarr:
             throw MIQError.unsupportedFileFormat // directory store; dispatched in `parse(url:)`
+        case .dicom:
+            return try parseDicom(data)
         }
     }
 }

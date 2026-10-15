@@ -15,6 +15,7 @@ extension MIQFileKind {
         case .mif, .mifGz: return "MIF"
         case .nrrd: return "NRRD"
         case .zarr: return "ZARR"
+        case .dicom: return "DCM"
         }
     }
 }
