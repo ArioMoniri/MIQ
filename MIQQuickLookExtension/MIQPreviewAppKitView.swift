@@ -145,6 +145,7 @@ final class MIQPreviewAppKitView: NSView {
             // New file: back to the plain, unzoomed 2×2 view.
             currentModel = model
             for canvas in sliceCanvases { canvas.resetViewport() }
+            MIQPanKeyState.reset()
         }
         interaction.modelDidChange(model)
         let c = MIQConfig.axisLabelColor
@@ -265,6 +266,26 @@ final class MIQPreviewAppKitView: NSView {
     override func resignFirstResponder() -> Bool {
         MIQPanKeyState.spaceHeld = false
         return super.resignFirstResponder()
+    }
+
+    /// Process-wide input flags must not outlive the window that set them: a
+    /// Space keyUp (or the scrubber's mouseUp) delivered elsewhere would
+    /// otherwise leave a stale "held" state for the next preview.
+    private var keyWindowObserver: NSObjectProtocol?
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        MIQPanKeyState.reset()
+        if let keyWindowObserver {
+            NotificationCenter.default.removeObserver(keyWindowObserver)
+            self.keyWindowObserver = nil
+        }
+        guard let newWindow else { return }
+        keyWindowObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: newWindow, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { MIQPanKeyState.reset() }
+        }
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -1720,6 +1741,7 @@ private final class MIQVolumeScrubber: NSView {
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         super.viewWillMove(toWindow: newWindow)
+        endScrub()
         if let orphanDragMonitor {
             NSEvent.removeMonitor(orphanDragMonitor)
             self.orphanDragMonitor = nil
@@ -1807,9 +1829,16 @@ extension MIQVolumeScrubber {
     override func isAccessibilityElement() -> Bool { !isHidden && count > 1 }
     override func accessibilityRole() -> NSAccessibility.Role? { .slider }
     override func accessibilityLabel() -> String? { MetadataPanelText.volumesRowLabel }
+    // A slider's value must be numeric (1-based timepoint); the spoken
+    // "Volume n of N" text goes in the value description.
     override func accessibilityValue() -> Any? {
+        NSNumber(value: min(max(1, count), max(1, index + 1)))
+    }
+    override func accessibilityValueDescription() -> String? {
         PreviewL10n.core(PreviewAccessibility.volumeValue(index: index, count: count))
     }
+    override func accessibilityMinValue() -> Any? { NSNumber(value: 1) }
+    override func accessibilityMaxValue() -> Any? { NSNumber(value: max(1, count)) }
     override func accessibilityPerformIncrement() -> Bool {
         guard index + 1 < count else { return false }
         onScrub?(index + 1)

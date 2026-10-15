@@ -207,12 +207,49 @@ enum VolumeRenderMetalShared {
     """
 }
 
+/// Process-lifetime circuit breaker for the GPU backend. Portable (no Metal
+/// types) so its policy is unit-tested on every platform.
+///
+/// After `failureLimit` consecutive GPU failures — or one device-removed
+/// failure — Metal stays off until the process exits; every later frame goes
+/// straight to the CPU caster instead of re-trying a broken GPU per drag step.
+final class MetalFailureGate: @unchecked Sendable {
+    static let defaultFailureLimit = 2
+
+    private let lock = NSLock()
+    private let failureLimit: Int
+    private var consecutiveFailures = 0
+    private var disabled = false
+
+    init(failureLimit: Int = MetalFailureGate.defaultFailureLimit) {
+        self.failureLimit = max(1, failureLimit)
+    }
+
+    var isDisabled: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return disabled
+    }
+
+    func recordSuccess() {
+        lock.lock(); consecutiveFailures = 0; lock.unlock()
+    }
+
+    /// `permanent` (device removed / lost) disables immediately.
+    func recordFailure(permanent: Bool = false) {
+        lock.lock(); defer { lock.unlock() }
+        consecutiveFailures += 1
+        if permanent || consecutiveFailures >= failureLimit { disabled = true }
+    }
+}
+
 #if canImport(Metal)
 
 enum MetalVolumeRenderError: Error {
     case resourceCreationFailed
     case gridTooLarge
     case commandFailed
+    /// The GPU went away (eGPU unplugged, driver reset): disables Metal.
+    case deviceRemoved
 }
 
 /// Runtime-compiled Metal implementation of the ray caster. Serialised with a
@@ -222,9 +259,35 @@ final class MetalVolumeRenderer: @unchecked Sendable {
     /// nil when there is no device, the kernel fails to compile, or the
     /// self-check against the CPU reference fails.
     static let shared: MetalVolumeRenderer? = {
+        didInitializeShared.set()
         guard let renderer = MetalVolumeRenderer() else { return nil }
         return renderer.passesSelfCheck() ? renderer : nil
     }()
+
+    /// `shared`, unless the failure gate has switched Metal off for good.
+    static var active: MetalVolumeRenderer? {
+        guard let shared, !shared.failureGate.isDisabled else { return nil }
+        return shared
+    }
+
+    /// Dedicated serial queue for async callers: the blocking
+    /// `waitUntilCompleted` (and any wait on `lock`) happens here, never on a
+    /// Swift-concurrency pool thread.
+    static let workQueue = DispatchQueue(label: "MIQ.MetalVolumeRenderer", qos: .userInitiated)
+
+    let failureGate = MetalFailureGate()
+
+    /// Set once `shared` has been (or is being) created, so a cache release
+    /// never triggers the kernel compile + self-check just to find nothing.
+    private static let didInitializeShared = StopFlag()
+
+    /// Releases `shared`'s caches without blocking the caller (the lock may be
+    /// held across a GPU wait): queued behind any in-flight frame on
+    /// `workQueue`. A no-op when Metal was never touched.
+    static func releaseSharedCachesAsync() {
+        guard didInitializeShared.isSet else { return }
+        workQueue.async { shared?.releaseCaches() }
+    }
 
     private let device: MTLDevice
     private let queue: MTLCommandQueue
@@ -251,10 +314,51 @@ final class MetalVolumeRenderer: @unchecked Sendable {
         self.queue = queue
     }
 
-    func render(setup: VolumeRenderSetup, grid: VolumeRenderGrid) throws -> RGBABitmap {
+    /// Renders one frame. `isCancelled` is polled before waiting for the lock,
+    /// once it is held and after the GPU finishes, so a superseded frame
+    /// doesn't queue a full GPU pass behind the lock. Throws
+    /// `CancellationError` when cancelled; GPU failures feed `failureGate`.
+    func render(
+        setup: VolumeRenderSetup,
+        grid: VolumeRenderGrid,
+        isCancelled: () -> Bool = { false }
+    ) throws -> RGBABitmap {
+        if isCancelled() { throw CancellationError() }
         lock.lock()
         defer { lock.unlock() }
+        if isCancelled() { throw CancellationError() }
+        do {
+            let bitmap = try encodeAndWait(setup: setup, grid: grid)
+            failureGate.recordSuccess()
+            if isCancelled() { throw CancellationError() }
+            return bitmap
+        } catch MetalVolumeRenderError.gridTooLarge {
+            // A size limit, not a GPU fault.
+            throw MetalVolumeRenderError.gridTooLarge
+        } catch let error as MetalVolumeRenderError {
+            failureGate.recordFailure(permanent: error == .deviceRemoved)
+            // Free the cached textures of a device that misbehaved.
+            dropCachesLocked()
+            throw error
+        }
+    }
 
+    /// Drops the cached grid storage reference and its 3D textures (memory
+    /// pressure, preview reset). The next frame re-uploads.
+    func releaseCaches() {
+        lock.lock(); defer { lock.unlock() }
+        dropCachesLocked()
+    }
+
+    /// Caller holds `lock`.
+    private func dropCachesLocked() {
+        cachedStorage = nil
+        cachedVolume = nil
+        cachedOccupancy = nil
+    }
+
+    /// Caller holds `lock`.
+    private func encodeAndWait(setup: VolumeRenderSetup, grid: VolumeRenderGrid) throws -> RGBABitmap {
         let (volumeTex, occupancyTex) = try textures(for: grid)
         let params = VolumeRenderMetalShared.pack(setup)
         let palette = setup.palette.isEmpty ? [Float](repeating: 0, count: 4) : setup.palette
@@ -285,7 +389,14 @@ final class MetalVolumeRenderer: @unchecked Sendable {
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else { throw MetalVolumeRenderError.commandFailed }
+        guard commandBuffer.status == .completed else {
+            if let error = commandBuffer.error as NSError?,
+               error.domain == MTLCommandBufferError.errorDomain,
+               error.code == MTLCommandBufferError.Code.deviceRemoved.rawValue {
+                throw MetalVolumeRenderError.deviceRemoved
+            }
+            throw MetalVolumeRenderError.commandFailed
+        }
         let pixels = Data(bytes: outBuffer.contents(), count: outLength)
         return RGBABitmap(width: setup.width, height: setup.height, pixels: pixels)
     }
@@ -395,9 +506,7 @@ final class MetalVolumeRenderer: @unchecked Sendable {
             if totalDiff > count || bad * 100 > count { return false }
         }
         // The self-check rendered through the texture cache; drop it.
-        cachedStorage = nil
-        cachedVolume = nil
-        cachedOccupancy = nil
+        releaseCaches()
         return true
     }
 }

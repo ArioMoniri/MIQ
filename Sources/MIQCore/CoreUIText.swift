@@ -49,6 +49,7 @@ public enum CoreUIText {
             MIQError.truncatedData.errorDescription!,
             MIQError.decompressionFailed.errorDescription!,
             MIQError.unsupportedFileFormat.errorDescription!,
+            MIQColdPreviewGate.tooLargeMessage(bytes: nil),
         ]
         var seen = Set<String>()
         return list.filter { seen.insert($0).inserted }
@@ -77,6 +78,7 @@ public enum CoreUIText {
         "%@ is %@ in iCloud (not downloaded).\nLoading it now downloads the whole file, which could make Finder unresponsive.",
         "%@ is %@ on a network volume.\nLoading it now could make Finder unresponsive while it transfers.",
         "Too large for 4D in Quick Look (%@)",
+        "Too large to preview in Quick Look (%@)",
         // Accessibility (`PreviewAccessibility`).
         "%@ slice %@ of %@, window %@",
         "%@ slice %@ of %@",

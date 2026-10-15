@@ -80,6 +80,8 @@ enum MIQPreviewCache {
             // whether or not the SDK marks it @Sendable.
             memoryPressureSource.setEventHandler { [weak self] in
                 self?.cache.removeAllObjects()
+                // The 3D view's GPU textures are just as disposable.
+                VolumeRenderer.releaseCachedResources()
             }
             memoryPressureSource.resume()
         }

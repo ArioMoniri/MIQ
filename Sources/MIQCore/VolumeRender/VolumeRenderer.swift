@@ -36,11 +36,22 @@ public enum VolumeRenderer {
             grid: grid, camera: camera, mode: mode, window: window,
             width: width, height: height, options: options
         )
-        if let bitmap = metalRender(setup: setup, grid: grid, backend: options.backend) {
+        if let bitmap = try await metalRenderAsync(setup: setup, grid: grid, backend: options.backend) {
             try Task.checkCancellation()
             return bitmap
         }
         return try await renderCPU(setup: setup, grid: grid)
+    }
+
+    /// Releases GPU-side caches (the most recent grid's 3D textures and the
+    /// reference keeping its storage alive). Call on memory pressure and when a
+    /// preview resets; safe from any thread and non-blocking (the release is
+    /// queued behind any in-flight GPU frame). A no-op without Metal, or when
+    /// the Metal backend was never initialised.
+    public static func releaseCachedResources() {
+        #if canImport(Metal)
+        MetalVolumeRenderer.releaseSharedCachesAsync()
+        #endif
     }
 
     /// Convenience: builds a grid from `volume` and renders it. Building the
@@ -86,7 +97,7 @@ public enum VolumeRenderer {
             width: width, height: height, options: options
         )
         if isCancelled() { throw CancellationError() }
-        if let bitmap = metalRender(setup: setup, grid: grid, backend: options.backend) {
+        if let bitmap = try metalRender(setup: setup, grid: grid, backend: options.backend, isCancelled: isCancelled) {
             if isCancelled() { throw CancellationError() }
             return bitmap
         }
@@ -111,7 +122,7 @@ public enum VolumeRenderer {
     /// `true` when the Metal backend compiled and passed its CPU cross-check.
     public static var isMetalAvailable: Bool {
         #if canImport(Metal)
-        return MetalVolumeRenderer.shared != nil
+        return MetalVolumeRenderer.active != nil
         #else
         return false
         #endif
@@ -148,12 +159,57 @@ public enum VolumeRenderer {
         stride(from: 0, to: height, by: rowsPerBand).map { $0..<min(height, $0 + rowsPerBand) }
     }
 
-    /// Metal attempt per `backend`; nil means "use the CPU path".
-    private static func metalRender(setup: VolumeRenderSetup, grid: VolumeRenderGrid, backend: VolumeRenderBackend) -> RGBABitmap? {
+    /// Metal attempt per `backend`; nil means "use the CPU path". Only
+    /// cancellation propagates — any GPU error falls back to the CPU.
+    private static func metalRender(
+        setup: VolumeRenderSetup,
+        grid: VolumeRenderGrid,
+        backend: VolumeRenderBackend,
+        isCancelled: () -> Bool
+    ) throws -> RGBABitmap? {
         guard backend != .cpu else { return nil }
         #if canImport(Metal)
-        guard let metal = MetalVolumeRenderer.shared else { return nil }
-        return try? metal.render(setup: setup, grid: grid)
+        guard let metal = MetalVolumeRenderer.active else { return nil }
+        do {
+            return try metal.render(setup: setup, grid: grid, isCancelled: isCancelled)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return nil
+        }
+        #else
+        return nil
+        #endif
+    }
+
+    /// Async Metal attempt: runs on `MetalVolumeRenderer.workQueue` (bridged
+    /// with a continuation) so the blocking GPU wait never occupies a
+    /// cooperative-pool thread, with task cancellation forwarded as a flag.
+    private static func metalRenderAsync(
+        setup: VolumeRenderSetup,
+        grid: VolumeRenderGrid,
+        backend: VolumeRenderBackend
+    ) async throws -> RGBABitmap? {
+        guard backend != .cpu else { return nil }
+        #if canImport(Metal)
+        guard MetalVolumeRenderer.active != nil else { return nil }
+        let stop = StopFlag()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RGBABitmap?, Error>) in
+                MetalVolumeRenderer.workQueue.async {
+                    do {
+                        let bitmap = try metalRender(
+                            setup: setup, grid: grid, backend: backend, isCancelled: { stop.isSet }
+                        )
+                        continuation.resume(returning: bitmap)
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
+        } onCancel: {
+            stop.set()
+        }
         #else
         return nil
         #endif

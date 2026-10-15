@@ -237,6 +237,22 @@
         }
       }
     },
+    "3D rendering failed" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D-Darstellung fehlgeschlagen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3B görüntüleme başarısız oldu"
+          }
+        }
+      }
+    },
     "3D: %@" : {
       "comment" : "Context menu; %@ is MIP / DVR / Labels.",
       "localizations" : {
@@ -1524,6 +1540,39 @@
           }
         }
       }
+    },
+    "Too large to preview in Quick Look" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu groß für die Vorschau in Quick Look"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Look’ta önizlemek için çok büyük"
+          }
+        }
+      }
+    },
+    "Too large to preview in Quick Look (%@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu groß für die Vorschau in Quick Look (%@)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Look’ta önizlemek için çok büyük (%@)"
+          }
+        }
+      },
+      "comment" : "%@ is a size such as 3.2 GB."
     },
     "Typical" : {
       "comment" : "QC level.",

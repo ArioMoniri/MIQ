@@ -545,4 +545,40 @@ struct VolumeRendererTests {
         #expect(packed[VolumeRenderMetalShared.Param.dx.rawValue] == setup.dir.0)
         #expect(setup.transfer.count == VolumeRenderSetup.transferTableSize * 4)
     }
+
+    // MARK: - Metal failure gate / cache release
+
+    @Test
+    func metalFailureGateDisablesAfterConsecutiveFailures() {
+        let gate = MetalFailureGate(failureLimit: 2)
+        #expect(!gate.isDisabled)
+        gate.recordFailure()
+        #expect(!gate.isDisabled)
+        // A success in between resets the streak.
+        gate.recordSuccess()
+        gate.recordFailure()
+        #expect(!gate.isDisabled)
+        gate.recordFailure()
+        #expect(gate.isDisabled)
+        // Process-lifetime: a later success doesn't re-enable.
+        gate.recordSuccess()
+        #expect(gate.isDisabled)
+    }
+
+    @Test
+    func metalFailureGateDisablesImmediatelyOnDeviceLoss() {
+        let gate = MetalFailureGate(failureLimit: 5)
+        gate.recordFailure(permanent: true)
+        #expect(gate.isDisabled)
+    }
+
+    @Test
+    func releasingCachedResourcesIsSafeAndRenderingStillWorks() async throws {
+        VolumeRenderer.releaseCachedResources()
+        let grid = VolumeRenderGrid(volume: Self.cubeVolume(), maxDimension: 32, asLabels: false)
+        let frame = try await VolumeRenderer.render(grid: grid, mode: .mip, window: nil, width: 24, height: 24)
+        VolumeRenderer.releaseCachedResources()
+        let again = try await VolumeRenderer.render(grid: grid, mode: .mip, window: nil, width: 24, height: 24)
+        #expect(frame.pixels == again.pixels)
+    }
 }

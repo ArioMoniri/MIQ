@@ -37,6 +37,24 @@ enum MIQPanKeyState {
     /// mid-dispatch, and a sibling (whose stale frame still covers the point)
     /// must not act on the same press again.
     static var lastHandledClickEventNumber: Int?
+
+    /// Whether Space-drag panning is armed. The tracked flag can go stale
+    /// (keyUp delivered to another window, the host swallowing it), so the
+    /// hardware key state confirms it at press time.
+    static var isSpaceHeldNow: Bool {
+        guard spaceHeld else { return false }
+        if CGEventSource.keyState(.combinedSessionState, key: 0x31) { return true }
+        spaceHeld = false
+        return false
+    }
+
+    /// Clears every transient input flag (including the scrubber's
+    /// cross-view gate). Called on window moves, key-window loss and when a
+    /// new model is shown.
+    static func reset() {
+        spaceHeld = false
+        FullScreenEventRescue.scrubInProgress = false
+    }
 }
 
 extension ViewportRect {
@@ -234,6 +252,9 @@ final class MIQSliceCanvas: NSView {
     /// ⇧- or Space-press on a zoomed panel → start a pan, else crosshair.
     private func handlePrimaryMouseDown(_ event: NSEvent, at location: NSPoint) {
         onActivate?(plane)
+        // A fresh press on a canvas means any scrub drag has ended, even if
+        // its mouseUp was lost.
+        FullScreenEventRescue.scrubInProgress = false
         if event.modifierFlags.contains(.control) {
             panAnchor = nil
             onContextMenu?(plane, event)
@@ -244,7 +265,7 @@ final class MIQSliceCanvas: NSView {
             onDoubleClick?(plane)
             return
         }
-        if !viewport.isIdentity, event.modifierFlags.contains(.shift) || MIQPanKeyState.spaceHeld {
+        if !viewport.isIdentity, event.modifierFlags.contains(.shift) || MIQPanKeyState.isSpaceHeldNow {
             panAnchor = location
             return
         }

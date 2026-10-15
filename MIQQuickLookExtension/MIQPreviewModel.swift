@@ -333,6 +333,20 @@ final class MIQPreviewModel {
                 return
             }
 
+            // Header-only memory gate (≤ 64 KB read): a tiny file whose header
+            // claims a multi-GB payload must not make the cold parse allocate
+            // it. Unprobeable kinds (DICOM, Zarr) proceed unchanged.
+            if let refusal = try await Self.runCancelableDetached({
+                try Self.withSecurityScopedAccess(to: fileURL) { MIQColdPreviewGate.refusalMessage(url: fileURL) }
+            }) {
+                try Task.checkCancellation()
+                state = .failed(refusal)
+                logger.notice("load() declined: header exceeds the cold-preview memory budget")
+                onChange?()
+                return
+            }
+            try Task.checkCancellation()
+
             let overNetwork = readsOverNetwork
             let coldLoad = Task {
                 try await Self.sharedColdLoad(key: probe.cacheKey) {
