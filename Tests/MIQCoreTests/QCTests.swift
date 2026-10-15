@@ -468,6 +468,46 @@ struct QCSequenceGuessTests {
         #expect(s.report.metrics.allSatisfy { $0.level == .notAssessed })
         #expect(s.headMask != nil)
     }
+
+    /// e2e regression: CT whose air is exactly −1024 (no noise outside the body, as
+    /// scanners write padding / reconstructions often clamp) was called a label map,
+    /// because the identical −1024 neighbour pairs swamped the equal-pair evidence.
+    static func noiseFreeAirCT(tissueNoise: Bool) -> MIQVolume {
+        var noise = QCPhantom.Noise(state: 7)
+        return QCPhantom.image(dims: [48, 48, 48], spacing: 1, datatype: .int16, frame: QCPhantom.rasFrame) { x, y, z, _ in
+            let dx = Float(x - 24), dy = Float(y - 24), dz = Float(z - 24)
+            let r = (dx * dx + dy * dy + dz * dz).squareRoot()
+            let hu: Float = r < 16 ? 30 : (r < 19 ? 1000 : -1024)
+            guard tissueNoise, hu > -1000 else { return hu }
+            return (hu + Float(5 * noise.normal())).rounded()
+        }
+    }
+
+    @Test
+    func ctWithNoiseFreeAirIsNotALabelMap() throws {
+        let noisy = Self.noiseFreeAirCT(tissueNoise: true)
+        let grid = try #require(try QCGrid.sample(volume: noisy, volumeIndex: 0, maxDimension: 48))
+        // The background (mode) pairs no longer count as label-map evidence.
+        #expect(!QCContentClassifier.labelMapEvidence(grid: grid, datatype: .int16).isLabel)
+        let s = try QCAnalyzer.analyze(volume: noisy, fileName: "ct.nii.gz")
+        #expect(s.contentKind == .ct)
+        #expect(s.sequenceGuess?.label == "CT")
+
+        // Fully piecewise-constant synthetic CT: the HU signature wins over label evidence.
+        let flat = try QCAnalyzer.analyze(volume: Self.noiseFreeAirCT(tissueNoise: false), fileName: "ct.nii.gz")
+        #expect(flat.contentKind == .ct)
+    }
+
+    @Test
+    func labelMapWithNonZeroBackgroundStillDetected() throws {
+        // Background stored as 2 (most frequent), blocky labels inside.
+        let v = QCPhantom.image(dims: [32, 32, 32], spacing: 1, datatype: .int16, frame: nil) { x, y, z, _ in
+            guard (4..<28).contains(x), (4..<28).contains(y), (4..<28).contains(z) else { return 2 }
+            return Float(10 + (x / 8) + 3 * (y / 8))
+        }
+        let grid = try #require(try QCGrid.sample(volume: v, volumeIndex: 0, maxDimension: 32))
+        #expect(QCContentClassifier.labelMapEvidence(grid: grid, datatype: .int16).isLabel)
+    }
 }
 
 struct QCAnalyzerTests {

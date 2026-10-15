@@ -119,8 +119,12 @@ public enum QCAnalyzer {
         try Task.checkCancellation()
 
         // Content classification.
-        let label = QCContentClassifier.labelMapEvidence(grid: grid, datatype: header.datatype)
-        let ct = !label.isLabel && QCContentClassifier.looksLikeCT(grid: grid)
+        // The Hounsfield signature (a large air mode plus soft tissue) is tested first: a
+        // label map never has it, whereas a CT with noise-free air (exactly −1024 outside
+        // the body) or piecewise-constant synthetic tissue can pass the label-map test.
+        let ct = QCContentClassifier.looksLikeCT(grid: grid)
+        let label = ct ? (isLabel: false, isBinary: false)
+            : QCContentClassifier.labelMapEvidence(grid: grid, datatype: header.datatype)
         let variation = try QCContentClassifier.volumeMeanVariation(volume: volume)
         try Task.checkCancellation()
 
