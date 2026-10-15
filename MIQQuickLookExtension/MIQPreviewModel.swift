@@ -37,6 +37,20 @@ final class MIQPreviewModel {
         /// Not `.failed` — nothing went wrong, there is just nothing to render, and
         /// the resulting black grid is otherwise indistinguishable from a bug.
         case noFiniteVoxels
+
+        /// For the unified log, which records `.public` values in plain text:
+        /// `.deferred`'s name and `.failed`'s message (Cocoa I/O errors quote the
+        /// file name) can carry patient identifiers, so neither is included.
+        var logDescription: String {
+            switch self {
+            case .idle: return "idle"
+            case .loading: return "loading"
+            case .ready: return "ready"
+            case .failed: return "failed"
+            case .deferred(_, let sizeBytes): return "deferred(\(sizeBytes / (1024 * 1024))MB)"
+            case .noFiniteVoxels: return "noFiniteVoxels"
+            }
+        }
     }
 
     /// Lifecycle of the lazy full-decompression for 4D `.nii.gz`. Every other
@@ -47,12 +61,16 @@ final class MIQPreviewModel {
     /// `.failed` keeps volumes > 0 on the backstop *without* retrying on every
     /// step (no storm), but is reset to `.pending` at the next scroll-gesture
     /// start so a transient failure isn't permanent for the session.
-    private enum ExpansionState {
+    /// `.tooLarge` is final for the model: the header says the full payload
+    /// exceeds `MIQPayloadSizeEstimate.previewFullDecompressionBudgetBytes`, so
+    /// volume 0 stays on screen and volumes > 0 keep the zero backstop.
+    private enum ExpansionState: Equatable {
         case notNeeded
         case pending
         case expanding
         case expanded
         case failed
+        case tooLarge(bytes: Int)
     }
 
     var state: State = .idle
@@ -187,7 +205,8 @@ final class MIQPreviewModel {
         // on a cache hit too (the setting only affects volumes > 0, never the
         // cached volume-0 cold preview — see MIQConfig.perVolumeIntensityWindow).
         perVolumeWindow = MIQConfig.perVolumeIntensityWindow
-        logger.notice("load() started for: \(fileURL.lastPathComponent, privacy: .public)")
+        // File names carry patient identifiers: log a stable tag, never the name.
+        logger.notice("load() started: file=\(MIQLogRedaction.fileTag(fileURL), privacy: .public)")
         logger.notice("MIQConfig percentiles: lower=\(options.lowerPercentile, privacy: .public), upper=\(options.upperPercentile, privacy: .public), orientation=\(options.orientation.rawValue, privacy: .public), showAxisLabels=\(MIQConfig.showAxisLabels, privacy: .public)")
 
         // The controller creates one model per URL, and a second load() only comes
@@ -212,10 +231,23 @@ final class MIQPreviewModel {
             // size; either can block on a hung network mount, so both run off the
             // MainActor. Only the String key and the size come back — cached
             // bundles hold NSImages, so the lookup itself stays on the MainActor.
+            //
+            // A dataless cloud placeholder (iCloud Drive "Optimize Mac Storage",
+            // other File Providers) is routed like a network file: reading it
+            // downloads it, so its reads go through `NetworkReadLane` and a large
+            // one is deferred behind the "Load preview" placeholder.
             let probe = try await Self.runCancelableDetached { () -> (cacheKey: String, isLocal: Bool, deferralSizeBytes: Int?) in
                 let cacheKey = MIQPreviewCache.makeKey(fileURL: fileURL, maxDimension: maxDimension, options: options)
-                let isLocal = VolumeLocation.isLocal(fileURL)
-                let deferralSizeBytes = applyNetworkGate && !isLocal ? Self.networkDeferralSizeBytes(fileURL: fileURL, kind: kind) : nil
+                let isDataless = VolumeLocation.isDataless(fileURL)
+                let isLocal = VolumeLocation.isLocal(fileURL) && !isDataless
+                let deferralSizeBytes: Int?
+                if !applyNetworkGate || isLocal {
+                    deferralSizeBytes = nil
+                } else if isDataless {
+                    deferralSizeBytes = Self.datalessDeferralSizeBytes(fileURL: fileURL)
+                } else {
+                    deferralSizeBytes = Self.networkDeferralSizeBytes(fileURL: fileURL, kind: kind)
+                }
                 return (cacheKey, isLocal, deferralSizeBytes)
             }
             try Task.checkCancellation()
@@ -252,7 +284,7 @@ final class MIQPreviewModel {
             let overNetwork = readsOverNetwork
             let coldLoad = Task {
                 try await Self.sharedColdLoad(key: probe.cacheKey) {
-                    try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: false, label: "load \(fileURL.lastPathComponent)") { parser in
+                    try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: false, label: "load") { parser in
                         try MIQPreviewModel.loadPreviewData(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension)
                     }
                 }
@@ -290,7 +322,8 @@ final class MIQPreviewModel {
             // untouched and don't surface a failure.
             logger.notice("load() canceled before completion")
         } catch {
-            logger.error("load() failed: \(error.localizedDescription, privacy: .public)")
+            // Cocoa I/O errors quote the file name: keep the text out of the public log.
+            logger.error("load() failed: \(error.localizedDescription, privacy: .private)")
             state = .failed(error.localizedDescription)
             onChange?()
         }
@@ -390,16 +423,21 @@ final class MIQPreviewModel {
     /// What the Volumes line says about the lazy 4D expansion: nothing, a
     /// "decompressing" affordance while it runs, or that it failed — without the
     /// last, volumes > 0 render the zero backstop with no explanation.
-    enum VolumeExpansionStatus {
+    enum VolumeExpansionStatus: Equatable {
         case idle
         case expanding
         case failed
+        /// The full payload is over the preview's decompression budget; carries
+        /// the short user-facing message (e.g. "Too large for 4D in Quick Look
+        /// (4.3 GB)").
+        case tooLarge(message: String)
     }
 
     var volumeExpansionStatus: VolumeExpansionStatus {
         switch expansionState {
         case .expanding: return .expanding
         case .failed: return .failed
+        case .tooLarge(let bytes): return .tooLarge(message: MIQPayloadSizeEstimate.tooLargeFor4DMessage(bytes: bytes))
         case .notNeeded, .pending, .expanded: return .idle
         }
     }
@@ -409,6 +447,18 @@ final class MIQPreviewModel {
     /// `.pending` → `.expanding` transition can't race a second caller.
     private func triggerExpansionIfNeeded() {
         guard expansionState == .pending, let interactiveState else { return }
+        // Refuse before decompressing: a multi-GB series would get the extension
+        // killed mid-gunzip (Apple publishes no Quick Look memory limit, so the
+        // budget is a conservative named constant). Volume 0 stays on screen and
+        // the Volumes line says why the rest is unavailable; the caller's
+        // `onChange` repaints it.
+        let header = interactiveState.volume.image.header
+        if header.exceedsFullDecompressionBudget() {
+            let bytes = header.estimatedPayloadBytes ?? Int.max
+            expansionState = .tooLarge(bytes: bytes)
+            logger.notice("4D expansion skipped: full payload \(bytes / (1024 * 1024), privacy: .public)MB exceeds the Quick Look budget")
+            return
+        }
         expansionState = .expanding
         let fileURL = self.url
         let options = interactiveState.options
@@ -421,7 +471,7 @@ final class MIQPreviewModel {
         // by type, not `Self`, so nothing in the closure retains the model.
         expansionTask = Task { [weak self] in
             do {
-                let expanded = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: false, claimsNewest: true, label: "expand \(fileURL.lastPathComponent)") { parser in
+                let expanded = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: false, claimsNewest: true, label: "expand") { parser in
                     try MIQPreviewModel.loadExpandedInteractiveState(
                         parser: parser,
                         fileURL: fileURL,
@@ -459,7 +509,7 @@ final class MIQPreviewModel {
                 // transient failure (I/O, security scope) isn't permanent.
                 // Volumes > 0 keep the zero backstop; volume 0 stays correct.
                 self.expansionState = .failed
-                self.logger.error("4D expansion failed: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("4D expansion failed: \(error.localizedDescription, privacy: .private)")
                 // Repaint so the Volumes line drops "decompressing…" and says so.
                 self.onChange?()
             }
@@ -633,7 +683,7 @@ final class MIQPreviewModel {
         // Weak across the await; see deinit.
         interactionPreparationTask = Task { [weak self] in
             do {
-                let interactiveState = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: claimsNewest, label: "prepare \(fileURL.lastPathComponent)") { parser in
+                let interactiveState = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: claimsNewest, label: "prepare") { parser in
                     try MIQPreviewModel.loadInteractiveState(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension)
                 }
                 guard let self, !Task.isCancelled else { return }
@@ -655,7 +705,7 @@ final class MIQPreviewModel {
                     self.interactivePreparationDeferred = true
                     return
                 }
-                self.logger.error("interactive state preparation failed: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("interactive state preparation failed: \(error.localizedDescription, privacy: .private)")
             }
         }
     }
@@ -707,7 +757,10 @@ final class MIQPreviewModel {
 
         // Weak across the await; see deinit.
         renderTask = Task { [weak self] in
-            let result = await Task.detached(priority: .userInitiated) {
+            // A detached task doesn't inherit cancellation: forward this task's
+            // (scroll-gesture restart, `cancelInFlightWork`) so a superseded render
+            // stops between planes instead of decoding all three for nothing.
+            let render = Task.detached(priority: .userInitiated) {
                 MIQPreviewModel.renderBitmaps(
                     cursor: cursor,
                     planes: planesToRender,
@@ -716,8 +769,13 @@ final class MIQPreviewModel {
                     perVolume: perVolume,
                     cached: cachedAutoBounds
                 )
-            }.value
-            guard let self, !Task.isCancelled else { return }
+            }
+            let rendered = await withTaskCancellationHandler {
+                await render.value
+            } onCancel: {
+                render.cancel()
+            }
+            guard let result = rendered, let self, !Task.isCancelled else { return }
             self.apply(bitmaps: result.bitmaps)
             // Remember the auto window so a subsequent W/L drag starts from it,
             // and memoize it per timepoint for per-volume mode — unless the state
@@ -847,6 +905,16 @@ final class MIQPreviewModel {
         return size
     }
 
+    /// Deferral size for a dataless cloud placeholder: any kind over the network
+    /// threshold. Unlike a network mount, canonical NIfTI gets no exemption — the
+    /// File Provider materializes the whole file on first read, so the bounded
+    /// volume-0 prefix read saves nothing. Runs inside the detached probe task.
+    private nonisolated static func datalessDeferralSizeBytes(fileURL: URL) -> Int? {
+        guard let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size > MIQConfig.networkPreviewThresholdBytes else { return nil }
+        return size
+    }
+
     private nonisolated static func loadPreviewData(
         parser: MIQParser,
         fileURL: URL,
@@ -964,12 +1032,19 @@ final class MIQPreviewModel {
         manual: MIQIntensityWindowBounds?,
         perVolume: Bool,
         cached: MIQIntensityWindowBounds?
-    ) -> (bounds: MIQIntensityWindowBounds?, bitmaps: [SlicePlane: RGBABitmap]) {
+    ) -> (bounds: MIQIntensityWindowBounds?, bitmaps: [SlicePlane: RGBABitmap])? {
         let bounds = resolveWindowBounds(cursor: cursor, interactiveState: interactiveState, manual: manual, perVolume: perVolume, cached: cached)
-        let slices = renderSlices(for: cursor, planes: planes, interactiveState: interactiveState, windowBounds: bounds)
+        guard let slices = renderSlices(for: cursor, planes: planes, interactiveState: interactiveState, windowBounds: bounds) else {
+            return nil
+        }
         // RGBA expansion stays off the MainActor with the rest of the
         // pixel work; only CGImage/NSImage wrapping happens in apply.
-        return (bounds, slices.compactMapValues { $0.rgbaBitmap() })
+        var bitmaps: [SlicePlane: RGBABitmap] = [:]
+        for (plane, slice) in slices {
+            guard !Task.isCancelled else { return nil }
+            if let bitmap = slice.rgbaBitmap() { bitmaps[plane] = bitmap }
+        }
+        return (bounds, bitmaps)
     }
 
     private nonisolated static func resolveWindowBounds(
@@ -999,9 +1074,11 @@ final class MIQPreviewModel {
         planes: [SlicePlane],
         interactiveState: InteractivePreviewState,
         windowBounds: MIQIntensityWindowBounds?
-    ) -> [SlicePlane: SliceImage] {
+    ) -> [SlicePlane: SliceImage]? {
         var slices: [SlicePlane: SliceImage] = [:]
         for plane in planes {
+            // `nil` once the render is superseded: the caller discards it anyway.
+            guard !Task.isCancelled else { return nil }
             let index = interactiveState.volume.sliceIndex(for: plane, cursor: cursor, options: interactiveState.options)
             slices[plane] = interactiveState.volume.slice(
                 plane: plane,

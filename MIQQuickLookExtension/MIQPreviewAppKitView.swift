@@ -1025,6 +1025,8 @@ private final class MIQVolumeScrubber: NSView {
         case .expanding: return base + "  decompressing…"
         // Volumes > 0 show the zero backstop; a new scroll gesture retries.
         case .failed: return base + "  full load failed"
+        // Over the decompression budget: volume 0 only, and this says why.
+        case .tooLarge(let message): return base + "  " + message
         }
     }
 

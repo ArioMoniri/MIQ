@@ -26,9 +26,17 @@ extension MIQParser {
         return try buildNrrdImage(nrrd: nrrd, storage: storage, payloadOffset: payloadOffset)
     }
 
+    /// Header-only parse for `probeHeader`: the payload is neither read nor
+    /// decompressed (a gzip-encoded NRRD keeps its plaintext header in front).
+    func parseNrrdHeaderOnly(from data: Data) throws -> MIQHeader {
+        let (nrrd, payloadIndex) = try parseNrrdHeaderBlock(data: data)
+        let payloadOffset = data.distance(from: data.startIndex, to: payloadIndex)
+        return try buildNrrdMIQHeader(nrrd: nrrd, payloadOffset: payloadOffset).header
+    }
+
     // MARK: - Loading
 
-    private func loadNrrd(data: Data) throws -> (NrrdParsedHeader, Data, Int) {
+    private func parseNrrdHeaderBlock(data: Data) throws -> (NrrdParsedHeader, Data.Index) {
         let (headerText, payloadIndex) = try splitNrrdHeader(data: data)
         let lines = headerText.split(whereSeparator: { $0.isNewline }).map(String.init)
 
@@ -37,7 +45,11 @@ extension MIQParser {
         }
 
         let fields = parseNrrdFields(lines: lines)
-        let nrrd = try buildNrrdParsedHeader(fields: fields)
+        return (try buildNrrdParsedHeader(fields: fields), payloadIndex)
+    }
+
+    private func loadNrrd(data: Data) throws -> (NrrdParsedHeader, Data, Int) {
+        let (nrrd, payloadIndex) = try parseNrrdHeaderBlock(data: data)
 
         let storage: Data
         let payloadOffset: Int

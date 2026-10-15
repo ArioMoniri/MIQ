@@ -1,4 +1,5 @@
 import Foundation
+import MIQCore
 
 /// A preview as `NetworkReadLane` sees it.
 @MainActor
@@ -76,6 +77,10 @@ final class NetworkReadLane {
     private final class Ticket {
         let label: String
         let url: URL
+        /// What the log lines name this ticket by: the operation label plus the
+        /// file's `MIQLogRedaction.fileTag`, never the file name itself (medical
+        /// file names carry patient identifiers, and these lines log publicly).
+        let logName: String
         /// Arrival order; higher is newer.
         let sequence: Int
         /// Dropped: no preview wants this file any more.
@@ -89,6 +94,7 @@ final class NetworkReadLane {
         init(label: String, url: URL, sequence: Int) {
             self.label = label
             self.url = url
+            self.logName = "\(label) file=\(MIQLogRedaction.fileTag(url))"
             self.sequence = sequence
         }
     }
@@ -132,6 +138,8 @@ final class NetworkReadLane {
     /// request. `work` receives the callback to hand to
     /// `MIQParser(onNetworkReadFinished:)`. Throws `Superseded` if no preview
     /// wants the file any more, `CancellationError` if the caller was cancelled.
+    /// `label` names the operation ("load", "expand") and is logged publicly, so
+    /// it must never contain the file name; the lane appends a file tag itself.
     func run<T: Sendable>(
         _ label: String,
         url: URL,
@@ -161,7 +169,7 @@ final class NetworkReadLane {
                     try Task.checkCancellation()
                     if ticket.superseded || !isWanted(ticket.url) {
                         ticket.superseded = true
-                        logger.notice("\(ticket.label, privacy: .public): dropped before reading, no preview wants it")
+                        logger.notice("\(ticket.logName, privacy: .public): dropped before reading, no preview wants it")
                         throw Superseded()
                     }
                     scheduleQuietWakeIfNeeded()
@@ -173,7 +181,7 @@ final class NetworkReadLane {
                 ticket.preempted = false
                 let start = Date()
                 let role = ticket.url == newestURL ? "newest" : "on screen"
-                logger.notice("\(ticket.label, privacy: .public) [\(role, privacy: .public)]: reading after \(Self.ms(since: arrived), privacy: .public) ms")
+                logger.notice("\(ticket.logName, privacy: .public) [\(role, privacy: .public)]: reading after \(Self.ms(since: arrived), privacy: .public) ms")
                 let task = Task.detached(priority: .userInitiated) { try work(readFinished) }
                 ticket.cancelWork = { task.cancel() }
                 // Stopped or cancelled between the checks above and now: those
@@ -185,16 +193,16 @@ final class NetworkReadLane {
 
                 switch result {
                 case .success(let value):
-                    logger.notice("\(ticket.label, privacy: .public): done in \(Self.ms(since: start), privacy: .public) ms")
+                    logger.notice("\(ticket.logName, privacy: .public): done in \(Self.ms(since: start), privacy: .public) ms")
                     return value
                 case .failure(let error):
                     if error is CancellationError, !Task.isCancelled {
                         if ticket.superseded {
-                            logger.notice("\(ticket.label, privacy: .public): dropped after \(Self.ms(since: start), privacy: .public) ms of reading, no preview wants it")
+                            logger.notice("\(ticket.logName, privacy: .public): dropped after \(Self.ms(since: start), privacy: .public) ms of reading, no preview wants it")
                             throw Superseded()
                         }
                         if ticket.preempted {
-                            logger.notice("\(ticket.label, privacy: .public): stopped for a newer request after \(Self.ms(since: start), privacy: .public) ms, waiting")
+                            logger.notice("\(ticket.logName, privacy: .public): stopped for a newer request after \(Self.ms(since: start), privacy: .public) ms, waiting")
                             continue
                         }
                     }

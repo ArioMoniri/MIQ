@@ -18,4 +18,32 @@ public enum VolumeLocation {
         guard ok else { return true }
         return (info.f_flags & UInt32(MNT_LOCAL)) != 0
     }
+
+    /// `SF_DATALESS` from `<sys/stat.h>`: the file's contents are not on disk
+    /// (an iCloud Drive / File Provider placeholder, "Optimize Mac Storage").
+    /// Spelled out because the Swift Darwin overlay doesn't import it on every SDK.
+    static let dataLessFlag: UInt32 = 0x4000_0000
+
+    /// `true` when `url` is a dataless cloud placeholder: reading it would make
+    /// the File Provider download the whole file first, which from Quick Look
+    /// behaves like a slow network read (or blocks indefinitely offline).
+    /// Callers route it like a network file: the preview defers it behind the
+    /// "Load preview" placeholder and the thumbnail extension declines it.
+    ///
+    /// `stat(2)` only reads metadata, so the probe itself never triggers the
+    /// download. `false` on a failed probe and on non-Darwin platforms (no
+    /// `st_flags`), keeping the normal path.
+    public static func isDataless(_ url: URL) -> Bool {
+        #if canImport(Darwin)
+        var info = stat()
+        let ok = url.withUnsafeFileSystemRepresentation { pointer -> Bool in
+            guard let pointer else { return false }
+            return stat(pointer, &info) == 0
+        }
+        guard ok else { return false }
+        return (info.st_flags & dataLessFlag) != 0
+        #else
+        return false
+        #endif
+    }
 }

@@ -80,12 +80,16 @@ final class MIQPreviewController: NSViewController, QLPreviewingController, Netw
     }
 
     nonisolated func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
-        nonisolated(unsafe) let completion = handler
-        logger.notice("preparePreviewOfFile called for: \(url.path, privacy: .public)")
+        // `handler` is only ever called synchronously below, on the thread Quick
+        // Look called us on; it never crosses into the MainActor task, so it needs
+        // no Sendable wrapper (and no `nonisolated(unsafe)` escape hatch).
+        // Paths and file names carry patient identifiers: log a stable tag only.
+        let fileTag = MIQLogRedaction.fileTag(url)
+        logger.notice("preparePreviewOfFile called: file=\(fileTag, privacy: .public)")
 
         guard MIQFileKind(url: url) != nil else {
-            logger.notice("declining unsupported preview file: \(url.path, privacy: .public)")
-            completion(MIQError.unsupportedFileFormat)
+            logger.notice("declining unsupported preview file: file=\(fileTag, privacy: .public)")
+            handler(MIQError.unsupportedFileFormat)
             return
         }
 
@@ -93,7 +97,7 @@ final class MIQPreviewController: NSViewController, QLPreviewingController, Netw
             self?.prepareAndStartLoading(url: url)
         }
         logger.notice("preparePreviewOfFile completion returned")
-        completion(nil)
+        handler(nil)
     }
 
     @MainActor
@@ -193,7 +197,7 @@ final class MIQPreviewController: NSViewController, QLPreviewingController, Netw
             }
             self.refreshPreviewView(from: model, flushDisplay: false)
             let elapsedMs = Int(Date().timeIntervalSince(started) * 1000)
-            logger.notice("async model load finished in \(elapsedMs, privacy: .public) ms, state=\(String(describing: model.state), privacy: .public)")
+            logger.notice("async model load finished in \(elapsedMs, privacy: .public) ms, state=\(model.state.logDescription, privacy: .public)")
         }
     }
 

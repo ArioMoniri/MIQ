@@ -47,16 +47,37 @@ public enum MIQFileKind: Sendable, CaseIterable {
     /// Whether the Finder thumbnail extension should decline this file (keeping
     /// the system icon) rather than parse it. A thumbnail is spawned per visible
     /// icon, so a folder of large 4D `.mif.gz`/`.mgz` would otherwise fully
-    /// decompress one file per icon. Declines only when rendering the centre
-    /// slice would pull the whole file: a non-boundable kind over `thresholdBytes`
-    /// that is compressed, is `.nrrd` (the header, not the extension, decides
-    /// whether its payload is gzip), or sits on a network volume. Local
-    /// uncompressed MGH/MIF are memory-mapped, so size costs them nothing. An
-    /// unknown size (`nil`) never declines.
-    public func declinesThumbnail(fileSizeBytes: Int?, isLocal: Bool, thresholdBytes: Int) -> Bool {
+    /// decompress one file per icon. Two independent reasons to decline:
+    ///
+    /// - **On-disk size.** Declines when rendering the centre slice would pull the
+    ///   whole file: a non-boundable kind over `thresholdBytes` that is
+    ///   compressed, is `.nrrd` (the header, not the extension, decides whether
+    ///   its payload is gzip), or sits on a network volume. Local uncompressed
+    ///   MGH/MIF are memory-mapped, so size costs them nothing. An unknown size
+    ///   (`nil`) never declines on this ground.
+    /// - **Decoded size.** `estimatedDecompressedBytes` (from a header-only
+    ///   probe, see `MIQParser.probeHeader` and `estimatedThumbnailDecodeBytes`)
+    ///   over `decompressedBudgetBytes` declines whenever the thumbnail would
+    ///   materialize the payload in RAM — the same compressed / `.nrrd` / network
+    ///   cases, now including canonical NIfTI's volume 0. Catches highly
+    ///   compressible files that the on-disk threshold lets through (a 40 MB
+    ///   `.mgz` can inflate to GBs). `nil` (not probed) never declines on this
+    ///   ground, which keeps the size-only behaviour for existing callers.
+    public func declinesThumbnail(
+        fileSizeBytes: Int?,
+        isLocal: Bool,
+        thresholdBytes: Int,
+        estimatedDecompressedBytes: Int? = nil,
+        decompressedBudgetBytes: Int = MIQPayloadSizeEstimate.thumbnailDecompressedBudgetBytes
+    ) -> Bool {
+        let materializesPayload = isCompressed || self == .nrrd || !isLocal
+        if materializesPayload, let estimatedDecompressedBytes,
+           estimatedDecompressedBytes > decompressedBudgetBytes {
+            return true
+        }
         guard !supportsBoundedNetworkRead,
               let fileSizeBytes, fileSizeBytes > thresholdBytes else { return false }
-        return isCompressed || self == .nrrd || !isLocal
+        return materializesPayload
     }
 
     public var displayName: String {
