@@ -184,6 +184,14 @@ extension MIQParser {
         let storageFrame = imageFrame.map {
             MIFAxisLayout.storageFrame(imageFrame: $0, spatialAxes: spatialAxes, layout: header.layout)
         }
+        // Obliquity reads the transform itself (layout only permutes/flips axes, which
+        // leaves it unchanged). An absent field is still labelled RAS, as MRtrix does,
+        // but reported as `.mifDefault` so the panel does not imply the file said so.
+        let orientationDiagnostics = OrientationDiagnostics.make(
+            frame: storageFrame,
+            source: header.transform == nil ? .mifDefault : .mifTransform,
+            rows: transform
+        )
 
         let miqHeader = MIQHeader(
             littleEndian: header.littleEndian,
@@ -199,7 +207,8 @@ extension MIQParser {
             srowY: [],
             srowZ: [],
             datatypeLabel: header.bitPacked ? "bit" : nil,
-            orientationFrame: storageFrame
+            orientationFrame: storageFrame,
+            orientationDiagnostics: orientationDiagnostics
         )
 
         return MifImageDescriptor(

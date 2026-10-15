@@ -64,7 +64,7 @@ extension MIQParser {
         let srowY = MIQBinaryReader.float32Array(data, 296, count: 4, littleEndian: littleEndian)
         let srowZ = MIQBinaryReader.float32Array(data, 312, count: 4, littleEndian: littleEndian)
 
-        let orientationFrame = niftiOrientationFrame(
+        let (orientationFrame, orientationDiagnostics) = niftiOrientationFrame(
             sform: SformFields(code: sformCode, rowX: srowX, rowY: srowY, rowZ: srowZ),
             qform: QformFields(code: qformCode, quaternB: quaternB, quaternC: quaternC, quaternD: quaternD, qfac: pixdim[safe: 0] ?? 1)
         )
@@ -82,7 +82,8 @@ extension MIQParser {
             srowX: srowX,
             srowY: srowY,
             srowZ: srowZ,
-            orientationFrame: orientationFrame
+            orientationFrame: orientationFrame,
+            orientationDiagnostics: orientationDiagnostics
         )
     }
 
@@ -113,7 +114,7 @@ extension MIQParser {
         let srowY = MIQBinaryReader.float64Array(data, 432, count: 4, littleEndian: littleEndian).map { Float($0) }
         let srowZ = MIQBinaryReader.float64Array(data, 464, count: 4, littleEndian: littleEndian).map { Float($0) }
 
-        let orientationFrame = niftiOrientationFrame(
+        let (orientationFrame, orientationDiagnostics) = niftiOrientationFrame(
             sform: SformFields(code: sformCode, rowX: srowX, rowY: srowY, rowZ: srowZ),
             qform: QformFields(code: qformCode, quaternB: quaternB, quaternC: quaternC, quaternD: quaternD, qfac: pixdim[safe: 0] ?? 1)
         )
@@ -132,7 +133,8 @@ extension MIQParser {
             srowY: srowY,
             srowZ: srowZ,
             formatLabel: compressed ? "Compressed NIfTI-2" : "NIfTI-2",
-            orientationFrame: orientationFrame
+            orientationFrame: orientationFrame,
+            orientationDiagnostics: orientationDiagnostics
         )
     }
 
@@ -157,16 +159,33 @@ extension MIQParser {
     /// sform when present and non-degenerate; otherwise fall back to qform; otherwise
     /// `nil`. Sform wins when both are valid because the spec treats sform as the
     /// "newer" / preferred transform.
-    private func niftiOrientationFrame(sform: SformFields, qform: QformFields) -> OrientationFrame? {
-        if sform.code > 0,
-           let frame = OrientationFrame.from(srowX: sform.rowX, srowY: sform.rowY, srowZ: sform.rowZ, source: .sform) {
-            return frame
+    ///
+    /// Also returns the matching diagnostics: obliquity of the transform actually used,
+    /// and — when both codes are > 0 — how the qform and sform disagree. The conflict
+    /// never changes which transform is used; it only surfaces in the metadata panel.
+    private func niftiOrientationFrame(sform: SformFields, qform: QformFields) -> (OrientationFrame?, OrientationDiagnostics) {
+        let sformRows = [sform.rowX, sform.rowY, sform.rowZ]
+        let qformRows = OrientationFrame.quaternionRows(b: qform.quaternB, c: qform.quaternC, d: qform.quaternD, qfac: qform.qfac)
+        let sformFrame = sform.code > 0
+            ? OrientationFrame.from(srowX: sform.rowX, srowY: sform.rowY, srowZ: sform.rowZ, source: .sform)
+            : nil
+        let qformFrame = qform.code > 0
+            ? OrientationFrame.fromQuaternion(b: qform.quaternB, c: qform.quaternC, d: qform.quaternD, qfac: qform.qfac)
+            : nil
+
+        var conflict: OrientationDiagnostics.QSConflict?
+        if sform.code > 0, qform.code > 0 {
+            conflict = OrientationDiagnostics.qformSformConflict(sformRows: sformRows, qformRows: qformRows)
         }
-        if qform.code > 0,
-           let frame = OrientationFrame.fromQuaternion(b: qform.quaternB, c: qform.quaternC, d: qform.quaternD, qfac: qform.qfac) {
-            return frame
+        let qformCodes = conflict == nil ? nil : qformFrame.map { $0.axes.map(\.letter).joined() }
+
+        if let sformFrame {
+            return (sformFrame, .make(frame: sformFrame, rows: sformRows, qformSformConflict: conflict, qformAxisCodes: qformCodes))
         }
-        return nil
+        if let qformFrame {
+            return (qformFrame, .make(frame: qformFrame, rows: qformRows))
+        }
+        return (nil, .unknown)
     }
 
     private func readAndValidateDatatype(data: Data, at datatypeOffset: Int, bitpixAt bitpixOffset: Int, littleEndian: Bool) throws -> MIQDatatype {

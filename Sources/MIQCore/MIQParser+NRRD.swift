@@ -12,8 +12,9 @@ extension MIQParser {
         // Per-axis direction vectors in NRRD space; nil entry = non-spatial ("none")
         let spaceDirections: [[Float]?]?
         let spaceOrigin: [Float]?
-        // Multipliers to convert NRRD (x,y,z) components to RAS (R,A,S)
-        let toRasSigns: (rx: Float, ry: Float, rz: Float)
+        // Multipliers to convert NRRD (x,y,z) components to RAS (R,A,S); nil when `space`
+        // is absent or names no anatomical frame (orientation is then unknown)
+        let toRasSigns: (rx: Float, ry: Float, rz: Float)?
         // Fallback voxel spacings when spaceDirections is absent
         let spacings: [Float]?
     }
@@ -207,10 +208,10 @@ extension MIQParser {
         let computedStrides = [xStride, yStride, zStride, tStride]
         let customStrides: [Int]? = computedStrides == defaultStrides ? nil : computedStrides
 
-        let (pixX, pixY, pixZ, srowX, srowY, srowZ) = nrrdAffine(nrrd: nrrd, spatialAxes: spatialAxes)
-        let hasSform = srowX.prefix(3).contains(where: { $0 != 0 })
-            || srowY.prefix(3).contains(where: { $0 != 0 })
-            || srowZ.prefix(3).contains(where: { $0 != 0 })
+        let affine = nrrdAffine(nrrd: nrrd, spatialAxes: spatialAxes)
+        let (pixX, pixY, pixZ) = (affine.pixX, affine.pixY, affine.pixZ)
+        let (srowX, srowY, srowZ) = (affine.srowX, affine.srowY, affine.srowZ)
+        let hasSform = affine.isAnatomical
 
         let orientationFrame: OrientationFrame? = hasSform
             ? OrientationFrame.from(srowX: srowX, srowY: srowY, srowZ: srowZ, source: .nrrdSpaceDirections)
@@ -225,7 +226,7 @@ extension MIQParser {
             sclSlope: 1.0,
             sclInter: 0.0,
             qformCode: 0,
-            sformCode: hasSform ? 1 : 0,
+            sformCode: orientationFrame != nil ? 1 : 0,
             srowX: srowX,
             srowY: srowY,
             srowZ: srowZ,
@@ -293,12 +294,28 @@ extension MIQParser {
 
     // MARK: - Affine
 
+    private struct NrrdAffine {
+        let pixX: Float
+        let pixY: Float
+        let pixZ: Float
+        let srowX: [Float]
+        let srowY: [Float]
+        let srowZ: [Float]
+        /// True only when both an anatomical `space` and `space directions` are present,
+        /// i.e. the srow rows are a real voxel→RAS mapping.
+        let isAnatomical: Bool
+    }
+
+    /// Voxel spacing and voxel→RAS rows. Orientation is only claimed when the header
+    /// states it: an anatomical `space` *and* `space directions`. Otherwise the rows are
+    /// a spacing-only diagonal and `isAnatomical` is false, so no orientation frame is
+    /// built and the resolver shows "?" — the same as a NIfTI with qform_code =
+    /// sform_code = 0. (Assuming RAS here used to invent L/R labels for files that never
+    /// said which side is which.) Spacing is honoured either way.
     private func nrrdAffine(
         nrrd: NrrdParsedHeader,
         spatialAxes: [Int]
-    ) -> (Float, Float, Float, [Float], [Float], [Float]) {
-        let (rx, ry, rz) = (nrrd.toRasSigns.rx, nrrd.toRasSigns.ry, nrrd.toRasSigns.rz)
-
+    ) -> NrrdAffine {
         if let dirs = nrrd.spaceDirections {
             let v0 = dirs[spatialAxes[0]] ?? [1, 0, 0]
             let v1 = dirs[spatialAxes[1]] ?? [0, 1, 0]
@@ -307,6 +324,10 @@ extension MIQParser {
             let pixX = sqrt(v0[0]*v0[0] + v0[1]*v0[1] + v0[2]*v0[2])
             let pixY = sqrt(v1[0]*v1[0] + v1[1]*v1[1] + v1[2]*v1[2])
             let pixZ = sqrt(v2[0]*v2[0] + v2[1]*v2[1] + v2[2]*v2[2])
+
+            guard let (rx, ry, rz) = nrrd.toRasSigns else {
+                return spacingOnlyAffine(pixX, pixY, pixZ)
+            }
 
             let ox = (nrrd.spaceOrigin?[safe: 0] ?? 0) * rx
             let oy = (nrrd.spaceOrigin?[safe: 1] ?? 0) * ry
@@ -318,22 +339,31 @@ extension MIQParser {
             let srowY: [Float] = [v0[1]*ry, v1[1]*ry, v2[1]*ry, oy]
             let srowZ: [Float] = [v0[2]*rz, v1[2]*rz, v2[2]*rz, oz]
 
-            return (pixX, pixY, pixZ, srowX, srowY, srowZ)
+            return NrrdAffine(pixX: pixX, pixY: pixY, pixZ: pixZ, srowX: srowX, srowY: srowY, srowZ: srowZ, isAnatomical: true)
         }
 
-        // Fallback: use spacings if available, identity orientation
+        // No space directions: spacings (if any) give voxel size, but no orientation.
         let pixX = abs(nrrd.spacings?[safe: spatialAxes[0]] ?? 1)
         let pixY = abs(nrrd.spacings?[safe: spatialAxes[1]] ?? 1)
         let pixZ = abs(nrrd.spacings?[safe: spatialAxes[2]] ?? 1)
-
-        let srowX: [Float] = [pixX * rx, 0, 0, 0]
-        let srowY: [Float] = [0, pixY * ry, 0, 0]
-        let srowZ: [Float] = [0, 0, pixZ * rz, 0]
-
-        return (pixX, pixY, pixZ, srowX, srowY, srowZ)
+        return spacingOnlyAffine(pixX, pixY, pixZ)
     }
 
-    private func nrrdSpaceToRasSigns(_ space: String?) -> (rx: Float, ry: Float, rz: Float) {
+    /// Diagonal spacing-only rows for a NRRD that states no anatomical orientation.
+    private func spacingOnlyAffine(_ pixX: Float, _ pixY: Float, _ pixZ: Float) -> NrrdAffine {
+        NrrdAffine(
+            pixX: pixX, pixY: pixY, pixZ: pixZ,
+            srowX: [pixX, 0, 0, 0],
+            srowY: [0, pixY, 0, 0],
+            srowZ: [0, 0, pixZ, 0],
+            isAnatomical: false
+        )
+    }
+
+    /// Sign flips from a NRRD anatomical `space` to RAS, or nil when `space` is absent or
+    /// not anatomical. Non-anatomical spaces ("scanner-xyz", "3D-right-handed",
+    /// "3D-left-handed", ...) fix handedness at most, never which side is patient-left.
+    private func nrrdSpaceToRasSigns(_ space: String?) -> (rx: Float, ry: Float, rz: Float)? {
         switch space {
         case "right-anterior-superior", "ras":           return (1,  1,  1)
         case "left-anterior-superior", "las":            return (-1, 1,  1)
@@ -343,7 +373,7 @@ extension MIQParser {
         case "left-anterior-inferior", "lai":            return (-1, 1,  -1)
         case "left-posterior-inferior", "lpi":           return (-1, -1, -1)
         case "right-posterior-inferior", "rpi":          return (1,  -1, -1)
-        default:                                          return (1,  1,  1)
+        default:                                          return nil
         }
     }
 

@@ -29,6 +29,14 @@ public struct MIQHeader: Sendable {
     /// Consumed by `OrientationResolver` as the single source of truth for display labels and slice planning.
     public let orientationFrame: OrientationFrame?
 
+    // MARK: Orientation diagnostics
+    /// How the orientation was derived (transform source, obliquity, NIfTI qform/sform
+    /// conflicts), for the metadata panel. Purely informational — rendering reads
+    /// `orientationFrame`. Parsers that know more than the frame (NIfTI, MIF, NRRD) pass
+    /// it explicitly; otherwise it is derived from `orientationFrame` and the srow rows.
+    public let orientationDiagnostics: OrientationDiagnostics
+    // END MARK: Orientation diagnostics
+
     public var width: Int { dimensions[safe: 0] ?? 1 }
     public var height: Int { dimensions[safe: 1] ?? 1 }
     public var depth: Int { dimensions[safe: 2] ?? 1 }
@@ -49,7 +57,8 @@ public struct MIQHeader: Sendable {
         srowZ: [Float],
         formatLabel: String? = nil,
         datatypeLabel: String? = nil,
-        orientationFrame: OrientationFrame? = nil
+        orientationFrame: OrientationFrame? = nil,
+        orientationDiagnostics: OrientationDiagnostics? = nil
     ) {
         self.littleEndian = littleEndian
         self.dimensions = dimensions
@@ -66,6 +75,10 @@ public struct MIQHeader: Sendable {
         self.formatLabel = formatLabel
         self.datatypeLabel = datatypeLabel
         self.orientationFrame = orientationFrame
+        self.orientationDiagnostics = orientationDiagnostics ?? OrientationDiagnostics.make(
+            frame: orientationFrame,
+            rows: orientationFrame?.source == .qform ? nil : [srowX, srowY, srowZ]
+        )
     }
 }
 
