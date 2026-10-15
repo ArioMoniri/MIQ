@@ -111,6 +111,70 @@ final class MIQAlternateViewTile: NSView {
 
     // MARK: Events
 
+    private var orphanEventMonitor: Any?
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        lastDragLocation = nil
+        if let orphanEventMonitor {
+            NSEvent.removeMonitor(orphanEventMonitor)
+            self.orphanEventMonitor = nil
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil else { return }
+        orphanEventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDragged, .leftMouseUp, .scrollWheel, .magnify]
+        ) { [weak self] event in
+            MainActor.assumeIsolated {
+                guard let self, event.window == nil, !self.isHiddenOrHasHiddenAncestor else { return }
+                self.handleOrphanedEvent(event)
+            }
+            return event
+        }
+    }
+
+    /// Full-screen Quick Look rescue, mirroring `MIQSliceCanvas`: the host
+    /// forwards drags and scrolls with `event.window == nil` (location in
+    /// screen coordinates) and AppKit drops them before responder dispatch.
+    /// A drag continues only after a properly addressed press on this tile
+    /// (`lastDragLocation`), reproducing mouse capture; scroll / pinch must be
+    /// over the tile.
+    private func handleOrphanedEvent(_ event: NSEvent) {
+        guard let window, window.occlusionState.contains(.visible) else { return }
+        let location = convert(window.convertPoint(fromScreen: event.locationInWindow), from: nil)
+        switch event.type {
+        case .leftMouseDragged:
+            guard !FullScreenEventRescue.scrubInProgress else { return }
+            continueRotate(to: location)
+        case .leftMouseUp:
+            lastDragLocation = nil
+        case .scrollWheel:
+            guard isInteractive3D, bounds.contains(location) else { return }
+            applyScrollZoom(event)
+        case .magnify:
+            guard isInteractive3D, bounds.contains(location) else { return }
+            onZoom?(1 + event.magnification)
+        default:
+            break
+        }
+    }
+
+    private func continueRotate(to location: NSPoint) {
+        guard isInteractive3D, let last = lastDragLocation else { return }
+        onRotate?(location.x - last.x, location.y - last.y)
+        lastDragLocation = location
+    }
+
+    private func applyScrollZoom(_ event: NSEvent) {
+        let delta = event.scrollingDeltaY
+        guard delta != 0 else { return }
+        let perPoint = event.hasPreciseScrollingDeltas ? 0.01 : 0.1
+        onZoom?(CGFloat(exp(Double(delta) * perPoint)))
+    }
+
     override func mouseDown(with event: NSEvent) {
         onActivate?()
         if event.modifierFlags.contains(.control) {
@@ -125,10 +189,7 @@ final class MIQAlternateViewTile: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard isInteractive3D, let last = lastDragLocation else { return }
-        let location = convert(event.locationInWindow, from: nil)
-        onRotate?(location.x - last.x, location.y - last.y)
-        lastDragLocation = location
+        continueRotate(to: convert(event.locationInWindow, from: nil))
     }
 
     override func mouseUp(with _: NSEvent) {
@@ -153,10 +214,7 @@ final class MIQAlternateViewTile: NSView {
             super.scrollWheel(with: event)
             return
         }
-        let delta = event.scrollingDeltaY
-        guard delta != 0 else { return }
-        let perPoint = event.hasPreciseScrollingDeltas ? 0.01 : 0.1
-        onZoom?(CGFloat(exp(Double(delta) * perPoint)))
+        applyScrollZoom(event)
     }
 
     override func magnify(with event: NSEvent) {
