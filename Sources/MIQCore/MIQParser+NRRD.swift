@@ -425,3 +425,23 @@ extension MIQParser {
         return (components, value[value.index(after: closeIdx)...])
     }
 }
+
+// MARK: - Header-only entry point
+
+extension MIQParser {
+    /// Parses only the NRRD text header (through the first blank line) into an
+    /// `MIQHeader`, never touching or decompressing the payload — so `data` may be
+    /// just the header prefix. Used by `VolumeSummary` (Spotlight importer, App
+    /// Intents, `miq info`). Lives in this file only because the NRRD header
+    /// helpers are `private`.
+    func parseNrrdHeaderOnly(from data: Data) throws -> MIQHeader {
+        let (headerText, payloadIndex) = try splitNrrdHeader(data: data)
+        let lines = headerText.split(whereSeparator: { $0.isNewline }).map(String.init)
+        guard let first = lines.first, first.hasPrefix("NRRD000") else {
+            throw MIQError.malformedFile("NRRD magic line not found; file does not appear to be NRRD format")
+        }
+        let nrrd = try buildNrrdParsedHeader(fields: parseNrrdFields(lines: lines))
+        let payloadOffset = nrrd.encoding == .raw ? data.distance(from: data.startIndex, to: payloadIndex) : 0
+        return try buildNrrdMIQHeader(nrrd: nrrd, payloadOffset: payloadOffset).header
+    }
+}
