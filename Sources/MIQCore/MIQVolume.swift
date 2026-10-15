@@ -1225,7 +1225,11 @@ public struct MIQVolume: Sendable {
         maxSamplesAlongAxis: Int?
     ) -> SliceImage? {
         let plan = orientation.plan(for: plane, mode: options.orientation)
-        guard let values = projectedValues(plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis) else {
+        let floor = mode == .minip ? minIPBackgroundFloor(volumeIndex: volumeIndex) : nil
+        guard let values = projectedValues(
+            plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis,
+            excludingAtOrBelow: floor
+        ) else {
             return nil
         }
         let (config, maxPhysicalExtent) = sliceConfig(plan: plan)
@@ -1257,7 +1261,11 @@ public struct MIQVolume: Sendable {
         maxSamplesAlongAxis: Int? = nil
     ) -> [Float]? {
         let plan = orientation.plan(for: plane, mode: options.orientation)
-        return projectedValues(plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis)
+        let floor = mode == .minip ? minIPBackgroundFloor(volumeIndex: volumeIndex) : nil
+        return projectedValues(
+            plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis,
+            excludingAtOrBelow: floor
+        )
     }
 
     /// Reduces every voxel of timepoint `volumeIndex` into the display pixel it
@@ -1275,11 +1283,17 @@ public struct MIQVolume: Sendable {
     /// ignored; a ray with no finite voxel yields NaN, which windowing renders
     /// black just as it does a NaN voxel in a slice. A voxel beyond the payload
     /// (a timepoint a capped load never read) reads as 0, as in `prepareSlice`.
+    /// `excludingAtOrBelow` (MinIP's background floor, `MinIPBackground`) drops
+    /// the leading and trailing runs of voxels at or below it along each ray;
+    /// such voxels between foreground voxels still count. This relies on every
+    /// output pixel's voxels being visited in ascending slice-axis order, which
+    /// the ascending z/y/x loops below guarantee.
     private func projectedValues(
         plan: SliceAxisPlan,
         mode: ProjectionMode,
         volumeIndex: Int,
-        maxSamplesAlongAxis: Int?
+        maxSamplesAlongAxis: Int?,
+        excludingAtOrBelow floor: Float? = nil
     ) -> [Float]? {
         let datatype = image.header.datatype
         guard datatype != .rgb24, datatype != .rgba32 else { return nil }
@@ -1329,6 +1343,12 @@ public struct MIQVolume: Sendable {
         let payloadCount = image.payloadCount
         let payloadBase = image.payloadOffset
         let isMax = mode == .mip
+        // Per output pixel, MinIP background bookkeeping: whether a foreground
+        // voxel was seen, and the minimum of the floor run since the last one
+        // (NaN = none) — committed only if more foreground follows.
+        let background = isMax ? nil : floor
+        var seenForeground = [Bool](repeating: false, count: background == nil ? 0 : outCount)
+        var pendingFloor = [Float](repeating: .nan, count: background == nil ? 0 : outCount)
 
         var result = [Float](repeating: .nan, count: outCount)
         result.withUnsafeMutableBufferPointer { acc in
@@ -1348,6 +1368,18 @@ public struct MIQVolume: Sendable {
                             }
                             guard v.isFinite else { continue }
                             let o = yzOff + xOffsets[x]
+                            if let background {
+                                if v <= background {
+                                    if seenForeground[o], !(pendingFloor[o] <= v) { pendingFloor[o] = v }
+                                    continue
+                                }
+                                let pending = pendingFloor[o]
+                                if !pending.isNaN {
+                                    if !(acc[o] <= pending) { acc[o] = pending }
+                                    pendingFloor[o] = .nan
+                                }
+                                seenForeground[o] = true
+                            }
                             let current = acc[o]
                             // NaN-safe: an untouched (NaN) pixel fails both
                             // comparisons, so the first finite voxel always lands.

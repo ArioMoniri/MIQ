@@ -532,7 +532,7 @@ struct VolumeRendererTests {
             .split(whereSeparator: { $0 == "," || $0.isWhitespace })
             .map(String.init)
         #expect(names.count == VolumeRenderMetalShared.Param.allCases.count)
-        #expect(names.first == "P_W" && names.last == "P_BGB")
+        #expect(names.first == "P_W" && names.last == "P_MINMASK")
 
         let grid = VolumeRenderGrid(volume: Self.cubeVolume())
         let setup = try VolumeRenderSetup(

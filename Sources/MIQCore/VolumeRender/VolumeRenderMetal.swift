@@ -20,6 +20,7 @@ enum VolumeRenderMetalShared {
         case rx, ry, rz, ux, uy, uz, dx, dy, dz
         case pixelSize, step, mode, windowLow, windowInvWidth, gradientFloor
         case shading, earlyTermination, bgR, bgG, bgB
+        case minIPMasked
     }
 
     static func modeCode(_ mode: VolumeRenderMode) -> Float {
@@ -47,6 +48,7 @@ enum VolumeRenderMetalShared {
         set(.gradientFloor, s.gradientFloor)
         set(.shading, s.shading ? 1 : 0); set(.earlyTermination, s.earlyTermination)
         set(.bgR, s.background.0); set(.bgG, s.background.1); set(.bgB, s.background.2)
+        set(.minIPMasked, s.minIPMasked ? 1 : 0)
         return p
     }
 
@@ -62,8 +64,19 @@ enum VolumeRenderMetalShared {
         P_W, P_H, P_NX, P_NY, P_NZ, P_SX, P_SY, P_SZ, P_HX, P_HY, P_HZ,
         P_RX, P_RY, P_RZ, P_UX, P_UY, P_UZ, P_DX, P_DY, P_DZ,
         P_PIX, P_STEP, P_MODE, P_WLO, P_WINV, P_GFLOOR,
-        P_SHADE, P_EARLY, P_BGR, P_BGG, P_BGB
+        P_SHADE, P_EARLY, P_BGR, P_BGG, P_BGB, P_MINMASK
     };
+
+    // Same integer mixer as CPUVolumeRayCaster.rayStartJitter (bit-identical).
+    static inline float jitter(uint px, uint py) {
+        uint h = px * 1973u + py * 9277u + 26699u;
+        h ^= h >> 16;
+        h *= 0x7feb352du;
+        h ^= h >> 15;
+        h *= 0x846ca68bu;
+        h ^= h >> 16;
+        return float(h >> 8) * (1.0 / 16777216.0);
+    }
 
     static inline float tri(texture3d<float, access::read> t, float3 c, int3 n) {
         float3 cc = clamp(c, float3(0.0), float3(n - 1));
@@ -154,17 +167,31 @@ enum VolumeRenderMetalShared {
             float3 c0 = (o + h) / sp - 0.5;
             float3 dv = d / sp;
             int count = max(1, int((tFar - tNear) / stepmm));
-            float tStart = tNear + 0.5 * stepmm;
+            float jit = (mode == 2 || mode == 3) ? jitter(gid.x, gid.y) : 0.5;
+            float tStart = tNear + jit * stepmm;
             if (mode == 0 || mode == 1) {
                 bool isMax = mode == 0;
+                bool masked = P[P_MINMASK] > 0.5;
                 float best = isMax ? -3.402823466e+38 : 3.402823466e+38;
+                bool found = false;
+                float pending = 3.402823466e+38;
+                bool hasPending = false;
                 for (int i = 0; i < count; i++) {
                     float t = tStart + float(i) * stepmm;
-                    float v = tri(vol, c0 + t * dv, n);
+                    float3 c = c0 + t * dv;
+                    float v = tri(vol, c, n);
+                    if (masked && tri(occ, c, n) < 0.999) {
+                        if (found) { pending = min(pending, v); hasPending = true; }
+                        continue;
+                    }
+                    if (hasPending) { best = min(best, pending); hasPending = false; }
                     best = isMax ? max(best, v) : min(best, v);
+                    found = true;
                 }
-                int idx = int(clamp((best - wlo) * winv, 0.0, 1.0) * 255.0 + 0.5);
-                color = tf[idx].rgb;
+                if (found) {
+                    int idx = int(clamp((best - wlo) * winv, 0.0, 1.0) * 255.0 + 0.5);
+                    color = tf[idx].rgb;
+                }
             } else {
                 bool labels = mode == 3;
                 float3 acc = float3(0.0);
