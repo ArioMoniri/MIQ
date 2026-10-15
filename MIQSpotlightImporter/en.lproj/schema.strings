@@ -1,0 +1,19 @@
+/* Display names and descriptions for MIQSpotlightImporter's custom attributes (schema.xml). */
+
+"org_miq_dimensions" = "Volume Dimensions";
+"org_miq_dimensions.Description" = "Spatial size of the medical volume in voxels (x, y, z)";
+
+"org_miq_voxelSpacing" = "Voxel Spacing";
+"org_miq_voxelSpacing.Description" = "Voxel size along x, y and z, from the file header";
+
+"org_miq_spacingUnit" = "Voxel Spacing Unit";
+"org_miq_spacingUnit.Description" = "Unit of the voxel spacing (mm, m or µm) when the header states it";
+
+"org_miq_datatype" = "Voxel Datatype";
+"org_miq_datatype.Description" = "Storage type of each voxel, e.g. int16 or float32";
+
+"org_miq_volumes" = "Number of Volumes";
+"org_miq_volumes.Description" = "Number of volumes (time points / diffusion directions); 1 for a 3D file";
+
+"org_miq_orientation" = "Voxel Orientation";
+"org_miq_orientation.Description" = "Three-letter storage orientation code, e.g. RAS or LPS";
