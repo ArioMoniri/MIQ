@@ -357,25 +357,32 @@ def build_cases():
     return cases
 
 
+def _inside(base, *parts):
+    """Resolve ``parts`` under ``base`` and refuse anything that lands outside it."""
+    root = os.path.realpath(base)
+    path = os.path.realpath(os.path.join(root, *parts))
+    if os.path.commonpath([root, path]) != root:
+        raise SystemExit("refusing to write outside %s: %s" % (root, os.path.join(*parts)))
+    return path
+
+
 def main():
-    root = os.path.realpath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    out_dir = os.path.realpath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "Tests", "Fixtures", "conformance"))
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     # Only ever write inside the repository.
-    if os.path.commonpath([root, out_dir]) != root:
-        sys.exit("refusing to write outside the repository: %s" % out_dir)
+    out_dir = _inside(root, sys.argv[1] if len(sys.argv) > 1 else os.path.join("Tests", "Fixtures", "conformance"))
     total = 0
     names = []
     for case, data in build_cases():
-        case_dir = os.path.join(out_dir, case.name)
+        case_dir = _inside(out_dir, case.name)
         os.makedirs(case_dir, exist_ok=True)
-        with open(os.path.join(case_dir, case.filename), "wb") as fh:
+        with open(_inside(case_dir, case.filename), "wb") as fh:
             fh.write(data)
         text = json.dumps(expected(case), indent=2) + "\n"
-        with open(os.path.join(case_dir, "expected.json"), "w") as fh:
+        with open(_inside(case_dir, "expected.json"), "w") as fh:
             fh.write(text)
         total += len(data) + len(text)
         names.append(case.name)
-    with open(os.path.join(out_dir, "index.json"), "w") as fh:
+    with open(_inside(out_dir, "index.json"), "w") as fh:
         fh.write(json.dumps({"contractVersion": CONTRACT_VERSION, "cases": names}, indent=2) + "\n")
     print("wrote %d cases, %d bytes, to %s" % (len(names), total, out_dir))
 

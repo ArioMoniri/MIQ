@@ -111,19 +111,20 @@ class Parser:
         return m.group(0)
 
 
-def _confined(arg):
-    """Resolve a command-line path and require it to stay inside the current
-    directory tree (the script is run from the repository root)."""
-    cwd = os.path.realpath(os.getcwd())
-    path = os.path.realpath(os.path.join(cwd, arg))
-    if os.path.commonpath([cwd, path]) != cwd:
-        sys.exit("refusing path outside %s: %s" % (cwd, arg))
+def _inside(base, *parts):
+    """Resolve ``parts`` under ``base`` and refuse anything that lands outside it."""
+    root = os.path.realpath(base)
+    path = os.path.realpath(os.path.join(root, *parts))
+    if os.path.commonpath([root, path]) != root:
+        raise SystemExit("refusing path outside %s: %s" % (root, os.path.join(*parts)))
     return path
 
 
 def main():
-    path, root = _confined(sys.argv[1]), _confined(sys.argv[2])
-    with open(path, encoding="utf-8") as fh:
+    # The script is run from the repository root; both arguments must stay inside it.
+    cwd = os.getcwd()
+    root = _inside(cwd, sys.argv[2])
+    with open(_inside(cwd, sys.argv[1]), encoding="utf-8") as fh:
         text = fh.read()
     errors = []
 
