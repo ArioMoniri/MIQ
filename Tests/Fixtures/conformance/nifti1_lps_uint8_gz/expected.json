@@ -1,0 +1,116 @@
+{
+  "contractVersion": 1,
+  "file": "image.nii.gz",
+  "format": "nifti1",
+  "description": "Gzip'd NIfTI-1 uint8, sform diagonal with negative x and y: LPS (DICOM-like).",
+  "dims": [
+    5,
+    7,
+    9
+  ],
+  "volumes": 1,
+  "spacing": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "datatype": "uint8",
+  "orientation": "LPS",
+  "effectiveScaling": {
+    "slope": 1.0,
+    "inter": 0.0
+  },
+  "probes": [
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "t": 0,
+      "value": 0.0
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": 4,
+      "t": 0,
+      "value": 176.0
+    },
+    {
+      "x": 4,
+      "y": 6,
+      "z": 8,
+      "t": 0,
+      "value": 96.0
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": 3,
+      "t": 0,
+      "value": 65.0
+    }
+  ],
+  "slices": [
+    {
+      "mode": "stored",
+      "plane": "axial",
+      "volume": 0,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "a847887d2c9c2a69c712560b6edb66bedb1d640b2fc915fa72521f104799b3bc"
+    },
+    {
+      "mode": "stored",
+      "plane": "coronal",
+      "volume": 0,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "a0d9a382d9995b67923e006c40b3e6c4c2392971dbca4d91c17050ed4b24b15a"
+    },
+    {
+      "mode": "stored",
+      "plane": "sagittal",
+      "volume": 0,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "f36a19b8f1f423361e26a990ccd28ec0260fe84b6ded61336051c9f4183c3b81"
+    },
+    {
+      "mode": "neurological",
+      "plane": "axial",
+      "volume": 0,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "f5bf08502374a011c403ed4a15a5a0ee61b2cb7666b2c45961e00e6c1a535df5"
+    },
+    {
+      "mode": "neurological",
+      "plane": "coronal",
+      "volume": 0,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "3393c5c05245266caffc05bf023e6f1a775f591811c32c5f58114df10e4df99f"
+    },
+    {
+      "mode": "neurological",
+      "plane": "sagittal",
+      "volume": 0,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "f36a19b8f1f423361e26a990ccd28ec0260fe84b6ded61336051c9f4183c3b81"
+    }
+  ],
+  "pending": null
+}

@@ -1,0 +1,176 @@
+{
+  "contractVersion": 1,
+  "file": "image.nii",
+  "format": "nifti2",
+  "description": "NIfTI-2 float64, 4D with 3 volumes, sform RAS at 1.5 mm isotropic.",
+  "dims": [
+    5,
+    7,
+    9
+  ],
+  "volumes": 3,
+  "spacing": [
+    1.5,
+    1.5,
+    1.5
+  ],
+  "datatype": "float64",
+  "orientation": "RAS",
+  "effectiveScaling": {
+    "slope": 1.0,
+    "inter": 0.0
+  },
+  "probes": [
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "t": 0,
+      "value": 0.25
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": 4,
+      "t": 0,
+      "value": 432.25
+    },
+    {
+      "x": 4,
+      "y": 6,
+      "z": 8,
+      "t": 2,
+      "value": 2864.25
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": 3,
+      "t": 2,
+      "value": 2321.25
+    }
+  ],
+  "slices": [
+    {
+      "mode": "stored",
+      "plane": "axial",
+      "volume": 0,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "18df7b9a882c559c6c1d7b79ea2b5cf74a33a5da43ef900d025f49732cceecb4"
+    },
+    {
+      "mode": "stored",
+      "plane": "coronal",
+      "volume": 0,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "4b33bef9a888590e29e77cc38afc4f3669db2941e1e9a5c5c4769939bed0d49e"
+    },
+    {
+      "mode": "stored",
+      "plane": "sagittal",
+      "volume": 0,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "f9d2de851fe9bf5bf8e230e16bdebc97643a1709c9982266cf8e97830f7bebee"
+    },
+    {
+      "mode": "neurological",
+      "plane": "axial",
+      "volume": 0,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "18df7b9a882c559c6c1d7b79ea2b5cf74a33a5da43ef900d025f49732cceecb4"
+    },
+    {
+      "mode": "neurological",
+      "plane": "coronal",
+      "volume": 0,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "4b33bef9a888590e29e77cc38afc4f3669db2941e1e9a5c5c4769939bed0d49e"
+    },
+    {
+      "mode": "neurological",
+      "plane": "sagittal",
+      "volume": 0,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "0a314bb0c30d8b4ef4cf9d820fc958d1422a8bcb2baa92f12546f47b3a271927"
+    },
+    {
+      "mode": "stored",
+      "plane": "axial",
+      "volume": 2,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "cd069c6895716262002c413334e064d4e60bb1c17e93c882c205ce5e1b632e3b"
+    },
+    {
+      "mode": "stored",
+      "plane": "coronal",
+      "volume": 2,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "ca0667c1c9d17e32d5fc87eaacc4636dceb9315f64ad33ef606b37fedab3f4c1"
+    },
+    {
+      "mode": "stored",
+      "plane": "sagittal",
+      "volume": 2,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "7db05163d2b14f1a84cf73953ef865a9d87673d80c779c62ec26d7b1f8381173"
+    },
+    {
+      "mode": "neurological",
+      "plane": "axial",
+      "volume": 2,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "cd069c6895716262002c413334e064d4e60bb1c17e93c882c205ce5e1b632e3b"
+    },
+    {
+      "mode": "neurological",
+      "plane": "coronal",
+      "volume": 2,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "ca0667c1c9d17e32d5fc87eaacc4636dceb9315f64ad33ef606b37fedab3f4c1"
+    },
+    {
+      "mode": "neurological",
+      "plane": "sagittal",
+      "volume": 2,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "2a15b9262fc2c1df5130a1cfeba22a378affda4f18a3223710c7010845d5a079"
+    }
+  ],
+  "pending": null
+}

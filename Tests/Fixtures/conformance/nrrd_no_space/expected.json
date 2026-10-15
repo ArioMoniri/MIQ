@@ -1,0 +1,116 @@
+{
+  "contractVersion": 1,
+  "file": "image.nrrd",
+  "format": "nrrd",
+  "description": "NRRD int16, raw encoding, no space / space directions (only spacings): orientation unknown.",
+  "dims": [
+    5,
+    7,
+    9
+  ],
+  "volumes": 1,
+  "spacing": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "datatype": "int16",
+  "orientation": "unknown",
+  "effectiveScaling": {
+    "slope": 1.0,
+    "inter": 0.0
+  },
+  "probes": [
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "t": 0,
+      "value": 0.0
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": 4,
+      "t": 0,
+      "value": 432.0
+    },
+    {
+      "x": 4,
+      "y": 6,
+      "z": 8,
+      "t": 0,
+      "value": 864.0
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": 3,
+      "t": 0,
+      "value": 321.0
+    }
+  ],
+  "slices": [
+    {
+      "mode": "stored",
+      "plane": "axial",
+      "volume": 0,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "84f05b8501edf14670674971594d13f6975ecd2ed9c54747cd30c89acbf735c2"
+    },
+    {
+      "mode": "stored",
+      "plane": "coronal",
+      "volume": 0,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "1eb1bced13b2c68ec50684e12df1d0600776e374a81dc1c9b8941e8b348d2fb8"
+    },
+    {
+      "mode": "stored",
+      "plane": "sagittal",
+      "volume": 0,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "21ed2430ecb15b14d728d143b4f6e5eccd55255d69436c65ca591e6a89028cb1"
+    },
+    {
+      "mode": "neurological",
+      "plane": "axial",
+      "volume": 0,
+      "sliceAxis": 2,
+      "sliceIndex": 4,
+      "width": 5,
+      "height": 7,
+      "sha256": "84f05b8501edf14670674971594d13f6975ecd2ed9c54747cd30c89acbf735c2"
+    },
+    {
+      "mode": "neurological",
+      "plane": "coronal",
+      "volume": 0,
+      "sliceAxis": 1,
+      "sliceIndex": 3,
+      "width": 5,
+      "height": 9,
+      "sha256": "1eb1bced13b2c68ec50684e12df1d0600776e374a81dc1c9b8941e8b348d2fb8"
+    },
+    {
+      "mode": "neurological",
+      "plane": "sagittal",
+      "volume": 0,
+      "sliceAxis": 0,
+      "sliceIndex": 2,
+      "width": 7,
+      "height": 9,
+      "sha256": "21ed2430ecb15b14d728d143b4f6e5eccd55255d69436c65ca591e6a89028cb1"
+    }
+  ],
+  "pending": "orientation workstream: NRRD without space/space directions must report unknown orientation (MIQCore currently assumes RAS)"
+}
