@@ -18,6 +18,7 @@ public struct MIQParser {
     ///   A no-op for every other kind (uncompressed `.nii` is mmap'd; `.mgz` /
     ///   `.mif.gz` already decompress in full).
     public func parse(url: URL, fullyDecompress: Bool = false) throws -> MIQImage {
+        if MIQFileKind(url: url) == .zarr { return try parseZarr(url: url).image }
         let (data, kind) = try loadAndDecompress(url: url, fullyDecompress: fullyDecompress)
         return try parseImage(data: data, kind: kind)
     }
@@ -300,6 +301,8 @@ public struct MIQParser {
             return try parseMif(data)
         case .nrrd:
             return try parseNrrd(data)
+        case .zarr:
+            throw MIQError.unsupportedFileFormat // directory store; dispatched in `parse(url:)`
         }
     }
 }
