@@ -14,9 +14,34 @@ final class MIQPreviewController: NSViewController, QLPreviewingController, Netw
     private var currentURL: URL?
     private var automaticTerminationDisabled = false
 
+    /// 700×600 until the first frame of a file arrives, then the 2×2 layout's
+    /// field-of-view aspect (`PreviewWindowSizing`, 600–1100 px wide). Sized
+    /// once per file so the window doesn't jump while the user interacts.
+    private var fittedContentSize = NSSize(width: PreviewWindowSizing.fallback.width, height: PreviewWindowSizing.fallback.height)
+    private var contentSizeFittedURL: URL?
+
     override var preferredContentSize: NSSize {
-        get { NSSize(width: 700, height: 600) }
+        get { fittedContentSize }
         set { /* read-only override; caller uses preferredContentSize getter only */ }
+    }
+
+    @MainActor
+    private func fitContentSizeIfNeeded(to model: MIQPreviewModel) {
+        guard let url = currentURL, contentSizeFittedURL != url,
+              let coronal = model.coronal, let sagittal = model.sagittal, let axial = model.axial else { return }
+        contentSizeFittedURL = url
+        let size = PreviewWindowSizing.preferredSize(
+            coronalWidth: Double(coronal.size.width),
+            coronalHeight: Double(coronal.size.height),
+            sagittalWidth: Double(sagittal.size.width),
+            axialHeight: Double(axial.size.height)
+        )
+        let fitted = NSSize(width: size.width, height: size.height)
+        guard fitted != fittedContentSize else { return }
+        // The getter is overridden, so announce the change for the host's KVO.
+        willChangeValue(forKey: "preferredContentSize")
+        fittedContentSize = fitted
+        didChangeValue(forKey: "preferredContentSize")
     }
 
     override func loadView() {
@@ -203,6 +228,7 @@ final class MIQPreviewController: NSViewController, QLPreviewingController, Netw
 
     @MainActor
     private func refreshPreviewView(from model: MIQPreviewModel, flushDisplay: Bool) {
+        fitContentSizeIfNeeded(to: model)
         previewView?.update(from: model)
         guard flushDisplay, let previewView else { return }
         previewView.layoutSubtreeIfNeeded()

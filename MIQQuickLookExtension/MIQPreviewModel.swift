@@ -1133,3 +1133,81 @@ final class MIQPreviewModel {
     }
     #endif
 }
+
+// MARK: - Interaction (ui-interaction)
+//
+// Read-only accessors and two small window entry points for the view-feature
+// layer (MIQPreviewInteraction.swift and friends). Kept in this file only
+// because they read the model's private interactive state; nothing here takes
+// part in the load path.
+
+/// Everything the view features (colour maps, overlays, projections, 3D) need
+/// from the interactive state, as one Sendable value they can hand to detached
+/// work.
+struct MIQInteractionSnapshot: Sendable {
+    let volume: MIQVolume
+    let options: RenderingOptions
+    let maxDimension: Int
+    /// The window on screen: the manual/preset one if set, else the auto
+    /// window the last render applied. `nil` for RGB / constant data.
+    let windowBounds: MIQIntensityWindowBounds?
+    let segmentationLut: SegmentationLut?
+    let cursor: MIQVolumeCursor
+    /// Changes whenever the backing volume is swapped (fresh parse, cache-hit
+    /// preparation, 4D expansion); derived caches key on it.
+    let generation: Int
+}
+
+extension MIQPreviewModel {
+    /// `nil` until the interactive state is ready (cold load done or cache-hit
+    /// preparation finished).
+    var interactionSnapshot: MIQInteractionSnapshot? {
+        guard let interactiveState else { return nil }
+        return MIQInteractionSnapshot(
+            volume: interactiveState.volume,
+            options: interactiveState.options,
+            maxDimension: interactiveState.maxDimension,
+            windowBounds: displayedWindowBounds,
+            segmentationLut: interactiveState.segmentationLut,
+            cursor: currentCursor ?? interactiveState.centerCursor,
+            generation: interactiveStateGeneration
+        )
+    }
+
+    /// The previewed file (for sibling-overlay discovery; never logged).
+    var interactionFileURL: URL { url }
+
+    /// The window currently applied to the slices (manual wins over auto).
+    var displayedWindowBounds: MIQIntensityWindowBounds? {
+        windowAdjustment ?? lastAppliedAutoBounds ?? interactiveState?.windowBounds
+    }
+
+    /// True while a manual drag or a preset overrides the auto window.
+    var hasManualWindow: Bool { windowAdjustment != nil }
+
+    /// Sets (or with `nil`, clears back to auto) the manual window — the
+    /// preset entry point. Same render path as a W/L drag.
+    func setManualWindow(_ bounds: MIQIntensityWindowBounds?) {
+        guard interactiveStateForInteraction() != nil else { return }
+        guard bounds != windowAdjustment else { return }
+        windowAdjustment = bounds
+        onChange?()
+        scheduleFullRender()
+    }
+
+    /// Starts deferred interactive preparation, like any other first input.
+    func beginInteraction() {
+        _ = interactiveStateForInteraction()
+    }
+
+    /// 0-based slice index shown in `plane` and the plane's slice count, for
+    /// accessibility text. `nil` until the interactive state is ready.
+    func displayedSlice(for plane: SlicePlane) -> (index: Int, count: Int)? {
+        guard let interactiveState else { return nil }
+        let volume = interactiveState.volume
+        let cursor = currentCursor ?? interactiveState.centerCursor
+        let geometry = volume.sliceGeometry(for: plane, options: interactiveState.options)
+        let dims = [volume.width, volume.height, volume.depth]
+        return (cursor.coordinate(forAxis: geometry.sliceAxis), dims[geometry.sliceAxis])
+    }
+}
