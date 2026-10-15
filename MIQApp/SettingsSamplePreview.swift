@@ -21,7 +21,8 @@ enum SettingsSample: String, Sendable, CaseIterable {
     var displayName: String {
         switch self {
         case .intensity: return "T1w.nii.gz"
-        case .labels:    return "aseg.mgz"
+        // NIfTI, like the bundled `SampleLabels.nii.gz` it is rendered from.
+        case .labels:    return "aseg.nii.gz"
         }
     }
 }
@@ -86,9 +87,16 @@ enum SampleRenderer {
     /// nothing in the example. Intent and diffusion stay absent: a T1w has
     /// neither, and the real panel hides them too. The position row is real:
     /// the centre voxel through the sample's own voxel→world transform.
+    ///
+    /// Illustrative values carry an "(example)" suffix and are listed in
+    /// `illustrativeValues`, so the panel can also draw them dimmed and in
+    /// italics (`markingIllustrative(_:values:)`): they must never read as
+    /// something MIQ found in the sample.
     struct SampleMetadata: Sendable {
         let entries: [MetadataEntry]
         let centreValue: String
+        /// Exact value texts of the illustrative rows, suffix included.
+        let illustrativeValues: [String]
     }
 
     static func metadata(_ sample: SettingsSample) async -> SampleMetadata? {
@@ -107,11 +115,15 @@ enum SampleRenderer {
             )
             entries.append(MetadataEntry(field: .voxelPosition, label: MetadataField.voxelPosition.displayLabel,
                                          value: position))
+            var illustrative: [String] = []
             for (field, value) in illustrativeEntries where !present.contains(field) {
-                entries.append(MetadataEntry(field: field, label: field.displayLabel, value: value))
+                let marked = exampleText(value)
+                illustrative.append(marked)
+                entries.append(MetadataEntry(field: field, label: field.displayLabel, value: marked))
             }
             let value = volume.voxel(x: centre[0], y: centre[1], z: centre[2])
-            return SampleMetadata(entries: entries, centreValue: MetadataPanelText.formatVoxelValue(value))
+            return SampleMetadata(entries: entries, centreValue: MetadataPanelText.formatVoxelValue(value),
+                                  illustrativeValues: illustrative)
         }.value
     }
 
@@ -124,6 +136,42 @@ enum SampleRenderer {
         (.description, String(localized: "Header free text")),
         (.provenance, String(localized: "Command history")),
     ]
+
+    /// `value` with the "(example)" suffix that marks an illustrative row.
+    static func exampleText(_ value: String) -> String {
+        String(localized: "\(value) (example)", comment: "Settings sample metadata: a made-up value shown only to illustrate a row")
+    }
+
+    /// `text` with every occurrence of the illustrative `values` drawn in
+    /// italics and a dimmer grey than real values, so made-up rows are visibly
+    /// examples even before the "(example)" suffix is read.
+    @MainActor
+    static func markingIllustrative(_ text: NSAttributedString, values: [String]) -> NSAttributedString {
+        guard !values.isEmpty else { return text }
+        let marked = NSMutableAttributedString(attributedString: text)
+        let string = marked.string as NSString
+        let dimmed = NSColor(calibratedWhite: 0.6, alpha: 1.0)
+        for value in values where !value.isEmpty {
+            var search = NSRange(location: 0, length: string.length)
+            while true {
+                let found = string.range(of: value, options: [], range: search)
+                guard found.location != NSNotFound else { break }
+                // Collected first: attributes aren't changed mid-enumeration.
+                var fonts: [(NSFont, NSRange)] = []
+                marked.enumerateAttribute(.font, in: found) { font, range, _ in
+                    if let font = font as? NSFont { fonts.append((font, range)) }
+                }
+                for (font, range) in fonts {
+                    marked.addAttribute(.font, value: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask),
+                                        range: range)
+                }
+                marked.addAttribute(.foregroundColor, value: dimmed, range: found)
+                let next = found.location + found.length
+                search = NSRange(location: next, length: string.length - next)
+            }
+        }
+        return marked
+    }
 
     /// Written by scripts/dev/settings_sample_window.swift (same shape).
     struct WindowTable: Decodable {

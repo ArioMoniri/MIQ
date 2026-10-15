@@ -695,6 +695,10 @@ struct ContentView: View {
     private var thumbnailLowerPercentile: Double = MIQConfig.Defaults.thumbnailWindowLowerPercentile
     @AppStorage(MIQConfig.Keys.thumbnailWindowUpperPercentile, store: Self.store)
     private var thumbnailUpperPercentile: Double = MIQConfig.Defaults.thumbnailWindowUpperPercentile
+    /// Off by default (`MIQConfig.Keys.windowFromHeadMask`). The literal
+    /// default keeps this binding independent of the Defaults spelling.
+    @AppStorage(MIQConfig.Keys.windowFromHeadMask, store: Self.store)
+    private var windowFromHeadMask: Bool = false
     @AppStorage(MIQConfig.Keys.ctPresetAutoDetect, store: Self.store)
     private var ctPresetAutoDetect: Bool = MIQConfig.Defaults.ctPresetAutoDetect
     @AppStorage(MIQConfig.Keys.ctWindowPreset, store: Self.store)
@@ -973,6 +977,9 @@ struct ContentView: View {
                 // defaults, where a profile's forced value already wins; the
                 // toggle only has to stop pretending it can change it.
                 .managedSetting(Self.automaticChecksAreManaged)
+                // App-only, in the app's own defaults like Sparkle's key; it
+                // shows its own managed note (see `ExternalViewerSettings`).
+                ExternalViewerSettingRow()
             } header: {
                 // Sets the app's identity apart from the settings below; the
                 // star banner already does that while it is shown.
@@ -1143,6 +1150,11 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.perVolumeIntensityWindow))
+                Toggle(isOn: $windowFromHeadMask) {
+                    RowTitle(title: "Window from the head only",
+                             info: "Takes the intensity window from voxels inside an automatic head mask, so background noise and empty space don't affect the grey range. The mask is a quick estimate made on this Mac; off by default.")
+                }
+                .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.windowFromHeadMask))
             }
 
             Section {
@@ -1166,7 +1178,7 @@ struct ContentView: View {
             Section {
                 Toggle(isOn: $deferLargeNetworkPreviews) {
                     RowTitle(title: "Ask before loading large files on network volumes",
-                             info: "Files over \(Int(MIQConfig.Defaults.networkPreviewThresholdMB)) MB show a Load Preview button instead of loading automatically: loading a large file over a slow share can stall Finder. NIfTI files are always loaded, because MIQ reads only their first volume.")
+                             info: "Files over \(Int(MIQConfig.Defaults.networkPreviewThresholdMB)) MiB show a Load Preview button instead of loading automatically: loading a large file over a slow share can stall Finder. NIfTI files are always loaded, because MIQ reads only their first volume.")
                 }
                 .managedSetting(MIQConfig.isManaged(MIQConfig.Keys.deferLargeNetworkPreviews))
             }
@@ -1583,7 +1595,8 @@ struct ContentView: View {
     /// the value under a centred crosshair, and the disclaimer footer follows
     /// the General pane's setting. Rows the sample can't supply get
     /// illustrative values (see `SampleRenderer.SampleMetadata`), so every
-    /// toggle visibly does something.
+    /// toggle visibly does something; those are suffixed "(example)" and drawn
+    /// dimmed in italics.
     @ViewBuilder
     private var metadataPanelPreview: some View {
         if let sampleMetadata {
@@ -1600,11 +1613,14 @@ struct ContentView: View {
                 for: layout.rows.map(\.label),
                 font: .systemFont(ofSize: fontSize)
             )
-            MetadataPanelSample(text: MetadataPanelText.attributedString(
-                from: layout.rows,
-                fontSize: fontSize,
-                labelColumnX: labelColumnX,
-                showsDisclaimer: !hideDisclaimerInPreview
+            MetadataPanelSample(text: SampleRenderer.markingIllustrative(
+                MetadataPanelText.attributedString(
+                    from: layout.rows,
+                    fontSize: fontSize,
+                    labelColumnX: labelColumnX,
+                    showsDisclaimer: !hideDisclaimerInPreview
+                ),
+                values: sampleMetadata.illustrativeValues
             ))
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
@@ -1660,6 +1676,7 @@ struct ContentView: View {
             && settled(MIQConfig.Keys.deferLargeNetworkPreviews,
                        deferLargeNetworkPreviews == MIQConfig.Defaults.deferLargeNetworkPreviews)
             && settled(MIQConfig.Keys.defaultColormap, defaultColormap == MIQConfig.Defaults.defaultColormap)
+            && settled(MIQConfig.Keys.windowFromHeadMask, windowFromHeadMask == false)
             && settled(MIQConfig.Keys.ctPresetAutoDetect, ctPresetAutoDetect == MIQConfig.Defaults.ctPresetAutoDetect)
             && settled(MIQConfig.Keys.ctWindowPreset, ctWindowPreset == .defaultValue)
     }
@@ -1731,6 +1748,7 @@ struct ContentView: View {
         axisLabelColor    = StoredColor.defaultValue
         deferLargeNetworkPreviews = MIQConfig.Defaults.deferLargeNetworkPreviews
         defaultColormap   = MIQConfig.Defaults.defaultColormap
+        windowFromHeadMask = false
         ctPresetAutoDetect = MIQConfig.Defaults.ctPresetAutoDetect
         ctWindowPreset    = WindowPreset.defaultValue
     }
@@ -1767,6 +1785,7 @@ struct ContentView: View {
         hideDisclaimerInPreview = MIQConfig.Defaults.hideDisclaimerInPreview
         starBannerDismissed = MIQConfig.Defaults.starBannerDismissed
         CaptionSettings.restoreDefaults()
+        ExternalViewerSettings.restoreDefault()
         // The default is SUEnableAutomaticChecks in Info.plist (on); see
         // CONTRIBUTING.md, "Conventions › Sparkle automatic update checks".
         if !Self.automaticChecksAreManaged {

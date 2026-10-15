@@ -1,6 +1,40 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (example)" : {
+      "comment" : "Settings sample metadata: a made-up value shown only to illustrate a row",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (Beispiel)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (örnek)"
+          }
+        }
+      }
+    },
+    "%@ (not installed)" : {
+      "comment" : "Open volumes in: a chosen app that is not installed; %@ is its bundle identifier",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (nicht installiert)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (yüklü değil)"
+          }
+        }
+      }
+    },
     "%@ in Finder, with a slice thumbnail" : {
       "localizations" : {
         "de" : {
@@ -286,6 +320,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Meta veri paneline birkaç satır ekler: olası sekans, kafa maskesi kapsamı, yüz silme (defacing) denetimi ve veri tutarlılığı denetimleri. Yalnızca görüntüden, bu Mac’te hesaplanır; bir ipucudur, değerlendirme değildir."
+          }
+        }
+      }
+    },
+    "Adds an Open in button to MIQ’s file windows. Only installed viewers are listed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fügt den Dateifenstern von MIQ eine Taste „Öffnen in“ hinzu. Nur installierte Viewer werden aufgeführt."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ’nun dosya pencerelerine bir Şununla Aç düğmesi ekler. Yalnızca yüklü görüntüleyiciler listelenir."
           }
         }
       }
@@ -754,18 +804,18 @@
         }
       }
     },
-    "Choose a structural brain scan to mask." : {
+    "Choose a structural brain scan to mask, or a folder holding a DICOM series." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wählen Sie eine strukturelle Hirnaufnahme für die Maske."
+            "value" : "Wählen Sie einen strukturellen Hirnscan zum Maskieren oder einen Ordner mit einer DICOM-Serie."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Maskelenecek yapısal bir beyin taraması seçin."
+            "value" : "Maskelenecek yapısal bir beyin taramasını ya da bir DICOM serisi içeren klasörü seçin."
           }
         }
       }
@@ -782,6 +832,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Açıklanacak bir hacim seçin. Yalnızca başlık bilgileri kullanılır."
+          }
+        }
+      }
+    },
+    "Choose an App" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App auswählen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uygulama Seç"
+          }
+        }
+      }
+    },
+    "Choose the app MIQ opens volumes in." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wählen Sie die App, in der MIQ Volumen öffnet."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ’nun hacimleri açacağı uygulamayı seçin."
           }
         }
       }
@@ -994,6 +1076,22 @@
         }
       }
     },
+    "Couldn’t open “%@” in %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%1$@“ konnte nicht in %2$@ geöffnet werden."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@”, %2$@ ile açılamadı."
+          }
+        }
+      }
+    },
     "Couldn’t save the mask: %@" : {
       "localizations" : {
         "de" : {
@@ -1022,6 +1120,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Artı imleci konumu"
+          }
+        }
+      }
+    },
+    "DICOM series of %lld files" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DICOM-Serie aus %lld Dateien"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld dosyalık DICOM serisi"
           }
         }
       }
@@ -1475,18 +1589,18 @@
         }
       }
     },
-    "Files over %lld MB show a Load Preview button instead of loading automatically: loading a large file over a slow share can stall Finder. NIfTI files are always loaded, because MIQ reads only their first volume." : {
+    "Files over %lld MiB show a Load Preview button instead of loading automatically: loading a large file over a slow share can stall Finder. NIfTI files are always loaded, because MIQ reads only their first volume." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dateien über %lld MB zeigen eine Schaltfläche „Vorschau laden“, statt automatisch geladen zu werden: Das Laden einer großen Datei über eine langsame Freigabe kann den Finder blockieren. NIfTI-Dateien werden immer geladen, weil MIQ nur ihr erstes Volumen liest."
+            "value" : "Dateien über %lld MiB zeigen eine Schaltfläche „Vorschau laden“, statt automatisch geladen zu werden: Das Laden einer großen Datei über eine langsame Freigabe kann den Finder blockieren. NIfTI-Dateien werden immer geladen, weil MIQ nur ihr erstes Volumen liest."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld MB’tan büyük dosyalar otomatik yüklenmek yerine bir Önizlemeyi Yükle düğmesi gösterir: yavaş bir paylaşımdan büyük bir dosya yüklemek Finder’ı kilitleyebilir. NIfTI dosyaları her zaman yüklenir, çünkü MIQ yalnızca ilk hacimlerini okur."
+            "value" : "%lld MiB’tan büyük dosyalar otomatik yüklenmek yerine bir Önizlemeyi Yükle düğmesi gösterir: yavaş bir paylaşımdan büyük bir dosya yüklemek Finder’ı kilitleyebilir. NIfTI dosyaları her zaman yüklenir, çünkü MIQ yalnızca ilk hacimlerini okur."
           }
         }
       }
@@ -2467,6 +2581,22 @@
         }
       }
     },
+    "No DICOM series found in “%@”. Choose a folder that directly holds the single-frame DICOM files of one series." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In „%@“ wurde keine DICOM-Serie gefunden. Wählen Sie einen Ordner, der die Einzelbild-DICOM-Dateien einer Serie direkt enthält."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” içinde DICOM serisi bulunamadı. Bir serinin tek kareli DICOM dosyalarını doğrudan içeren bir klasör seçin."
+          }
+        }
+      }
+    },
     "No volume chosen." : {
       "localizations" : {
         "de" : {
@@ -2479,6 +2609,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hacim seçilmedi."
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "Open volumes in: no external viewer",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiçbiri"
           }
         }
       }
@@ -2611,6 +2758,72 @@
         }
       }
     },
+    "Open in %@" : {
+      "comment" : "Opens the file in an external viewer app; %@ is the app name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In %@ öffnen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ile aç"
+          }
+        }
+      }
+    },
+    "Open in Other App…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In anderer App öffnen …"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başka Uygulamayla Aç…"
+          }
+        }
+      }
+    },
+    "Open in…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnen in …"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şununla aç…"
+          }
+        }
+      }
+    },
+    "Open volumes in" : {
+      "comment" : "Settings: external viewer picker",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumen öffnen in"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacimleri şununla aç"
+          }
+        }
+      }
+    },
     "Or ⌃-click. Window presets, colormaps, overlays, the fourth panel (MIP, MinIP, 3D) and Copy Image." : {
       "localizations" : {
         "de" : {
@@ -2639,6 +2852,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yönelim"
+          }
+        }
+      }
+    },
+    "Other App…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Andere App …"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başka Uygulama…"
           }
         }
       }
@@ -3475,6 +3704,22 @@
         }
       }
     },
+    "Sets the grey range from the voxels inside the predicted mask, so scalp, fat and background don’t wash out the brain. Display only; the saved mask is the same." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bestimmt den Graubereich aus den Voxeln innerhalb der vorhergesagten Maske, damit Kopfhaut, Fett und Hintergrund das Gehirn nicht überstrahlen. Nur für die Anzeige; die gespeicherte Maske bleibt gleich."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gri aralığını tahmin edilen maskenin içindeki voksellerden belirler; böylece kafa derisi, yağ ve arka plan beyni soluklaştırmaz. Yalnızca görüntü içindir; kaydedilen maske aynı kalır."
+          }
+        }
+      }
+    },
     "Shared" : {
       "localizations" : {
         "de" : {
@@ -3679,6 +3924,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Desteklenen biçimler: NIfTI, FreeSurfer MGH, MRtrix MIF, NRRD"
+          }
+        }
+      }
+    },
+    "Takes the intensity window from voxels inside an automatic head mask, so background noise and empty space don't affect the grey range. The mask is a quick estimate made on this Mac; off by default." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bestimmt das Intensitätsfenster aus den Voxeln innerhalb einer automatischen Kopfmaske, sodass Hintergrundrauschen und leerer Raum den Graubereich nicht beeinflussen. Die Maske ist eine schnelle Schätzung auf diesem Mac; standardmäßig aus."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yoğunluk penceresini otomatik bir baş maskesinin içindeki voksellerden alır; böylece arka plan gürültüsü ve boş alan gri aralığı etkilemez. Maske bu Mac’te yapılan hızlı bir tahmindir; varsayılan olarak kapalıdır."
           }
         }
       }
@@ -4287,6 +4548,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bir görüntü Hounsfield birimlerinde BT gibi görünüyorsa önizleme beyin, kemik, akciğer ve diğer pencereleri sunar. Algılama, kayıtlı değerlerden yapılan bir tahmindir; bu yüzden varsayılan olarak kapalıdır."
+          }
+        }
+      }
+    },
+    "Window display to brain" : {
+      "comment" : "Brain Mask result: window the shown slices from voxels inside the mask",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anzeige auf das Gehirn fenstern"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görüntüyü beyne göre pencerele"
+          }
+        }
+      }
+    },
+    "Window from the head only" : {
+      "comment" : "Settings › Preview toggle",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fenster nur aus dem Kopf"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pencereyi yalnızca baştan al"
           }
         }
       }

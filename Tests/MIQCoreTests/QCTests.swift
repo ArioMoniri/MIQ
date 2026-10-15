@@ -287,7 +287,9 @@ struct QCFaceCheckTests {
         let s = try QCAnalyzer.analyze(volume: QCPhantom.head(face: .present))
         #expect(s.faceCheck.presence == .facePresentLikely, "\(s.faceCheck)")
         #expect(s.faceCheck.confidence > 0.5 && s.faceCheck.confidence < 1)
-        #expect(s.displayLines.contains { $0.text == "Face: Likely present (heuristic)" })
+        #expect(s.displayLines.contains {
+            $0.text == "Face: Likely present (heuristic) · consider defacing before sharing (pydeface, mri_reface)"
+        })
     }
 
     @Test

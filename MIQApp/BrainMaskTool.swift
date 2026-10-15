@@ -125,11 +125,17 @@ struct BrainMaskResult: Sendable {
     let wallSeconds: Double
     let gridSpacing: Double
     let model: BrainMaskModelChoice
+    /// Slices windowed like the Quick Look preview (percentiles of the whole
+    /// slice), with the mask outline.
     let previews: [BrainMaskPreview]
+    /// The same slices windowed from the voxels inside the predicted mask only
+    /// ("Window display to brain"); `nil` for an empty mask.
+    let brainWindowedPreviews: [BrainMaskPreview]?
 }
 
 enum BrainMaskError: LocalizedError {
     case unsupportedFile
+    case noDICOMSeries(String)
     case unsupportedVolume(String)
     case modelMissing(String)
     case tooLarge(String)
@@ -138,6 +144,8 @@ enum BrainMaskError: LocalizedError {
         switch self {
         case .unsupportedFile:
             return String(localized: "MIQ can’t read this file. Choose a NIfTI, MGH/MGZ, MRtrix MIF or NRRD volume.")
+        case .noDICOMSeries(let folder):
+            return String(localized: "No DICOM series found in “\(folder)”. Choose a folder that directly holds the single-frame DICOM files of one series.")
         case .unsupportedVolume(let reason): return reason
         case .modelMissing(let name):
             return String(localized: "The \(name) model is missing from the app bundle. Reinstall MIQ.")
@@ -152,10 +160,24 @@ enum BrainMaskPipeline {
     private static let outlineColor: (UInt8, UInt8, UInt8) = (255, 69, 58)
 
     static func load(url: URL) throws -> BrainMaskSource {
-        guard MIQFileKind(url: url) != nil else { throw BrainMaskError.unsupportedFile }
         let didAccess = url.startAccessingSecurityScopedResource()
         defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
-        let image = try MIQParser().parse(url: url)
+        let image: MIQImage
+        var seriesNote: String?
+        if MIQFileKind(url: url) != nil {
+            image = try MIQParser().parse(url: url)
+        } else if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+            // A folder of DICOM slices: the user-selected folder's grant
+            // covers the files inside it, and the assembler copies the pixels
+            // out, so nothing is read after the grant is released.
+            guard let series = DICOMSeriesAssembler().assembleLargestSeries(inFolder: url) else {
+                throw BrainMaskError.noDICOMSeries(url.lastPathComponent)
+            }
+            image = series.image
+            seriesNote = String(localized: "DICOM series of \(series.sliceCount) files")
+        } else {
+            throw BrainMaskError.unsupportedFile
+        }
         // Cancelled while the last chunk decoded: drop the volume now rather
         // than building the source for a load nobody will show.
         try Task.checkCancellation()
@@ -172,6 +194,9 @@ enum BrainMaskPipeline {
         var summary = String(localized: "\(volume.width) × \(volume.height) × \(volume.depth) voxels · \(spacingText) mm")
         if volume.volumes > 1 {
             summary += " · " + String(localized: "first of \(volume.volumes) volumes")
+        }
+        if let seriesNote {
+            summary += " · " + seriesNote
         }
         return BrainMaskSource(url: url, volume: volume, summary: summary)
     }
@@ -201,7 +226,11 @@ enum BrainMaskPipeline {
         let mask = try await engine.run(volume: input, options: options, progress: progress)
         try Task.checkCancellation()
 
-        let previews = makePreviews(volume: volume, labels: mask.labels)
+        let previews = makePreviews(volume: volume, labels: mask.labels, windowBounds: nil)
+        try Task.checkCancellation()
+        let brainWindowedPreviews = brainWindow(volume: volume, labels: mask.labels).map {
+            makePreviews(volume: volume, labels: mask.labels, windowBounds: $0)
+        }
         try Task.checkCancellation()
         let count = mask.foregroundVoxelCount
         return BrainMaskResult(
@@ -215,7 +244,8 @@ enum BrainMaskPipeline {
             wallSeconds: Date().timeIntervalSince(started),
             gridSpacing: gridSpacing,
             model: choice,
-            previews: previews
+            previews: previews,
+            brainWindowedPreviews: brainWindowedPreviews
         )
     }
 
@@ -233,9 +263,54 @@ enum BrainMaskPipeline {
         return Double(voxels) * det * pow(mmPerUnit, 3) / 1000
     }
 
+    /// Upper bound on voxels sampled for the brain window: a 1 mm head has
+    /// about 1.5 M brain voxels, so typical masks are read in full.
+    static let brainWindowMaxSamples = 2_000_000
+
+    /// Intensity window from the voxels inside the mask only (first volume),
+    /// at the preview's default percentiles — so a bright scalp, fat or neck
+    /// and the empty background no longer set the grey range. `nil` when the
+    /// mask is empty or holds no finite value, or `labels` doesn't match the
+    /// grid.
+    static func brainWindow(volume: MIQVolume, labels: [UInt8]) -> MIQIntensityWindowBounds? {
+        let width = volume.width, height = volume.height
+        let count = width * height * volume.depth
+        guard count > 0, labels.count == count else { return nil }
+        let inside = labels.reduce(into: 0) { if $1 != 0 { $0 += 1 } }
+        guard inside > 0 else { return nil }
+        // Every n-th mask voxel, so the sample stays bounded on huge grids.
+        let step = max(1, (inside + brainWindowMaxSamples - 1) / brainWindowMaxSamples)
+        var values: [Float] = []
+        values.reserveCapacity(inside / step + 1)
+        var seen = 0
+        let plane = width * height
+        for i in 0..<count where labels[i] != 0 {
+            defer { seen += 1 }
+            guard seen % step == 0 else { continue }
+            let z = i / plane, rest = i - z * plane
+            let y = rest / width, x = rest - y * width
+            let value = volume.voxel(x: x, y: y, z: z)
+            if value.isFinite { values.append(value) }
+        }
+        guard !values.isEmpty else { return nil }
+        values.sort()
+        func percentile(_ p: Double) -> Float {
+            let position = p / 100 * Double(values.count - 1)
+            let lower = Int(position.rounded(.down)), upper = min(values.count - 1, lower + 1)
+            let fraction = Float(position - Double(lower))
+            return values[lower] + (values[upper] - values[lower]) * fraction
+        }
+        let low = percentile(MIQConfig.Defaults.windowLowerPercentile)
+        var high = percentile(MIQConfig.Defaults.windowUpperPercentile)
+        if high <= low { high = low + max(abs(low) * 1e-3, 1e-3) }
+        return MIQIntensityWindowBounds(low: low, high: high)
+    }
+
     /// Axial, coronal and sagittal slices through the mask's centroid (the volume
-    /// centre for an empty mask) with the mask outline drawn on top.
-    static func makePreviews(volume: MIQVolume, labels: [UInt8]) -> [BrainMaskPreview] {
+    /// centre for an empty mask) with the mask outline drawn on top. A `nil`
+    /// window derives one per slice, as the preview does.
+    static func makePreviews(volume: MIQVolume, labels: [UInt8],
+                             windowBounds: MIQIntensityWindowBounds?) -> [BrainMaskPreview] {
         guard let maskVolume = MIQVolume.derivedVolume(values: labels.map { Float($0) }, onGridOf: volume) else { return [] }
         let options = RenderingOptions(
             lowerPercentile: MIQConfig.Defaults.windowLowerPercentile,
@@ -248,7 +323,8 @@ enum BrainMaskPipeline {
         let lut = maskVolume.overlayLabelLut(orientation: options.orientation)
         return [SlicePlane.axial, .coronal, .sagittal].compactMap { plane in
             let index = volume.sliceIndex(for: plane, cursor: cursor, options: options)
-            let base = volume.slice(plane: plane, index: index, maxDimension: 320, options: options)
+            let base = volume.slice(plane: plane, index: index, maxDimension: 320, options: options,
+                                    windowBounds: windowBounds)
             guard let baseBitmap = base.rgbaBitmap() else { return nil }
             guard let slice = maskVolume.displaySliceValues(plane: plane, index: index, options: options),
                   let layer = OverlayCompositor.layer(
@@ -327,6 +403,8 @@ final class BrainMaskToolModel: ObservableObject {
     @Published private(set) var source: BrainMaskSource?
     @Published var choice: BrainMaskModelChoice = .fast
     @Published var fullResolution = false
+    /// Shows `BrainMaskResult.brainWindowedPreviews` instead of `previews`.
+    @Published var windowToBrain = false
     @Published private(set) var isLoading = false
     @Published private(set) var isRunning = false
     @Published private(set) var isSaving = false
@@ -343,11 +421,12 @@ final class BrainMaskToolModel: ObservableObject {
     func chooseVolume() {
         let panel = NSOpenPanel()
         panel.title = String(localized: "Choose a Volume")
-        panel.message = String(localized: "Choose a structural brain scan to mask.")
+        panel.message = String(localized: "Choose a structural brain scan to mask, or a folder holding a DICOM series.")
         panel.prompt = String(localized: "Choose")
         panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = MIQIntentSupport.supportedContentTypes
+        // A folder is read as a DICOM series (`BrainMaskPipeline.load`).
+        panel.canChooseDirectories = true
+        panel.allowedContentTypes = MIQIntentSupport.supportedContentTypes + [.folder]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         open(url: url)
     }
@@ -591,7 +670,7 @@ struct BrainMaskToolView: View {
         GroupBox("Result") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 8) {
-                    ForEach(result.previews) { preview in
+                    ForEach(Self.shownPreviews(result, windowToBrain: model.windowToBrain)) { preview in
                         VStack(spacing: 4) {
                             if let image = Self.cgImage(preview.bitmap) {
                                 Image(decorative: image, scale: 1)
@@ -607,6 +686,10 @@ struct BrainMaskToolView: View {
                         }
                     }
                 }
+                Toggle("Window display to brain", isOn: $model.windowToBrain)
+                    .font(.callout)
+                    .disabled(result.brainWindowedPreviews == nil)
+                    .help("Sets the grey range from the voxels inside the predicted mask, so scalp, fat and background don’t wash out the brain. Display only; the saved mask is the same.")
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
                     GridRow {
                         Text("Mask volume").foregroundStyle(.secondary)
@@ -636,6 +719,10 @@ struct BrainMaskToolView: View {
             }
             .padding(6)
         }
+    }
+
+    private static func shownPreviews(_ result: BrainMaskResult, windowToBrain: Bool) -> [BrainMaskPreview] {
+        windowToBrain ? (result.brainWindowedPreviews ?? result.previews) : result.previews
     }
 
     private static func volumeText(_ result: BrainMaskResult) -> String {

@@ -51,6 +51,47 @@ public struct DICOMSeriesAssembler: Sendable {
         return assembleSeries(containing: url, candidates: files)
     }
 
+    /// Assembles the largest series among the files directly inside `folder`
+    /// (subfolders are not searched): for a folder the user picked, e.g. in the
+    /// app's Brain Mask tool, where the folder grant covers its files. Files are
+    /// grouped by `SeriesInstanceUID` (compared in memory only); the group with
+    /// the most files wins, ties going to the one whose first file sorts first.
+    /// `nil` when the folder can't be listed, holds more than `maxFiles` entries,
+    /// or no group stacks into a volume of at least two slices.
+    public func assembleLargestSeries(inFolder folder: URL) -> DICOMSeries? {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ), entries.count <= maxFiles else { return nil }
+        let files = entries
+            .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+
+        var groups: [DICOMRedactedUID: [URL]] = [:]
+        var order: [DICOMRedactedUID] = []
+        for file in files where Self.hasPart10Marker(file) {
+            guard let descriptor = Self.load(file), let uid = descriptor.seriesUID else { continue }
+            if groups[uid] == nil { order.append(uid) }
+            groups[uid, default: []].append(file)
+        }
+        // Largest first; the stable sort keeps folder order among equals.
+        let ranked = order.enumerated()
+            .sorted { a, b in
+                let (ca, cb) = (groups[a.element]!.count, groups[b.element]!.count)
+                return ca != cb ? ca > cb : a.offset < b.offset
+            }
+            .map(\.element)
+        for uid in ranked {
+            let members = groups[uid]!
+            guard members.count >= 2 else { break }
+            if let series = assembleSeries(containing: members[0], candidates: members) {
+                return series
+            }
+        }
+        return nil
+    }
+
     /// Assembles the series of `url` from `candidates` (which may include `url`).
     public func assembleSeries(containing url: URL, candidates: [URL]) -> DICOMSeries? {
         guard let anchor = Self.load(url), let uid = anchor.seriesUID,

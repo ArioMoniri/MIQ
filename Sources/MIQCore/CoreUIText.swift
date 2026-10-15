@@ -40,6 +40,7 @@ public enum CoreUIText {
             // Data QC and temporal rows (`QCAnalysis.displayLines`, `PreviewDataSummaries`).
             PreviewDataSummaries.sectionTitle,
             "Likely sequence", "Head mask", "Face", "Likely present", "Likely removed",
+            QCSummary.defacingHint,
             "tSNR (median)", "no spike frames", "1 spike frame",
             PreviewDataSummaries.windowModeLabel,
             PreviewDataSummaries.windowModeText(perVolume: true),

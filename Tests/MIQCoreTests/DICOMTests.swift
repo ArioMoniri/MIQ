@@ -588,6 +588,41 @@ struct DICOMTests {
         #expect(volume.voxel(x: 0, y: 0, z: 1) == 0)
     }
 
+    @Test func folderAssemblyPicksTheLargestSeries() throws {
+        let folder = Self.tempURL("x").deletingLastPathComponent()
+        for (name, z, value) in [("s2.dcm", 2.0, Int16(3)), ("s0.dcm", 0.0, Int16(1)), ("s1.dcm", 1.0, Int16(2))] {
+            try Self.ctSlice(position: [0, 0, z], intercept: "0", pixels: Array(repeating: value, count: 12), seriesUID: "5.5")
+                .part10(transferSyntax: DICOMTestBuilder.explicitLE)
+                .write(to: folder.appendingPathComponent(name))
+        }
+        // A smaller series sorting first, a lone slice and a non-DICOM file.
+        for (name, z) in [("a0.dcm", 0.0), ("a1.dcm", 4.0)] {
+            try Self.ctSlice(position: [0, 0, z], seriesUID: "6.6").part10(transferSyntax: DICOMTestBuilder.explicitLE)
+                .write(to: folder.appendingPathComponent(name))
+        }
+        try Self.ctSlice(seriesUID: "7.7").part10(transferSyntax: DICOMTestBuilder.explicitLE)
+            .write(to: folder.appendingPathComponent("lone.dcm"))
+        try Data("notes".utf8).write(to: folder.appendingPathComponent("notes.txt"))
+
+        let series = try #require(DICOMSeriesAssembler().assembleLargestSeries(inFolder: folder))
+        #expect(series.sliceCount == 3)
+        let volume = MIQVolume(image: series.image)
+        #expect(volume.voxel(x: 0, y: 0, z: 0) == 1)
+        #expect(volume.voxel(x: 0, y: 0, z: 2) == 3)
+    }
+
+    @Test func folderAssemblyIsSilentWithoutASeries() throws {
+        let folder = Self.tempURL("x").deletingLastPathComponent()
+        #expect(DICOMSeriesAssembler().assembleLargestSeries(inFolder: folder) == nil)
+        try Self.ctSlice(seriesUID: "1.1").part10(transferSyntax: DICOMTestBuilder.explicitLE)
+            .write(to: folder.appendingPathComponent("one.dcm"))
+        try Data("notes".utf8).write(to: folder.appendingPathComponent("notes.txt"))
+        #expect(DICOMSeriesAssembler().assembleLargestSeries(inFolder: folder) == nil)
+        #expect(DICOMSeriesAssembler().assembleLargestSeries(inFolder: URL(fileURLWithPath: "/nonexistent")) == nil)
+        // Over the entry cap: refused before anything is parsed.
+        #expect(DICOMSeriesAssembler(maxFiles: 1).assembleLargestSeries(inFolder: folder) == nil)
+    }
+
     @Test func seriesAssemblerIsSilentWithoutSiblings() throws {
         let url = Self.tempURL()
         try Self.ctSlice(seriesUID: "1.1").part10(transferSyntax: DICOMTestBuilder.explicitLE).write(to: url)

@@ -116,7 +116,8 @@ struct CoreUITextTests {
     @Test func temporalAndQCValuesMatchTemplates() {
         let lookup = RecordingLookup()
         for text in ["52 · 3 spike frames", "Typical (6 metrics, heuristic)", "Borderline (2 of 6 metrics flagged, heuristic)",
-                     "Likely present (heuristic)", "T1w (heuristic)", "TR mismatch: sidecar 2 s, header 3 s",
+                     "Likely present (heuristic)", "T1w (heuristic)",
+                     "Likely present (heuristic) · consider defacing before sharing (pydeface, mri_reface)", "TR mismatch: sidecar 2 s, header 3 s",
                      ".bval has 30 entries for 31 volumes"] {
             #expect(CoreUIText.localize(text) { lookup($0) } == text)
         }
