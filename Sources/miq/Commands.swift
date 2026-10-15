@@ -137,9 +137,9 @@ enum VolumeLoader {
         }
     }
 
-    /// Stacks the DICOM series of the folder's first Part-10 file (by name). A
-    /// folder with a single DICOM file renders that file. The returned URL is the
-    /// folder, so `info` reports the folder name.
+    /// Stacks the folder's largest DICOM series (most files, the same choice as
+    /// the app's Brain Mask tool). A folder with a single DICOM file renders that
+    /// file. The returned URL is the folder, so `info` reports the folder name.
     static func loadDICOMFolder(_ folder: URL) throws -> (URL, MIQImage, MIQFileKind) {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: folder, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]
@@ -157,11 +157,11 @@ enum VolumeLoader {
         if dicoms.count == 1 {
             return (folder, try parse(first, fullyDecompress: true), .dicom)
         }
-        let assembler = DICOMSeriesAssembler(maxFiles: max(2048, dicoms.count))
-        guard let series = assembler.assembleSeries(containing: first, candidates: dicoms) else {
+        let assembler = DICOMSeriesAssembler(maxFiles: max(2048, entries.count))
+        guard let series = assembler.assembleLargestSeries(inFolder: folder) else {
             throw CommandError("cannot assemble a volume from the \(dicoms.count) DICOM files in \(folder.lastPathComponent) "
-                + "(the first file must be a single-frame slice with position/orientation; mixed sizes, "
-                + "several slices at one position, or over 1 GiB are not stacked) — pass one file instead")
+                + "(slices need position/orientation; mixed sizes, several slices at one position, "
+                + "or over 1 GiB are not stacked) — pass one file instead")
         }
         return (folder, series.image, .dicom)
     }
