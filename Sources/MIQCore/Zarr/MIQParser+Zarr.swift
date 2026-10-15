@@ -53,10 +53,16 @@ extension MIQParser {
     /// via the axis units. OME axes carry no anatomical meaning, so orientation
     /// is unknown unless a NIfTI-Zarr header supplies an sform/qform.
     ///
-    /// Supported encodings: v2 `compressor` null/gzip/zlib, `order` C/F, `.`/`/`
-    /// separators; v3 `bytes` (either endian), `transpose`, `gzip`, `crc32c`
-    /// (stripped, not verified) and `sharding_indexed` (range-read via the shard
-    /// index). blosc/zstd/lz4 etc. throw `MIQError.unsupportedFeature`.
+    /// Supported encodings: v2 `compressor` null/gzip/zlib/blosc/zstd/lz4,
+    /// `order` C/F, `.`/`/` separators; v3 `bytes` (either endian), `transpose`,
+    /// `gzip`, `zstd`, `blosc`, `crc32c` (stripped, not verified) and
+    /// `sharding_indexed` (range-read via the shard index). Blosc's snappy, bz2,
+    /// lzma, zfp etc. throw `MIQError.unsupportedFeature`.
+    ///
+    /// Without a NIfTI-Zarr header the OME scale/translation is stored in the
+    /// srow rows with `sformCode` 0 and `MIQHeader.srowIsUnorientedAffine` set,
+    /// so `MIQVolume.voxelToWorld` reports the true origin while orientation
+    /// stays unknown.
     public func parseZarr(url: URL, maxBytes: Int = MIQParser.zarrMaxPreviewBytes) throws -> ZarrParseResult {
         let store = try ZarrStore.locate(url)
 
@@ -191,7 +197,7 @@ extension MIQParser {
         }
         if levels.count > 1 { label += " (level \(levelIndex + 1)/\(levels.count))" }
 
-        let header = MIQHeader(
+        var header = MIQHeader(
             littleEndian: true,
             dimensions: [width, height, depth, 1],
             pixdim: pixdim,
@@ -208,6 +214,9 @@ extension MIQParser {
             datatypeLabel: metadata.dataType.label,
             orientationFrame: orientationFrame
         )
+        // OME scale + translation: a real affine, but in an axis frame with no
+        // anatomical meaning (orientation stays unknown, labels "?").
+        header.srowIsUnorientedAffine = sformCode == 0 && orientationFrame == nil
         let summary = ZarrStoreSummary(
             flavor: flavor,
             zarrFormat: metadata.zarrFormat,

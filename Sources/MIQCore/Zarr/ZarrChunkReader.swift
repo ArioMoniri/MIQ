@@ -195,9 +195,24 @@ struct ZarrChunkReader {
                 data = data.prefix(data.count - 4)
             case .deflate:
                 data = try inflate(data, expectedBytes: expectedBytes)
+            case .zstd:
+                data = try ZstdDecoder.decompress(data, capacity: try decodedCap(expectedBytes))
+            case .blosc:
+                data = try BloscDecoder.decompress(data, expectedBytes: try decodedCap(expectedBytes))
+            case .lz4:
+                data = try LZ4Decoder.decompressNumcodecs(data, expectedBytes: try decodedCap(expectedBytes))
             }
         }
         return data
+    }
+
+    /// `expectedBytes`, after checking it against `ZarrArrayMetadata.maxChunkBytes`:
+    /// the pure-Swift decoders allocate their output up front.
+    private static func decodedCap(_ expectedBytes: Int) throws -> Int {
+        guard expectedBytes >= 0, expectedBytes <= ZarrArrayMetadata.maxChunkBytes else {
+            throw MIQError.unsupportedFeature("Zarr chunk is too large to preview")
+        }
+        return expectedBytes
     }
 
     /// Inflates a gzip- or zlib-wrapped stream (zlib header auto-detection),

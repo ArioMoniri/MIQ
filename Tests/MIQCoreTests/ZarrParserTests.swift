@@ -293,18 +293,18 @@ struct ZarrParserTests {
         #expect(Self.float32(image, x: 3, y: 0, z: 0).isNaN)
     }
 
-    @Test func bloscIsAClearUnsupportedError() throws {
+    @Test func unsupportedCompressorIsAClearError() throws {
         let root = try Self.makeStore()
         try Self.ome04Group(root, axes: Self.zyxMicrometer, datasets: [["path": "0"]])
         try Self.writeJSON([
             "zarr_format": 2, "shape": [1, 2, 2], "chunks": [1, 2, 2], "dtype": "<u2", "order": "C",
-            "compressor": ["id": "blosc", "cname": "lz4", "clevel": 5, "shuffle": 1], "filters": NSNull(), "fill_value": 0,
+            "compressor": ["id": "bz2", "level": 5], "filters": NSNull(), "fill_value": 0,
         ], root.appendingPathComponent("0/.zarray"))
         do {
             _ = try MIQParser().parse(url: root)
             Issue.record("expected an unsupported-compressor error")
         } catch let error as MIQError {
-            #expect(error.errorDescription?.contains("Zarr compressor blosc isn't supported yet") == true)
+            #expect(error.errorDescription?.contains("Zarr compressor bz2 isn't supported yet") == true)
         }
     }
 

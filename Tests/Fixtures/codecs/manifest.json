@@ -1,0 +1,506 @@
+{
+ "stores": [
+  {
+   "origin_mm": [
+    0.03,
+    0.02,
+    0.01
+   ],
+   "sha256": "05427defc7122498f7bb1ecf22994eb7306efc47fa1c21fd95979e70a307cb2e",
+   "shape": [
+    6,
+    20,
+    24
+   ],
+   "spacing_mm": [
+    0.00025,
+    0.0005,
+    0.002
+   ],
+   "store": "v2_blosc.ome.zarr"
+  },
+  {
+   "origin_mm": [
+    0.03,
+    0.02,
+    0.01
+   ],
+   "sha256": "05427defc7122498f7bb1ecf22994eb7306efc47fa1c21fd95979e70a307cb2e",
+   "shape": [
+    6,
+    20,
+    24
+   ],
+   "spacing_mm": [
+    0.00025,
+    0.0005,
+    0.002
+   ],
+   "store": "v2_zstd.ome.zarr"
+  },
+  {
+   "origin_mm": [
+    0.03,
+    0.02,
+    0.01
+   ],
+   "sha256": "05427defc7122498f7bb1ecf22994eb7306efc47fa1c21fd95979e70a307cb2e",
+   "shape": [
+    6,
+    20,
+    24
+   ],
+   "spacing_mm": [
+    0.00025,
+    0.0005,
+    0.002
+   ],
+   "store": "v3_zstd.ome.zarr"
+  },
+  {
+   "origin_mm": [
+    0.03,
+    0.02,
+    0.01
+   ],
+   "sha256": "05427defc7122498f7bb1ecf22994eb7306efc47fa1c21fd95979e70a307cb2e",
+   "shape": [
+    6,
+    20,
+    24
+   ],
+   "spacing_mm": [
+    0.00025,
+    0.0005,
+    0.002
+   ],
+   "store": "v3_blosc.ome.zarr"
+  }
+ ],
+ "streams": [
+  {
+   "codec": "zst",
+   "file": "text_l1.zst",
+   "sha256": "8b21b16df8fd1afe0b40376ac1d4550fbbf7ad1570693481ae07596e5ef9a56d",
+   "size": 40000
+  },
+  {
+   "codec": "zst",
+   "file": "text_l3.zst",
+   "sha256": "8b21b16df8fd1afe0b40376ac1d4550fbbf7ad1570693481ae07596e5ef9a56d",
+   "size": 40000
+  },
+  {
+   "codec": "zst",
+   "file": "text_l19.zst",
+   "sha256": "8b21b16df8fd1afe0b40376ac1d4550fbbf7ad1570693481ae07596e5ef9a56d",
+   "size": 40000
+  },
+  {
+   "codec": "zst",
+   "file": "skewed_l3.zst",
+   "sha256": "dcd1d678fd2081a791e877fa93c6f17a7408f7db3003df6700bbf413e245a5fb",
+   "size": 135000
+  },
+  {
+   "codec": "zst",
+   "file": "skewed_l19.zst",
+   "sha256": "dcd1d678fd2081a791e877fa93c6f17a7408f7db3003df6700bbf413e245a5fb",
+   "size": 135000
+  },
+  {
+   "codec": "zst",
+   "file": "image_l3.zst",
+   "sha256": "8e24db031edec5d59bbec5a0c215336320733c9225b3aaf37128de4dafe3e3d7",
+   "size": 16000
+  },
+  {
+   "codec": "zst",
+   "file": "image_l19.zst",
+   "sha256": "8e24db031edec5d59bbec5a0c215336320733c9225b3aaf37128de4dafe3e3d7",
+   "size": 16000
+  },
+  {
+   "codec": "zst",
+   "file": "text_lneg5.zst",
+   "sha256": "8b21b16df8fd1afe0b40376ac1d4550fbbf7ad1570693481ae07596e5ef9a56d",
+   "size": 40000
+  },
+  {
+   "codec": "zst",
+   "file": "repeated_l3.zst",
+   "sha256": "73cafe56099640b76110ae95b25323d1b3cc85df90d816fe0e61e0d4b18ee222",
+   "size": 200000
+  },
+  {
+   "codec": "zst",
+   "file": "random_l3.zst",
+   "sha256": "e04b1af0c07eb60a784aa1ecdeef528bb4d1c88a9cc4dc97f927f5adc813d52a",
+   "size": 3000
+  },
+  {
+   "codec": "zst",
+   "file": "zeros_l3.zst",
+   "sha256": "886715e4051e827f4fe215df3053af3f85ad0d352db2c829c7487af6d78efe30",
+   "size": 300000
+  },
+  {
+   "codec": "zst",
+   "file": "short_l3.zst",
+   "sha256": "29b896500f0587610d7e961d313eabfac76146bffdc9c447df48fb954d77c0a4",
+   "size": 11
+  },
+  {
+   "codec": "zst",
+   "file": "empty_l3.zst",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
+  },
+  {
+   "codec": "zst",
+   "file": "text_checksum_l3.zst",
+   "sha256": "8b21b16df8fd1afe0b40376ac1d4550fbbf7ad1570693481ae07596e5ef9a56d",
+   "size": 40000
+  },
+  {
+   "codec": "zst",
+   "file": "multiframe.zst",
+   "sha256": "3f80450a5e71f50b6be2a90696c0d8e472eff99bd283f59f547d3c3e3373f18a",
+   "size": 30004
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s0_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s0_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s0_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s0_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s1_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s1_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s1_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s1_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s2_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s2_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s2_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_blosclz_s2_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s0_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s0_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s0_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s0_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s1_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s1_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s1_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s1_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s2_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s2_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s2_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_s2_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4hc_s1_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4hc_s1_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4hc_s1_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4hc_s1_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s0_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s0_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s0_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s0_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s1_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s1_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s1_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s1_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s2_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s2_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s2_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zlib_s2_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s0_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s0_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s0_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s0_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s1_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s1_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s1_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s1_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s2_t1.blosc",
+   "sha256": "cff183b7abf0a80347d9ca4c3161fda7f3ca147e1438b4d2eb6946c3a68addd8",
+   "size": 301
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s2_t2.blosc",
+   "sha256": "90cd4cba26214a88589605be4338a5f923c19d1fd741f18fed6ebd0f76b66676",
+   "size": 602
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s2_t4.blosc",
+   "sha256": "b604f1a06544b0f56fe84fefac8149e3bbe0a2721e20ab5cd6c12f2ccad6b3c4",
+   "size": 1204
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_zstd_s2_t8.blosc",
+   "sha256": "a95808af3adcadd5f1e86862b6de3111c2522acc021c64f177a099a834995765",
+   "size": 2408
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_memcpyed.blosc",
+   "sha256": "fb91776209a2ed3fab2d45f3c423c174d1c2714a5a2cee58de467d822f10669a",
+   "size": 3000
+  },
+  {
+   "codec": "blosc",
+   "file": "blosc_lz4_default.blosc",
+   "sha256": "e69e8ec33cc650918c57d432418870f5db03486033a4b1ffb9f3fc953fe2c4dc",
+   "size": 6000
+  },
+  {
+   "codec": "lz4",
+   "file": "numcodecs_lz4.lz4",
+   "sha256": "1c9b51f738bc583e7a2f0cf05bae23402eb00823814db1f1ad9315ccfe4fba1a",
+   "size": 20000
+  }
+ ],
+ "versions": {
+  "numcodecs": "0.17.0",
+  "zarr": "3.4.1"
+ }
+}

@@ -154,6 +154,23 @@ enum ZarrBytesCodec: Equatable {
     /// A 4-byte CRC-32C trailer. Stripped, not verified: a preview tolerates a
     /// flipped bit, and verifying would need a CRC-32C table zlib doesn't ship.
     case crc32c
+    /// Zstandard frames (`ZstdDecoder`): zarr-python 3's default codec.
+    case zstd
+    /// A Blosc 1.x chunk (`BloscDecoder`): zarr-python 2's default compressor.
+    case blosc
+    /// numcodecs `LZ4`: a `UInt32` size prefix plus one LZ4 block.
+    case lz4
+
+    /// The bytes→bytes codec for a numcodecs / Zarr v3 compressor name, or `nil`.
+    static func compressor(named name: String) -> ZarrBytesCodec? {
+        switch name {
+        case "gzip", "zlib": return .deflate
+        case "zstd": return .zstd
+        case "blosc": return .blosc
+        case "lz4": return .lz4
+        default: return nil
+        }
+    }
 }
 
 /// Zarr v3 `sharding_indexed`: each stored object (shard) packs a grid of inner
@@ -240,12 +257,12 @@ struct ZarrCodecPipeline {
                 }
                 sawArrayToBytes = true
                 pipeline.sharding = try parseSharding(config, rank: rank)
-            case "gzip", "zlib":
+            case "gzip", "zlib", "zstd", "blosc", "lz4":
                 guard sawArrayToBytes else { throw MIQError.malformedFile("Zarr \(name) codec precedes the bytes codec") }
-                pipeline.bytesCodecs.append(.deflate)
+                pipeline.bytesCodecs.append(ZarrBytesCodec.compressor(named: name)!)
             case "crc32c":
                 pipeline.bytesCodecs.append(.crc32c)
-            case "blosc", "zstd", "lz4", "bz2", "lzma", "lz4hc", "zfpy", "zfp":
+            case "bz2", "lzma", "lz4hc", "zfpy", "zfp":
                 throw unsupportedCompressor(name)
             default:
                 throw MIQError.unsupportedFeature("Zarr codec \(rawName) isn't supported yet")
@@ -296,10 +313,8 @@ struct ZarrCodecPipeline {
         }
         if let compressor = compressor as? ZarrJSON.Object {
             let id = compressor["id"] as? String ?? "unknown"
-            switch id {
-            case "gzip", "zlib": pipeline.bytesCodecs = [.deflate]
-            default: throw unsupportedCompressor(id)
-            }
+            guard let codec = ZarrBytesCodec.compressor(named: id) else { throw unsupportedCompressor(id) }
+            pipeline.bytesCodecs = [codec]
         }
         return pipeline
     }
