@@ -43,7 +43,7 @@ struct GetVolumeInfoIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
-        let summary = try MIQIntentSupport.withLocalFile(file) { url in
+        let summary = try await MIQIntentSupport.withLocalFile(file) { url in
             try VolumeSummary.read(contentsOf: url)
         }
         let value: String

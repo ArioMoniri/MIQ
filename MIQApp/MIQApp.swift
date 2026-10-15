@@ -17,7 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// in Info.plist. Each recognised volume opens in its own Quick Look window,
     /// so the MIQ preview extension renders it exactly as on Space in Finder.
     /// A `.gz` that isn't a volume (the gzip claim is broad) is declined.
-    func application(_ application: NSApplication, open urls: [URL]) {
+    ///
+    /// Every scene in `MIQApp.body` opts out of external events
+    /// (`.handlesExternalEvents(matching: [])`), so SwiftUI doesn't also open a
+    /// Settings or Brain Mask window for the file: the event lands here only.
+    func application(_: NSApplication, open urls: [URL]) {
         let volumes = urls.filter { MIQFileKind(url: $0) != nil }
         for url in volumes {
             if let existing = viewerWindows.first(where: { $0.url == url }) {
@@ -38,12 +42,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !rejected.isEmpty {
             let alert = NSAlert()
             alert.messageText = rejected.count == 1
-                ? "MIQ can’t open “\(rejected[0].lastPathComponent)”."
-                : "MIQ can’t open \(rejected.count) of these files."
-            alert.informativeText = "MIQ opens NIfTI, MGH/MGZ, MRtrix MIF and NRRD volumes."
+                ? String(localized: "MIQ can’t open “\(rejected[0].lastPathComponent)”.")
+                : String(localized: "MIQ can’t open \(rejected.count) of these files.")
+            alert.informativeText = String(localized: "MIQ opens NIfTI, MGH/MGZ, MRtrix MIF and NRRD volumes.")
             alert.runModal()
         }
-        application.reply(toOpenOrPrint: rejected.isEmpty ? .success : .failure)
+        // No `reply(toOpenOrPrint:)` here: that reply belongs to the deprecated
+        // `application(_:openFiles:)` path. For `application(_:open:)` AppKit
+        // completes the Apple event itself, and an unsolicited reply is logged as
+        // an error.
     }
 }
 
@@ -109,6 +116,15 @@ struct MIQApp: App {
         }
         .defaultSize(width: 640, height: 550)
         .windowResizability(.contentSize)
+        // Files opened from Finder ("Open With", double-click, drag onto the
+        // Dock icon) are handled by `AppDelegate.application(_:open:)` in their
+        // own Quick Look windows. Without this, SwiftUI's external-event routing
+        // also creates a new instance of the first scene that has no
+        // `handlesExternalEvents` modifier — a stray Settings window per file,
+        // even when the app was launched only to open one. An empty set never
+        // matches, so no scene is created for those events. Normal launches and
+        // Dock reopen don't go through this routing and still show Settings.
+        .handlesExternalEvents(matching: [])
         .commands {
             // The conventional slot for this item, directly under "About MIQ".
             CommandGroup(after: .appInfo) {

@@ -12,7 +12,9 @@ import UniformTypeIdentifiers
 /// and hundreds of megabytes, far beyond a preview's latency and memory budget.
 enum BrainMaskTool {
     static let windowID = "brain-mask"
-    static let disclaimer = "Brain mask for data preparation/QC only. Not a medical device; not for diagnosis."
+    static var disclaimer: String {
+        String(localized: "Brain mask for data preparation/QC only. Not a medical device; not for diagnosis.")
+    }
 }
 
 /// The tool's window. Added to `MIQApp.body` next to the main `WindowGroup`.
@@ -22,6 +24,10 @@ struct BrainMaskWindowScene: Scene {
             BrainMaskToolView()
         }
         .defaultSize(width: 720, height: 760)
+        // Never opened for a file handed over by Finder; see
+        // `AppDelegate.application(_:open:)`. Without this, SwiftUI would pick
+        // this scene for the event once the main WindowGroup opts out.
+        .handlesExternalEvents(matching: [])
     }
 }
 
@@ -55,15 +61,15 @@ enum BrainMaskModelChoice: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .fast: return "Fast"
-        case .accurate: return "Accurate"
+        case .fast: return String(localized: "Fast", comment: "Brain mask model choice")
+        case .accurate: return String(localized: "Accurate", comment: "Brain mask model choice")
         }
     }
 
     var detail: String {
         switch self {
-        case .fast: return "brainchop model5 (grey + white matter, no CSF). About 2 s."
-        case .accurate: return "MindGrab skull stripping, any modality. About 10–20 s."
+        case .fast: return String(localized: "brainchop model5 (grey + white matter, no CSF). About 2 s.")
+        case .accurate: return String(localized: "MindGrab skull stripping, any modality. About 10–20 s.")
         }
     }
 
@@ -131,10 +137,10 @@ enum BrainMaskError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupportedFile:
-            return "MIQ can’t read this file. Choose a NIfTI, MGH/MGZ, MRtrix MIF or NRRD volume."
+            return String(localized: "MIQ can’t read this file. Choose a NIfTI, MGH/MGZ, MRtrix MIF or NRRD volume.")
         case .unsupportedVolume(let reason): return reason
         case .modelMissing(let name):
-            return "The \(name) model is missing from the app bundle. Reinstall MIQ."
+            return String(localized: "The \(name) model is missing from the app bundle. Reinstall MIQ.")
         case .tooLarge(let reason): return reason
         }
     }
@@ -150,19 +156,22 @@ enum BrainMaskPipeline {
         let didAccess = url.startAccessingSecurityScopedResource()
         defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
         let image = try MIQParser().parse(url: url)
+        // Cancelled while the last chunk decoded: drop the volume now rather
+        // than building the source for a load nobody will show.
+        try Task.checkCancellation()
         let volume = MIQVolume(image: image)
         let header = image.header
         if header.datatype == .rgb24 || header.datatype == .rgba32 {
-            throw BrainMaskError.unsupportedVolume("Colour (RGB) images aren’t supported. Choose a grey-scale structural scan.")
+            throw BrainMaskError.unsupportedVolume(String(localized: "Colour (RGB) images aren’t supported. Choose a grey-scale structural scan."))
         }
         guard min(volume.width, volume.height, volume.depth) >= 8 else {
-            throw BrainMaskError.unsupportedVolume("The brain mask needs a 3-D volume with at least 8 voxels along each axis.")
+            throw BrainMaskError.unsupportedVolume(String(localized: "The brain mask needs a 3-D volume with at least 8 voxels along each axis."))
         }
         let spacing = (1...3).map { $0 < header.pixdim.count ? abs(header.pixdim[$0]) : 1 }
-        var summary = "\(volume.width) × \(volume.height) × \(volume.depth) voxels · "
-            + spacing.map { String(format: "%.3g", $0) }.joined(separator: " × ") + " mm"
+        let spacingText = spacing.map { String(format: "%.3g", $0) }.joined(separator: " × ")
+        var summary = String(localized: "\(volume.width) × \(volume.height) × \(volume.depth) voxels · \(spacingText) mm")
         if volume.volumes > 1 {
-            summary += " · first of \(volume.volumes) volumes"
+            summary += " · " + String(localized: "first of \(volume.volumes) volumes")
         }
         return BrainMaskSource(url: url, volume: volume, summary: summary)
     }
@@ -333,9 +342,9 @@ final class BrainMaskToolModel: ObservableObject {
 
     func chooseVolume() {
         let panel = NSOpenPanel()
-        panel.title = "Choose a Volume"
-        panel.message = "Choose a structural brain scan to mask."
-        panel.prompt = "Choose"
+        panel.title = String(localized: "Choose a Volume")
+        panel.message = String(localized: "Choose a structural brain scan to mask.")
+        panel.prompt = String(localized: "Choose")
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = MIQIntentSupport.supportedContentTypes
@@ -352,14 +361,26 @@ final class BrainMaskToolModel: ObservableObject {
         errorMessage = nil
         statusMessage = nil
         isLoading = true
+        // The parse runs detached but follows this task's cancellation
+        // (`withCancellableDetachedWork`), so `cancel()` — a new file, the window
+        // closing — stops a multi-GB decode at its next chunk instead of finishing
+        // it in the background; a cancelled load's partial buffers are dropped
+        // with the detached task.
         task = Task {
-            let outcome = await Task.detached(priority: .userInitiated) {
-                Result { try BrainMaskPipeline.load(url: url) }
-            }.value
+            let outcome: Result<BrainMaskSource, Error>
+            do {
+                outcome = .success(try await withCancellableDetachedWork(priority: .userInitiated) {
+                    try BrainMaskPipeline.load(url: url)
+                })
+            } catch {
+                outcome = .failure(error)
+            }
             guard id == self.generation else { return }
             self.isLoading = false
             switch outcome {
             case .success(let loaded): self.source = loaded
+            case .failure(let error) where error is CancellationError:
+                self.statusMessage = String(localized: "Cancelled.")
             case .failure(let error): self.errorMessage = error.localizedDescription
             }
         }
@@ -400,7 +421,7 @@ final class BrainMaskToolModel: ObservableObject {
                 self.progress = 1
                 self.result = value
             case .failure(let error) where error is CancellationError:
-                self.statusMessage = "Cancelled."
+                self.statusMessage = String(localized: "Cancelled.")
             case .failure(let error):
                 self.errorMessage = error.localizedDescription
             }
@@ -420,15 +441,15 @@ final class BrainMaskToolModel: ObservableObject {
             generation += 1
             isRunning = false
             isLoading = false
-            statusMessage = "Cancelled."
+            statusMessage = String(localized: "Cancelled.")
         }
     }
 
     func save() {
         guard let result, !isSaving else { return }
         let panel = NSSavePanel()
-        panel.title = "Save Mask as NIfTI"
-        panel.prompt = "Save"
+        panel.title = String(localized: "Save Mask as NIfTI")
+        panel.prompt = String(localized: "Save")
         panel.nameFieldStringValue = BrainMaskPipeline.defaultSaveName(for: result.sourceURL)
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
@@ -445,8 +466,8 @@ final class BrainMaskToolModel: ObservableObject {
             }.value
             self.isSaving = false
             switch outcome {
-            case .success: self.statusMessage = "Saved “\(url.lastPathComponent)”."
-            case .failure(let error): self.errorMessage = "Couldn’t save the mask: \(error.localizedDescription)"
+            case .success: self.statusMessage = String(localized: "Saved “\(url.lastPathComponent)”.")
+            case .failure(let error): self.errorMessage = String(localized: "Couldn’t save the mask: \(error.localizedDescription)")
             }
         }
     }
@@ -580,7 +601,7 @@ struct BrainMaskToolView: View {
                                     .frame(maxWidth: .infinity, maxHeight: 220)
                                     .background(Color.black)
                             }
-                            Text(preview.plane.rawValue.capitalized)
+                            Text(Self.planeTitle(preview.plane))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -619,16 +640,26 @@ struct BrainMaskToolView: View {
 
     private static func volumeText(_ result: BrainMaskResult) -> String {
         let voxels = result.foregroundVoxels.formatted()
-        guard let ml = result.volumeML else { return "\(voxels) voxels" }
-        return String(format: "%.0f mL", ml) + " (\(voxels) voxels)"
+        guard let ml = result.volumeML else { return String(localized: "\(voxels) voxels") }
+        let millilitres = String(format: "%.0f", ml)
+        return String(localized: "\(millilitres) mL (\(voxels) voxels)")
     }
 
     private static func timingText(_ result: BrainMaskResult) -> String {
         let t = result.timings
-        return String(
-            format: "%.1f s total · conform %.1f s · inference %.1f s · post-process %.1f s",
-            result.wallSeconds, t.conform, t.inference, t.postprocess
-        )
+        // Numbers pre-formatted so the catalogue key carries only `%@`s.
+        let seconds = { (value: Double) in String(format: "%.1f", value) }
+        let total = seconds(result.wallSeconds), conform = seconds(t.conform)
+        let inference = seconds(t.inference), postprocess = seconds(t.postprocess)
+        return String(localized: "\(total) s total · conform \(conform) s · inference \(inference) s · post-process \(postprocess) s")
+    }
+
+    private static func planeTitle(_ plane: SlicePlane) -> String {
+        switch plane {
+        case .axial: return String(localized: "Axial")
+        case .coronal: return String(localized: "Coronal")
+        case .sagittal: return String(localized: "Sagittal")
+        }
     }
 
     private static func cgImage(_ bitmap: RGBABitmap) -> CGImage? {
