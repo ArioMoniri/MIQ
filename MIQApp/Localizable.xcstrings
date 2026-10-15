@@ -1,0 +1,2646 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ in Finder, with a slice thumbnail" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ im Finder, mit Schichtminiatur"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder’da %@, kesit küçük resmiyle"
+          }
+        }
+      }
+    },
+    "%@ in Finder, with the standard document icon" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ im Finder, mit dem Standard-Dokumentsymbol"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder’da %@, standart belge simgesiyle"
+          }
+        }
+      }
+    },
+    "%lld percent" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Prozent"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "yüzde %lld"
+          }
+        }
+      }
+    },
+    "3D and projection views" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D- und Projektionsansichten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3B ve projeksiyon görünümleri"
+          }
+        }
+      }
+    },
+    "4D window" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4D-Fenster"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4B pencere"
+          }
+        }
+      }
+    },
+    "A star on GitHub helps others discover it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Stern auf GitHub hilft anderen, es zu entdecken."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub’da bir yıldız, başkalarının da keşfetmesine yardımcı olur."
+          }
+        }
+      }
+    },
+    "Adds a few rows to the metadata panel: the likely sequence, head-mask coverage, a defacing check and data sanity checks. Computed on this Mac from the image alone; a hint, not an assessment." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fügt dem Metadatenbereich einige Zeilen hinzu: die wahrscheinliche Sequenz, die Abdeckung der Kopfmaske, eine Defacing-Prüfung und Plausibilitätsprüfungen der Daten. Allein aus dem Bild auf diesem Mac berechnet; ein Hinweis, keine Beurteilung."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meta veri paneline birkaç satır ekler: olası sekans, kafa maskesi kapsamı, yüz silme (defacing) denetimi ve veri tutarlılığı denetimleri. Yalnızca görüntüden, bu Mac’te hesaplanır; bir ipucudur, değerlendirme değildir."
+          }
+        }
+      }
+    },
+    "An administrator set this with a configuration profile, so it can’t be changed here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Administratorin oder ein Administrator hat dies mit einem Konfigurationsprofil festgelegt; es kann hier nicht geändert werden."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir yönetici bunu bir yapılandırma profiliyle ayarladı; burada değiştirilemez."
+          }
+        }
+      }
+    },
+    "Appearance" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Darstellung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görünüm"
+          }
+        }
+      }
+    },
+    "As Stored" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie gespeichert"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaydedildiği gibi"
+          }
+        }
+      }
+    },
+    "As Stored shows voxels in file order, with edge labels for the anatomy. Neurological puts the patient’s right on the right of the screen; Radiological on the left." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„Wie gespeichert“ zeigt die Voxel in Dateireihenfolge, mit Randbeschriftungen für die Anatomie. Neurologisch zeigt die rechte Seite der Person rechts auf dem Bildschirm, Radiologisch links."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaydedildiği gibi, vokselleri dosya sırasıyla ve anatomi için kenar etiketleriyle gösterir. Nörolojik, kişinin sağını ekranın sağına; Radyolojik soluna koyar."
+          }
+        }
+      }
+    },
+    "Ask before loading large files on network volumes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vor dem Laden großer Dateien auf Netzwerkvolumes fragen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ağ birimlerindeki büyük dosyaları yüklemeden önce sor"
+          }
+        }
+      }
+    },
+    "Auto" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otomatik"
+          }
+        }
+      }
+    },
+    "Axis labels & crosshair colour" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbe für Achsenbeschriftung & Fadenkreuz"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eksen etiketleri ve artı imleci rengi"
+          }
+        }
+      }
+    },
+    "BIDS sidecar" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BIDS-Sidecar"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BIDS yan dosyası"
+          }
+        }
+      }
+    },
+    "Bone" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Knochen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kemik"
+          }
+        }
+      }
+    },
+    "Brain" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gehirn"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beyin"
+          }
+        }
+      }
+    },
+    "By hiding the disclaimer in previews, you confirm that you understand and accept these terms." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indem Sie den Haftungsausschluss in Vorschauen ausblenden, bestätigen Sie, dass Sie diese Bedingungen verstehen und akzeptieren."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizlemelerde sorumluluk reddini gizleyerek bu koşulları anladığınızı ve kabul ettiğinizi onaylarsınız."
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vazgeç"
+          }
+        }
+      }
+    },
+    "Check for Updates…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach Updates suchen…"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Güncellemeleri Denetle…"
+          }
+        }
+      }
+    },
+    "Check for updates automatically" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch nach Updates suchen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Güncellemeleri otomatik denetle"
+          }
+        }
+      }
+    },
+    "Choose File…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei auswählen…"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosya Seç…"
+          }
+        }
+      }
+    },
+    "Choose a NIfTI, MGH/MGZ, MRtrix MIF, NRRD, DICOM or Zarr file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wählen Sie eine NIfTI-, MGH/MGZ-, MRtrix-MIF-, NRRD-, DICOM- oder Zarr-Datei."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir NIfTI, MGH/MGZ, MRtrix MIF, NRRD, DICOM veya Zarr dosyası seçin."
+          }
+        }
+      }
+    },
+    "Choose a volume to describe. Only header facts are used." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wählen Sie ein Volumen zum Beschreiben. Es werden nur Angaben aus dem Header verwendet."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Açıklanacak bir hacim seçin. Yalnızca başlık bilgileri kullanılır."
+          }
+        }
+      }
+    },
+    "Colour map" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbtabelle"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renk haritası"
+          }
+        }
+      }
+    },
+    "Command history" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Befehlsverlauf"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komut geçmişi"
+          }
+        }
+      }
+    },
+    "Controls" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bedienung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kontroller"
+          }
+        }
+      }
+    },
+    "Cool" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cool (Kälte)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cool (soğuk)"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopyalandı"
+          }
+        }
+      }
+    },
+    "Copies a Terminal command that resets the Quick Look thumbnail cache. MIQ can’t run it itself from its sandbox." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert einen Terminal-Befehl, der den Quick-Look-Miniatur-Cache zurücksetzt. MIQ kann ihn aus seiner Sandbox heraus nicht selbst ausführen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Look küçük resim önbelleğini sıfırlayan bir Terminal komutunu kopyalar. MIQ bunu kendi korumalı alanından (sandbox) çalıştıramaz."
+          }
+        }
+      }
+    },
+    "Copies orientation, segmentation colours and intensity window from the Preview pane." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Übernimmt Ausrichtung, Segmentierungsfarben und Intensitätsfenster aus dem Bereich „Vorschau“."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yönelimi, segmentasyon renklerini ve yoğunluk penceresini Önizleme bölmesinden kopyalar."
+          }
+        }
+      }
+    },
+    "Copy Command" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Befehl kopieren"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komutu Kopyala"
+          }
+        }
+      }
+    },
+    "Crosshair position" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fadenkreuzposition"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artı imleci konumu"
+          }
+        }
+      }
+    },
+    "Datatype" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datentyp"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veri türü"
+          }
+        }
+      }
+    },
+    "Describe" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beschreiben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Açıkla"
+          }
+        }
+      }
+    },
+    "Describe File" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei beschreiben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosyayı Açıkla"
+          }
+        }
+      }
+    },
+    "Describe a file" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Datei beschreiben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir dosyayı açıkla"
+          }
+        }
+      }
+    },
+    "Describe file (experimental)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei beschreiben (experimentell)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosyayı açıkla (deneysel)"
+          }
+        }
+      }
+    },
+    "Describe file (on-device)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei beschreiben (auf dem Gerät)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosyayı açıkla (cihazda)"
+          }
+        }
+      }
+    },
+    "Description" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beschreibung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Açıklama"
+          }
+        }
+      }
+    },
+    "Detect CT and offer window presets" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CT erkennen und Fenstervorgaben anbieten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BT’yi algıla ve pencere ön ayarları sun"
+          }
+        }
+      }
+    },
+    "Diffusion shells" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diffusionsschalen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Difüzyon kabukları"
+          }
+        }
+      }
+    },
+    "Dimensions" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abmessungen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boyutlar"
+          }
+        }
+      }
+    },
+    "Disclaimer" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haftungsausschluss"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sorumluluk reddi"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schließen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapat"
+          }
+        }
+      }
+    },
+    "Diverging (blue–red)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Divergierend (blau–rot)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iraksak (mavi–kırmızı)"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fertig"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitti"
+          }
+        }
+      }
+    },
+    "Drag either end, or focus it and use the arrow keys." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziehen Sie eines der Enden, oder wählen Sie es aus und verwenden Sie die Pfeiltasten."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uçlardan birini sürükleyin ya da odaklayıp ok tuşlarını kullanın."
+          }
+        }
+      }
+    },
+    "Drag rows to reorder, or use the arrows." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeilen zum Umsortieren ziehen oder die Pfeile verwenden."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sıralamak için satırları sürükleyin ya da okları kullanın."
+          }
+        }
+      }
+    },
+    "Enjoying MIQ?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gefällt Ihnen MIQ?"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ’u beğendiniz mi?"
+          }
+        }
+      }
+    },
+    "Every setting returns to its default, including automatic update checks. Settings managed by your organisation stay as they are." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Einstellungen kehren zu ihren Standardwerten zurück, einschließlich der automatischen Suche nach Updates. Von Ihrer Organisation verwaltete Einstellungen bleiben unverändert."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otomatik güncelleme denetimi dahil tüm ayarlar varsayılana döner. Kuruluşunuzun yönettiği ayarlar olduğu gibi kalır."
+          }
+        }
+      }
+    },
+    "Example" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beispiel"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Örnek"
+          }
+        }
+      }
+    },
+    "Example axial slice of %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beispiel: axiale Schicht von %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ için örnek aksiyel kesit"
+          }
+        }
+      }
+    },
+    "Example metadata panel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beispiel-Metadatenbereich"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Örnek meta veri paneli"
+          }
+        }
+      }
+    },
+    "Features" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funktionen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Özellikler"
+          }
+        }
+      }
+    },
+    "Files over %lld MB show a Load Preview button instead of loading automatically: loading a large file over a slow share can stall Finder. NIfTI files are always loaded, because MIQ reads only their first volume." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien über %lld MB zeigen eine Schaltfläche „Vorschau laden“, statt automatisch geladen zu werden: Das Laden einer großen Datei über eine langsame Freigabe kann den Finder blockieren. NIfTI-Dateien werden immer geladen, weil MIQ nur ihr erstes Volumen liest."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld MB’tan büyük dosyalar otomatik yüklenmek yerine bir Önizlemeyi Yükle düğmesi gösterir: yavaş bir paylaşımdan büyük bir dosya yüklemek Finder’ı kilitleyebilir. NIfTI dosyaları her zaman yüklenir, çünkü MIQ yalnızca ilk hacimlerini okur."
+          }
+        }
+      }
+    },
+    "Find overlays next to the file" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Überlagerungen neben der Datei finden"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosyanın yanındaki katmanları bul"
+          }
+        }
+      }
+    },
+    "Finder caches thumbnails. New files pick up changes automatically; existing ones refresh when the file changes, or right away with this Terminal command, which also clears thumbnails of files you have since moved or deleted.\n\nIf they still look stale, also run:\nrm -rf \"$(getconf DARWIN_USER_CACHE_DIR)com.apple.iconservices.store\" && killall Dock Finder\n\nTo stop generating thumbnails, disable the extension in System Settings › General › Login Items & Extensions." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Finder speichert Miniaturen zwischen. Neue Dateien übernehmen Änderungen automatisch; vorhandene werden aktualisiert, wenn sich die Datei ändert, oder sofort mit diesem Terminal-Befehl, der auch Miniaturen inzwischen verschobener oder gelöschter Dateien entfernt.\n\nWenn sie danach noch veraltet aussehen, zusätzlich ausführen:\nrm -rf \"$(getconf DARWIN_USER_CACHE_DIR)com.apple.iconservices.store\" && killall Dock Finder\n\nUm keine Miniaturen mehr zu erzeugen, deaktivieren Sie die Erweiterung unter Systemeinstellungen › Allgemein › Anmeldeobjekte & Erweiterungen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder küçük resimleri önbelleğe alır. Yeni dosyalar değişiklikleri otomatik alır; mevcut olanlar dosya değiştiğinde ya da bu Terminal komutuyla hemen yenilenir. Komut, o zamandan beri taşıdığınız veya sildiğiniz dosyaların küçük resimlerini de temizler.\n\nHâlâ eski görünüyorlarsa şunu da çalıştırın:\nrm -rf \"$(getconf DARWIN_USER_CACHE_DIR)com.apple.iconservices.store\" && killall Dock Finder\n\nKüçük resim oluşturmayı durdurmak için uzantıyı Sistem Ayarları › Genel › Giriş Öğeleri ve Uzantılar’da kapatın."
+          }
+        }
+      }
+    },
+    "For 4D series. Per volume recomputes the window for each volume you show. Shared keeps one window for the whole series, so intensity changes over time stay visible." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für 4D-Serien. Pro Volumen berechnet das Fenster für jedes angezeigte Volumen neu. Gemeinsam behält ein Fenster für die ganze Serie bei, sodass Intensitätsänderungen über die Zeit sichtbar bleiben."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4B seriler için. Hacim başına, gösterdiğiniz her hacim için pencereyi yeniden hesaplar. Ortak, tüm seri için tek pencere kullanır; böylece zaman içindeki yoğunluk değişimleri görünür kalır."
+          }
+        }
+      }
+    },
+    "For scalar images. Auto shows anatomy in greyscale and statistical maps in Hot (positive) or a blue–red diverging map (signed). Label files keep their segmentation colours." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für skalare Bilder. Automatisch zeigt Anatomie in Graustufen und statistische Karten in Hot (positiv) oder einer divergierenden Blau–Rot-Tabelle (mit Vorzeichen). Label-Dateien behalten ihre Segmentierungsfarben."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skaler görüntüler için. Otomatik; anatomiyi gri tonlamada, istatistik haritalarını Hot (pozitif) ya da mavi–kırmızı ıraksak haritada (işaretli) gösterir. Etiket dosyaları segmentasyon renklerini korur."
+          }
+        }
+      }
+    },
+    "For time series such as fMRI: median temporal SNR and the volumes with intensity spikes." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für Zeitreihen wie fMRT: medianes zeitliches SNR und die Volumina mit Intensitätsspitzen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "fMRG gibi zaman serileri için: ortanca zamansal SNR ve yoğunluk sıçraması olan hacimler."
+          }
+        }
+      }
+    },
+    "Format" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biçim"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allgemein"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Genel"
+          }
+        }
+      }
+    },
+    "Generated on-device. Not a medical interpretation." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf dem Gerät erzeugt. Keine medizinische Interpretation."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cihazda oluşturuldu. Tıbbi bir yorum değildir."
+          }
+        }
+      }
+    },
+    "Greyscale" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graustufen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gri tonlama"
+          }
+        }
+      }
+    },
+    "Header free text" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freitext aus dem Header"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başlıktaki serbest metin"
+          }
+        }
+      }
+    },
+    "Hide disclaimer in preview?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haftungsausschluss in der Vorschau ausblenden?"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizlemede sorumluluk reddi gizlensin mi?"
+          }
+        }
+      }
+    },
+    "Hide the disclaimer in previews" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haftungsausschluss in Vorschauen ausblenden"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizlemelerde sorumluluk reddini gizle"
+          }
+        }
+      }
+    },
+    "Hot" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hot (Wärme)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hot (sıcak)"
+          }
+        }
+      }
+    },
+    "I understand, hide it" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verstanden, ausblenden"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anladım, gizle"
+          }
+        }
+      }
+    },
+    "In As Stored mode, the R and L letters always stay on, because nothing else on screen tells left from right. This setting then shows or hides the other edge letters." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Modus „Wie gespeichert“ bleiben die Buchstaben R und L immer sichtbar, weil sonst nichts auf dem Bildschirm links und rechts unterscheidet. Diese Einstellung blendet dann die übrigen Randbuchstaben ein oder aus."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Kaydedildiği gibi” modunda R ve L harfleri her zaman görünür kalır, çünkü ekranda sağı soldan ayıran başka bir şey yoktur. Bu ayar o zaman diğer kenar harflerini gösterir veya gizler."
+          }
+        }
+      }
+    },
+    "Include centre slice image" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mittlere Schicht als Bild mitsenden"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orta kesit görüntüsünü ekle"
+          }
+        }
+      }
+    },
+    "Include network volumes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Netzwerkvolumes einbeziehen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ağ birimlerini dahil et"
+          }
+        }
+      }
+    },
+    "Initial CT window" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anfängliches CT-Fenster"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başlangıç BT penceresi"
+          }
+        }
+      }
+    },
+    "Intensity window" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intensitätsfenster"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yoğunluk penceresi"
+          }
+        }
+      }
+    },
+    "Intent" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intent (Datenbedeutung)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intent (veri anlamı)"
+          }
+        }
+      }
+    },
+    "Label files render in colour. Auto uses FreeSurfer colours when it recognises a FreeSurfer parcellation, distinct colours otherwise. Off renders them in greyscale." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Label-Dateien werden farbig dargestellt. Automatisch verwendet FreeSurfer-Farben, wenn eine FreeSurfer-Parzellierung erkannt wird, sonst gut unterscheidbare Farben. Aus stellt sie in Graustufen dar."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiket dosyaları renkli gösterilir. Otomatik, bir FreeSurfer parselasyonu tanıdığında FreeSurfer renklerini, aksi halde birbirinden ayırt edilebilir renkleri kullanır. Kapalı, gri tonlamada gösterir."
+          }
+        }
+      }
+    },
+    "Left edge %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linker Rand %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sol kenar %@"
+          }
+        }
+      }
+    },
+    "Lists masks, segmentations and statistical maps in the same folder that fit the image, so you can overlay one. Nothing is overlaid until you choose. Only where macOS lets the preview read the folder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listet Masken, Segmentierungen und statistische Karten im selben Ordner auf, die zum Bild passen, damit Sie eine davon überlagern können. Es wird nichts überlagert, bis Sie wählen. Nur, wo macOS der Vorschau das Lesen des Ordners erlaubt."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aynı klasördeki, görüntüye uyan maskeleri, segmentasyonları ve istatistik haritalarını listeler; böylece birini üst üste bindirebilirsiniz. Siz seçene kadar hiçbir şey bindirilmez. Yalnızca macOS önizlemenin klasörü okumasına izin verdiğinde."
+          }
+        }
+      }
+    },
+    "Lower percentile" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unteres Perzentil"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alt yüzdelik"
+          }
+        }
+      }
+    },
+    "Lung" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lunge"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akciğer"
+          }
+        }
+      }
+    },
+    "MIQ can’t describe this file" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ kann diese Datei nicht beschreiben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ bu dosyayı açıklayamıyor"
+          }
+        }
+      }
+    },
+    "MIQ is **not a medical device** and is **not intended for diagnostic use**. It is a developer and researcher convenience tool only; do not use it for clinical decisions.\n\nMIQ is provided \"as is\" under the MIT License, without warranty. The authors and contributors accept no liability for any damages arising from its use or inability to use it, including data loss, incorrect image rendering, or decisions based on its previews." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ ist **kein Medizinprodukt** und **nicht für diagnostische Zwecke bestimmt**. Es ist ausschließlich ein Hilfswerkzeug für Entwicklerinnen, Entwickler und Forschende; treffen Sie damit keine klinischen Entscheidungen.\n\nMIQ wird unter der MIT-Lizenz „wie besehen“ und ohne Gewährleistung bereitgestellt. Die Autorinnen, Autoren und Mitwirkenden haften nicht für Schäden, die aus der Nutzung oder der Unmöglichkeit der Nutzung entstehen, einschließlich Datenverlust, fehlerhafter Bilddarstellung oder Entscheidungen auf Grundlage der Vorschauen. (Maßgeblich ist der englische Originaltext.)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ **tıbbi bir cihaz değildir** ve **tanı amaçlı kullanım için tasarlanmamıştır**. Yalnızca geliştiriciler ve araştırmacılar için bir kolaylık aracıdır; klinik kararlar için kullanmayın.\n\nMIQ, MIT Lisansı altında \"olduğu gibi\" ve hiçbir garanti olmaksızın sunulur. Yazarlar ve katkıda bulunanlar; veri kaybı, hatalı görüntü oluşturma veya önizlemelere dayanarak verilen kararlar dahil, kullanımından ya da kullanılamamasından doğan hiçbir zarardan sorumlu değildir. (Bağlayıcı olan İngilizce asıl metindir.)"
+          }
+        }
+      }
+    },
+    "MIQ: Medical Image Quick Look" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ: Medical Image Quick Look"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ: Medical Image Quick Look"
+          }
+        }
+      }
+    },
+    "Managed by your organisation" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von Ihrer Organisation verwaltet"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kuruluşunuz tarafından yönetiliyor"
+          }
+        }
+      }
+    },
+    "Matches Preview" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie Vorschau"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizlemeyle aynı"
+          }
+        }
+      }
+    },
+    "May contain identifying text" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kann identifizierenden Text enthalten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kimlik belirleyici metin içerebilir"
+          }
+        }
+      }
+    },
+    "May contain identifying text; off by default" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kann identifizierenden Text enthalten; standardmäßig aus"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kimlik belirleyici metin içerebilir; varsayılan olarak kapalı"
+          }
+        }
+      }
+    },
+    "Metadata" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metadaten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meta veriler"
+          }
+        }
+      }
+    },
+    "Model" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modell"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        }
+      }
+    },
+    "Model name (optional)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modellname (optional)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model adı (isteğe bağlı)"
+          }
+        }
+      }
+    },
+    "More information" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weitere Informationen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daha fazla bilgi"
+          }
+        }
+      }
+    },
+    "Move %@ down" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ nach unten verschieben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ öğesini aşağı taşı"
+          }
+        }
+      }
+    },
+    "Move %@ up" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ nach oben verschieben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ öğesini yukarı taşı"
+          }
+        }
+      }
+    },
+    "Move down" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach unten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aşağı taşı"
+          }
+        }
+      }
+    },
+    "Move up" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach oben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yukarı taşı"
+          }
+        }
+      }
+    },
+    "Neurological" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neurologisch"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nörolojik"
+          }
+        }
+      }
+    },
+    "Not a medical device. Not for diagnostic use." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Medizinprodukt. Nicht für diagnostische Zwecke."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tıbbi cihaz değildir. Tanı amaçlı kullanım için değildir."
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamam"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapalı"
+          }
+        }
+      }
+    },
+    "Off by default: generating thumbnails reads each file over the network, which is slow on remote shares." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standardmäßig aus: Zum Erzeugen von Miniaturen wird jede Datei über das Netzwerk gelesen, was auf entfernten Freigaben langsam ist."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Varsayılan olarak kapalı: küçük resim oluşturmak her dosyayı ağ üzerinden okur; bu, uzak paylaşımlarda yavaştır."
+          }
+        }
+      }
+    },
+    "Offers maximum- and minimum-intensity projections and a 3D rendering in the preview. They are computed only when you choose them." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bietet in der Vorschau Maximum- und Minimum-Intensitätsprojektionen sowie eine 3D-Darstellung an. Sie werden erst berechnet, wenn Sie sie auswählen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizlemede en yüksek ve en düşük yoğunluk projeksiyonları ile 3B görüntü sunar. Yalnızca siz seçtiğinizde hesaplanırlar."
+          }
+        }
+      }
+    },
+    "Open MIQ on GitHub" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ auf GitHub öffnen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ’u GitHub’da aç"
+          }
+        }
+      }
+    },
+    "Orientation" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausrichtung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yönelim"
+          }
+        }
+      }
+    },
+    "Per volume" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro Volumen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim başına"
+          }
+        }
+      }
+    },
+    "Percentile window (no preset)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perzentilfenster (keine Vorgabe)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yüzdelik pencere (ön ayar yok)"
+          }
+        }
+      }
+    },
+    "Pick a volume to describe. MIQ reads only its header facts." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wählen Sie ein Volumen zum Beschreiben. MIQ liest nur die Angaben aus dem Header."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Açıklanacak bir hacim seçin. MIQ yalnızca başlık bilgilerini okur."
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschau"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizleme"
+          }
+        }
+      }
+    },
+    "Provenance" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herkunft"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köken"
+          }
+        }
+      }
+    },
+    "Quality-check summary" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qualitätsprüfung (Übersicht)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kalite kontrol özeti"
+          }
+        }
+      }
+    },
+    "Radiological" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Radiologisch"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Radyolojik"
+          }
+        }
+      }
+    },
+    "Random" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zufällig"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rastgele"
+          }
+        }
+      }
+    },
+    "Read Full Disclaimer" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vollständigen Haftungsausschluss lesen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sorumluluk Reddinin Tamamını Oku"
+          }
+        }
+      }
+    },
+    "Repetition time (TR)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repetitionszeit (TR)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tekrarlama süresi (TR)"
+          }
+        }
+      }
+    },
+    "Repetition time from the header, with echo time, inversion time and flip angle when the format stores them. Hidden when the file has no timing." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repetitionszeit aus dem Header, dazu Echozeit, Inversionszeit und Flipwinkel, wenn das Format sie speichert. Ausgeblendet, wenn die Datei keine Zeitangaben enthält."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başlıktaki tekrarlama süresi; biçim saklıyorsa eko süresi, inversiyon süresi ve sapma açısıyla birlikte. Dosyada zamanlama bilgisi yoksa gizlenir."
+          }
+        }
+      }
+    },
+    "Reset" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zurücksetzen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sıfırla"
+          }
+        }
+      }
+    },
+    "Reset All Settings…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Einstellungen zurücksetzen…"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tüm Ayarları Sıfırla…"
+          }
+        }
+      }
+    },
+    "Reset all settings?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Einstellungen zurücksetzen?"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tüm ayarlar sıfırlansın mı?"
+          }
+        }
+      }
+    },
+    "Reset thumbnail cache" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Miniatur-Cache zurücksetzen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Küçük resim önbelleğini sıfırla"
+          }
+        }
+      }
+    },
+    "Restore Feature Defaults" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funktions-Standards wiederherstellen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Özellik Varsayılanlarını Geri Yükle"
+          }
+        }
+      }
+    },
+    "Restore Metadata Panel Defaults" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metadaten-Standards wiederherstellen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meta Veri Paneli Varsayılanlarını Geri Yükle"
+          }
+        }
+      }
+    },
+    "Restore Preview Defaults" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschau-Standards wiederherstellen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizleme Varsayılanlarını Geri Yükle"
+          }
+        }
+      }
+    },
+    "Restore Thumbnail Defaults" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Miniatur-Standards wiederherstellen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Küçük Resim Varsayılanlarını Geri Yükle"
+          }
+        }
+      }
+    },
+    "Scaling" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skalierung"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ölçekleme"
+          }
+        }
+      }
+    },
+    "Segmentation colours" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segmentierungsfarben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segmentasyon renkleri"
+          }
+        }
+      }
+    },
+    "Select an image in Finder and press Space." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wählen Sie im Finder ein Bild aus und drücken Sie die Leertaste."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder’da bir görüntü seçip Boşluk tuşuna basın."
+          }
+        }
+      }
+    },
+    "Selected acquisition parameters from a BIDS .json file next to the image, with a warning when they disagree with the header. Only where macOS lets the preview read the folder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgewählte Aufnahmeparameter aus einer BIDS-.json-Datei neben dem Bild, mit einer Warnung, wenn sie dem Header widersprechen. Nur, wo macOS der Vorschau das Lesen des Ordners erlaubt."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görüntünün yanındaki BIDS .json dosyasından seçilmiş çekim parametreleri; başlıkla uyuşmadıklarında uyarı ile. Yalnızca macOS önizlemenin klasörü okumasına izin verdiğinde."
+          }
+        }
+      }
+    },
+    "Server URL" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server-URL"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sunucu URL’si"
+          }
+        }
+      }
+    },
+    "Shared" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemeinsam"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortak"
+          }
+        }
+      }
+    },
+    "Show axis labels" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achsenbeschriftung anzeigen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eksen etiketlerini göster"
+          }
+        }
+      }
+    },
+    "Show slice thumbnails in Finder" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schichtminiaturen im Finder anzeigen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder’da kesit küçük resimlerini göster"
+          }
+        }
+      }
+    },
+    "Shows the image intensity at the crosshair voxel, updating live as you move the crosshair. Appears only while interacting (when the crosshair is visible), not on the initial preview." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt die Bildintensität am Voxel unter dem Fadenkreuz und aktualisiert sie live, während Sie das Fadenkreuz bewegen. Erscheint nur während der Interaktion (wenn das Fadenkreuz sichtbar ist), nicht in der ersten Vorschau."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artı imlecinin bulunduğu vokseldeki görüntü yoğunluğunu gösterir ve imleci hareket ettirdikçe canlı olarak güncellenir. Yalnızca etkileşim sırasında (artı imleci görünürken) görünür, ilk önizlemede görünmez."
+          }
+        }
+      }
+    },
+    "Shows the intensity scaling from the file header as x slope +/- intercept, or just x slope when the intercept is zero. Hidden when the scaling is identity (x 1 + 0, meaning voxel values are used as stored) or unavailable." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt die Intensitätsskalierung aus dem Datei-Header als x Steigung +/- Achsenabschnitt, oder nur x Steigung, wenn der Achsenabschnitt null ist. Ausgeblendet, wenn die Skalierung die Identität ist (x 1 + 0, d. h. Voxelwerte werden wie gespeichert verwendet) oder fehlt."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosya başlığındaki yoğunluk ölçeklemesini x eğim +/- kesişim olarak, kesişim sıfırsa yalnızca x eğim olarak gösterir. Ölçekleme birim ise (x 1 + 0, yani voksel değerleri kaydedildiği gibi kullanılır) ya da yoksa gizlenir."
+          }
+        }
+      }
+    },
+    "Soft tissue" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weichgewebe"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yumuşak doku"
+          }
+        }
+      }
+    },
+    "Spacing" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voxelgröße"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voksel aralığı"
+          }
+        }
+      }
+    },
+    "Star" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
+          }
+        }
+      }
+    },
+    "Stroke" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schlaganfall"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İnme"
+          }
+        }
+      }
+    },
+    "Subdural" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subdural"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subdural"
+          }
+        }
+      }
+    },
+    "Supported formats: NIfTI, FreeSurfer MGH, MRtrix MIF, NRRD" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterstützte Formate: NIfTI, FreeSurfer MGH, MRtrix MIF, NRRD"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desteklenen biçimler: NIfTI, FreeSurfer MGH, MRtrix MIF, NRRD"
+          }
+        }
+      }
+    },
+    "Temporal summary for 4D series" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitliche Übersicht für 4D-Serien"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4B seriler için zamansal özet"
+          }
+        }
+      }
+    },
+    "The b-value shells of a diffusion series, from an MRtrix gradient table or a .bval file next to the image." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die b-Wert-Schalen einer Diffusionsserie, aus einer MRtrix-Gradiententabelle oder einer .bval-Datei neben dem Bild."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir difüzyon serisinin b-değeri kabukları; MRtrix gradyan tablosundan ya da görüntünün yanındaki .bval dosyasından."
+          }
+        }
+      }
+    },
+    "The crosshair's voxel indices and world coordinates in millimetres, updating live. Appears only while interacting." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voxelindizes und Weltkoordinaten des Fadenkreuzes in Millimetern, live aktualisiert. Erscheint nur während der Interaktion."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artı imlecinin voksel indisleri ve milimetre cinsinden dünya koordinatları, canlı güncellenir. Yalnızca etkileşim sırasında görünür."
+          }
+        }
+      }
+    },
+    "The free-text description stored in the header. Scanners and converters sometimes put names, dates or IDs here, so it is off by default." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die im Header gespeicherte Freitextbeschreibung. Scanner und Konverter legen hier manchmal Namen, Daten oder IDs ab, daher ist sie standardmäßig aus."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başlıkta saklanan serbest metin açıklaması. Tarayıcılar ve dönüştürücüler buraya bazen ad, tarih veya kimlik numarası yazar; bu yüzden varsayılan olarak kapalıdır."
+          }
+        }
+      }
+    },
+    "The initial grey range, as percentiles of the non-zero voxels (default %lld–%lld%%). In the preview, secondary-click and drag to adjust it live." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der anfängliche Grauwertbereich als Perzentile der Voxel ungleich null (Standard %lld–%lld %%). In der Vorschau mit Sekundärklick und Ziehen live anpassen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başlangıç gri aralığı, sıfır olmayan voksellerin yüzdelikleri olarak (varsayılan %%%lld–%lld). Önizlemede ikincil tıklayıp sürükleyerek canlı ayarlayın."
+          }
+        }
+      }
+    },
+    "The last processing command or the header extensions. Command lines can contain folder names with subject IDs, so it is off by default." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der letzte Verarbeitungsbefehl oder die Header-Erweiterungen. Befehlszeilen können Ordnernamen mit Probanden-IDs enthalten, daher ist dies standardmäßig aus."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son işleme komutu ya da başlık uzantıları. Komut satırları katılımcı kimlikleri içeren klasör adları barındırabilir; bu yüzden varsayılan olarak kapalıdır."
+          }
+        }
+      }
+    },
+    "The model's answer was withheld; showing a summary of the file header instead." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Antwort des Modells wurde zurückgehalten; stattdessen wird eine Zusammenfassung des Datei-Headers angezeigt."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modelin yanıtı gösterilmedi; bunun yerine dosya başlığının özeti gösteriliyor."
+          }
+        }
+      }
+    },
+    "The window a detected CT opens with. Window values are common conventions, not calibrated settings; adjust them live in the preview." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Fenster, mit dem ein erkanntes CT geöffnet wird. Die Fensterwerte sind übliche Konventionen, keine kalibrierten Einstellungen; passen Sie sie live in der Vorschau an."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algılanan bir BT’nin açıldığı pencere. Pencere değerleri yaygın kabullerdir, kalibre edilmiş ayarlar değildir; önizlemede canlı ayarlayın."
+          }
+        }
+      }
+    },
+    "Thumbnails" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Miniaturen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Küçük resimler"
+          }
+        }
+      }
+    },
+    "Thumbnails are off. Finder shows its standard document icons." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Miniaturen sind aus. Der Finder zeigt seine Standard-Dokumentsymbole."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Küçük resimler kapalı. Finder standart belge simgelerini gösterir."
+          }
+        }
+      }
+    },
+    "Turn on “Describe file” in Settings to write a one-line technical description of this file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktivieren Sie „Datei beschreiben“ in den Einstellungen, um eine einzeilige technische Beschreibung dieser Datei zu erstellen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu dosyanın tek satırlık teknik açıklamasını yazmak için Ayarlar’da “Dosyayı açıkla” seçeneğini açın."
+          }
+        }
+      }
+    },
+    "Upper percentile" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oberes Perzentil"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Üst yüzdelik"
+          }
+        }
+      }
+    },
+    "Use Preview Settings" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschau-Einstellungen übernehmen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önizleme Ayarlarını Kullan"
+          }
+        }
+      }
+    },
+    "Version %@ · MIT License ·" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ · MIT-Lizenz ·"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürüm %@ · MIT Lisansı ·"
+          }
+        }
+      }
+    },
+    "Version %@, MIT License" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@, MIT-Lizenz"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürüm %@, MIT Lisansı"
+          }
+        }
+      }
+    },
+    "Volumes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumina"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacimler"
+          }
+        }
+      }
+    },
+    "Voxel value" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voxelwert"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voksel değeri"
+          }
+        }
+      }
+    },
+    "What a NIfTI file says its values are, such as a label map or a t-statistic. Hidden for ordinary images." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was eine NIfTI-Datei über die Bedeutung ihrer Werte angibt, etwa eine Label-Karte oder eine t-Statistik. Bei gewöhnlichen Bildern ausgeblendet."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir NIfTI dosyasının değerlerinin ne olduğunu belirttiği bilgi; örneğin etiket haritası ya da t istatistiği. Sıradan görüntülerde gizlenir."
+          }
+        }
+      }
+    },
+    "When an image looks like CT in Hounsfield units, the preview offers brain, bone, lung and other windows. Detection is a guess from the stored values, so it is off by default." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn ein Bild wie ein CT in Hounsfield-Einheiten aussieht, bietet die Vorschau Gehirn-, Knochen-, Lungen- und weitere Fenster an. Die Erkennung ist eine Schätzung anhand der gespeicherten Werte und daher standardmäßig aus."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir görüntü Hounsfield birimlerinde BT gibi görünüyorsa önizleme beyin, kemik, akciğer ve diğer pencereleri sunar. Algılama, kayıtlı değerlerden yapılan bir tahmindir; bu yüzden varsayılan olarak kapalıdır."
+          }
+        }
+      }
+    },
+    "Winter" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Winter"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Winter (kış)"
+          }
+        }
+      }
+    },
+    "Writes a one-sentence technical description (likely modality, dimensions, resolution, coverage) using a model on this Mac. Only header facts are used — never the file name or free-text fields. Not a medical interpretation." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schreibt mit einem Modell auf diesem Mac eine technische Beschreibung in einem Satz (wahrscheinliche Modalität, Abmessungen, Auflösung, Abdeckung). Es werden nur Angaben aus dem Header verwendet — nie der Dateiname oder Freitextfelder. Keine medizinische Interpretation."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu Mac’teki bir modelle tek cümlelik teknik bir açıklama yazar (olası modalite, boyutlar, çözünürlük, kapsam). Yalnızca başlık bilgileri kullanılır — dosya adı veya serbest metin alanları asla kullanılmaz. Tıbbi bir yorum değildir."
+          }
+        }
+      }
+    },
+    "You can also choose MIQ › Check for Updates… at any time." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie können auch jederzeit MIQ › Nach Updates suchen… wählen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İstediğiniz zaman MIQ › Güncellemeleri Denetle… komutunu da seçebilirsiniz."
+          }
+        }
+      }
+    },
+    "bottom %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unten %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "alt %@"
+          }
+        }
+      }
+    },
+    "macOS keeps rendered thumbnails in its own cache (com.apple.QuickLook.thumbnailcache), including for files on encrypted volumes." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS speichert erzeugte Miniaturen in einem eigenen Cache (com.apple.QuickLook.thumbnailcache), auch für Dateien auf verschlüsselten Volumes."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS, oluşturulan küçük resimleri şifreli birimlerdeki dosyalar için de kendi önbelleğinde (com.apple.QuickLook.thumbnailcache) tutar."
+          }
+        }
+      }
+    },
+    "right edge %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "rechter Rand %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sağ kenar %@"
+          }
+        }
+      }
+    },
+    "top %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "oben %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "üst %@"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
