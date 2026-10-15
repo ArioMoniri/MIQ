@@ -506,13 +506,21 @@ public struct MIQVolume: Sendable {
         case rgb(pixels: [UInt8], config: SliceConfig, maxPhysicalExtent: Float)
     }
 
-    private func prepareSlice(plan: SliceAxisPlan, index: Int, volumeIndex: Int) -> PreparedSlice {
+    /// Iteration shape + physical extent for `plan`. Shared by `prepareSlice` and
+    /// the projection path so a projection's pixel grid, spacing and resampling are
+    /// exactly those of a regular slice of the same plane.
+    private func sliceConfig(plan: SliceAxisPlan) -> (config: SliceConfig, maxPhysicalExtent: Float) {
         let dx = sanitizedSpacing(image.header.pixdim[safe: 1] ?? 1.0)
         let dy = sanitizedSpacing(image.header.pixdim[safe: 2] ?? 1.0)
         let dz = sanitizedSpacing(image.header.pixdim[safe: 3] ?? 1.0)
 
         let config = SliceConfig(plan: plan, width: width, height: height, depth: depth, dx: dx, dy: dy, dz: dz)
         let maxPhysicalExtent = max(Float(width) * dx, Float(height) * dy, Float(depth) * dz)
+        return (config, maxPhysicalExtent)
+    }
+
+    private func prepareSlice(plan: SliceAxisPlan, index: Int, volumeIndex: Int) -> PreparedSlice {
+        let (config, maxPhysicalExtent) = sliceConfig(plan: plan)
 
         // Hot path. This is intentionally a faster re-expression of the public
         // `voxel()` accessor (and the analogous RGB byte read): the per-voxel
@@ -1135,6 +1143,212 @@ public struct MIQVolume: Sendable {
             }
         }
         return .binary
+    }
+
+    // MARK: - Shared 4D window
+
+    /// Up to `maxSamples` volume indices spread evenly over `0..<volumeCount`,
+    /// ascending, always including the first and (when `maxSamples ≥ 2`) the last.
+    /// Every index when `volumeCount ≤ maxSamples`; `[]` when either is ≤ 0.
+    public static func sharedWindowSampleIndices(volumeCount: Int, maxSamples: Int = 8) -> [Int] {
+        guard volumeCount > 0, maxSamples > 0 else { return [] }
+        guard volumeCount > maxSamples else { return Array(0..<volumeCount) }
+        guard maxSamples > 1 else { return [0] }
+        // i·(n-1)/(m-1), rounded to nearest. Strictly increasing: the step
+        // (n-1)/(m-1) is ≥ 1 whenever n > m.
+        let span = volumeCount - 1
+        let steps = maxSamples - 1
+        return (0..<maxSamples).map { i in (i * span * 2 + steps) / (steps * 2) }
+    }
+
+    /// Timepoints actually present in the backing payload: `volumes` normally,
+    /// fewer for a buffer loaded with the volume-0 cap (see `containsAllVolumes`),
+    /// never less than 1.
+    public var loadedVolumeCount: Int {
+        guard image.payloadElementStrides == nil else { return volumes }
+        let bytesPerVolume = width * height * depth * image.header.datatype.bytesPerVoxel
+        guard bytesPerVolume > 0 else { return volumes }
+        return max(1, min(volumes, image.payloadCount / bytesPerVolume))
+    }
+
+    /// One percentile window shared by a whole 4D series — the "shared window"
+    /// alternative to `MIQConfig.perVolumeIntensityWindow`'s per-volume windows.
+    ///
+    /// Pools the three center slices of up to `maxSampledVolumes` evenly spaced
+    /// timepoints (`sharedWindowSampleIndices` over `loadedVolumeCount`, so volumes
+    /// a capped load never read are not sampled as zeros) and takes the same
+    /// percentile window `fixedCenterWindow` would over that pool — including its
+    /// whole-volume fallback (over the first sampled volume) when the pool is
+    /// empty or constant. For a 3D volume this equals `fixedCenterWindow(volumeIndex: 0)`.
+    /// `nil` for RGB data or when nothing finite is present.
+    ///
+    /// Cost: one center-slice decode per sampled volume (≤ 8 × 3 slices by
+    /// default), so call it once per series and reuse the result.
+    public func sharedVolumeWindow(
+        maxSampledVolumes: Int = 8,
+        options: RenderingOptions
+    ) -> MIQIntensityWindowBounds? {
+        let indices = Self.sharedWindowSampleIndices(volumeCount: loadedVolumeCount, maxSamples: max(1, maxSampledVolumes))
+        guard let first = indices.first else { return nil }
+        var pooled: [(plane: SlicePlane, slice: PreparedSlice)] = []
+        pooled.reserveCapacity(indices.count * SlicePlane.allCases.count)
+        for t in indices {
+            pooled.append(contentsOf: prepareCenterSlices(planes: SlicePlane.allCases, volumeIndex: t, options: options))
+        }
+        let bounds = pooledBounds(from: pooled, volumeIndex: first, options: options)
+        return bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }
+    }
+
+    // MARK: - Intensity projection (MIP / MinIP)
+
+    /// Renders an intensity projection through the whole volume perpendicular to
+    /// `plane` — see `MIQVolume.projection(plane:mode:…)` (Projection.swift) for
+    /// the public contract. `nil` for RGB datatypes.
+    func renderProjection(
+        plane: SlicePlane,
+        mode: ProjectionMode,
+        volumeIndex: Int,
+        maxDimension: Int,
+        options: RenderingOptions,
+        windowBounds: MIQIntensityWindowBounds?,
+        maxSamplesAlongAxis: Int?
+    ) -> SliceImage? {
+        let plan = orientation.plan(for: plane, mode: options.orientation)
+        guard let values = projectedValues(plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis) else {
+            return nil
+        }
+        let (config, maxPhysicalExtent) = sliceConfig(plan: plan)
+        let bounds: IntensityWindow.Bounds?
+        if let windowBounds {
+            bounds = IntensityWindow.Bounds(low: windowBounds.low, high: windowBounds.high)
+        } else {
+            bounds = IntensityWindow.bounds(
+                for: values,
+                lowerPercentile: options.lowerPercentile,
+                upperPercentile: options.upperPercentile
+            )
+        }
+        return finalize(
+            prepared: .grayscale(values: values, config: config, maxPhysicalExtent: maxPhysicalExtent),
+            bounds: bounds,
+            maxDimension: maxDimension
+        )
+    }
+
+    /// The raw projected buffer, laid out exactly like `sliceValues` for the same
+    /// plane and options (row-major, `sliceGeometry` width × height); `nil` for
+    /// RGB datatypes. Internal so tests can compare it against regular slices.
+    func projectedValues(
+        plane: SlicePlane,
+        mode: ProjectionMode,
+        volumeIndex: Int = 0,
+        options: RenderingOptions,
+        maxSamplesAlongAxis: Int? = nil
+    ) -> [Float]? {
+        let plan = orientation.plan(for: plane, mode: options.orientation)
+        return projectedValues(plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis)
+    }
+
+    /// Reduces every voxel of timepoint `volumeIndex` into the display pixel it
+    /// projects onto.
+    ///
+    /// The volume is walked in canonical x-fastest order (sequential for the
+    /// common layouts, whatever the projection axis) and each voxel is scattered
+    /// to its output pixel via three per-axis offset tables — the inverse of the
+    /// (row, col) → (x, y, z) mapping `SliceConfig.coordinate` applies, so
+    /// orientation, flips and reorientation modes match a regular slice exactly.
+    /// Decoding slice by slice through `prepareSlice` would instead touch the
+    /// whole payload once per sagittal slice on an x-fastest layout.
+    ///
+    /// Values are scaled exactly as `voxel()` scales them. Non-finite voxels are
+    /// ignored; a ray with no finite voxel yields NaN, which windowing renders
+    /// black just as it does a NaN voxel in a slice. A voxel beyond the payload
+    /// (a timepoint a capped load never read) reads as 0, as in `prepareSlice`.
+    private func projectedValues(
+        plan: SliceAxisPlan,
+        mode: ProjectionMode,
+        volumeIndex: Int,
+        maxSamplesAlongAxis: Int?
+    ) -> [Float]? {
+        let datatype = image.header.datatype
+        guard datatype != .rgb24, datatype != .rgba32 else { return nil }
+        let dims = [width, height, depth]
+        let hDim = dims[plan.hAxis]
+        let vDim = dims[plan.vAxis]
+        let outCount = hDim * vDim
+        guard outCount > 0, dims[plan.sliceAxis] > 0 else { return [] }
+        guard volumeIndex >= 0, volumeIndex < volumes else {
+            // Same as `prepareSlice`: an out-of-range timepoint is all zeros.
+            return [Float](repeating: 0, count: outCount)
+        }
+
+        // Output offset contributed by each storage axis' coordinate. The slice
+        // axis contributes 0, one axis picks the column, the other the row.
+        func offsets(axis: Int) -> [Int] {
+            let n = dims[axis]
+            if axis == plan.hAxis {
+                return (0..<n).map { plan.hReversed ? (hDim - 1 - $0) : $0 }
+            }
+            if axis == plan.vAxis {
+                return (0..<n).map { (plan.vReversed ? (vDim - 1 - $0) : $0) * hDim }
+            }
+            return [Int](repeating: 0, count: n)
+        }
+        let xOffsets = offsets(axis: 0)
+        let yOffsets = offsets(axis: 1)
+        let zOffsets = offsets(axis: 2)
+
+        // Coordinates walked per axis: all of them, except along the projection
+        // axis when a sample cap applies (evenly spaced, ends included).
+        func coordinates(axis: Int) -> [Int] {
+            if axis == plan.sliceAxis, let cap = maxSamplesAlongAxis {
+                return Self.sharedWindowSampleIndices(volumeCount: dims[axis], maxSamples: max(1, cap))
+            }
+            return Array(0..<dims[axis])
+        }
+        let xs = coordinates(axis: 0)
+        let ys = coordinates(axis: 1)
+        let zs = coordinates(axis: 2)
+
+        let bpv = datatype.bytesPerVoxel
+        let read = Self.scalarReader(datatype: datatype, littleEndian: image.header.littleEndian)
+        let slope = image.header.sclSlope
+        let intercept = image.header.sclInter
+        let applyScale = slope != 0
+        let payloadCount = image.payloadCount
+        let payloadBase = image.payloadOffset
+        let isMax = mode == .mip
+
+        var result = [Float](repeating: .nan, count: outCount)
+        result.withUnsafeMutableBufferPointer { acc in
+            image.storage.withUnsafeBytes { (rawBuf: UnsafeRawBufferPointer) in
+                for z in zs {
+                    let zOff = zOffsets[z]
+                    for y in ys {
+                        let yzOff = zOff + yOffsets[y]
+                        for x in xs {
+                            let byteOffset = image.voxelElementIndex(x: x, y: y, z: z, t: volumeIndex) * bpv
+                            let v: Float
+                            if byteOffset < 0 || byteOffset + bpv > payloadCount {
+                                v = 0
+                            } else {
+                                let raw = read(rawBuf, payloadBase + byteOffset)
+                                v = applyScale ? raw * slope + intercept : raw
+                            }
+                            guard v.isFinite else { continue }
+                            let o = yzOff + xOffsets[x]
+                            let current = acc[o]
+                            // NaN-safe: an untouched (NaN) pixel fails both
+                            // comparisons, so the first finite voxel always lands.
+                            if isMax ? !(current >= v) : !(current <= v) {
+                                acc[o] = v
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result
     }
 
     private func rawVoxelValue(byteOffset: Int) -> Float {

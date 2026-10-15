@@ -42,6 +42,9 @@ public enum MIQConfig {
         public static let thumbnailSegmentationColoring  = "thumbnailSegmentationColoring"
         public static let thumbnailWindowLowerPercentile = "thumbnailWindowLowerPercentile"
         public static let thumbnailWindowUpperPercentile = "thumbnailWindowUpperPercentile"
+        // MARK: Rendering workstream (CT presets, shared 4D window)
+        public static let ctWindowPreset          = "ctWindowPreset"
+        public static let ctPresetAutoDetect      = "ctPresetAutoDetect"
         #if DEBUG
         public static let debugShowLayoutBorders  = "debugShowLayoutBorders"
         #endif
@@ -78,6 +81,14 @@ public enum MIQConfig {
         public static let thumbnailSegmentationColoring  = "auto"
         public static let thumbnailWindowLowerPercentile = 2.0
         public static let thumbnailWindowUpperPercentile = 98.0
+        // MARK: Rendering workstream (CT presets, shared 4D window)
+        /// `WindowPreset.rawValue` applied to volumes `WindowPreset.looksLikeCT`
+        /// accepts; `auto` keeps percentile windowing (today's behaviour).
+        public static let ctWindowPreset          = "auto"
+        /// Whether the preview runs `WindowPreset.looksLikeCT` at all (gates
+        /// offering/applying presets). Off by default: the heuristic is a guess,
+        /// and the default display must not change silently.
+        public static let ctPresetAutoDetect      = false
     }
 
     public struct MIQColor: Sendable {
@@ -233,6 +244,19 @@ public enum MIQConfig {
     public static var thumbnailWindowUpperPercentile: Double {
         let d = defaults
         return d.object(forKey: Keys.thumbnailWindowUpperPercentile) as? Double ?? Defaults.thumbnailWindowUpperPercentile
+    }
+
+    // MARK: - Rendering workstream (CT presets)
+
+    /// Preset applied to CT-looking volumes; unknown stored values read as `.auto`.
+    public static var ctWindowPreset: WindowPreset {
+        let raw = defaults.string(forKey: Keys.ctWindowPreset) ?? Defaults.ctWindowPreset
+        return WindowPreset(rawValue: raw) ?? .auto
+    }
+
+    public static var ctPresetAutoDetect: Bool {
+        let d = defaults
+        return d.object(forKey: Keys.ctPresetAutoDetect) as? Bool ?? Defaults.ctPresetAutoDetect
     }
 
     #if DEBUG
