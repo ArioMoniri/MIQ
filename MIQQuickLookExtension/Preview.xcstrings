@@ -1973,6 +1973,23 @@
           }
         }
       }
+    },
+    "consider defacing before sharing (pydeface, mri_reface)" : {
+      "comment" : "Face check hint, shown after “Likely present”. pydeface and mri_reface are tool names.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor der Weitergabe Defacing erwägen (pydeface, mri_reface)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "paylaşmadan önce yüz silmeyi düşünün (pydeface, mri_reface)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

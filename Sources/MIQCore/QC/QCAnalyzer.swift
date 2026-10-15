@@ -54,6 +54,11 @@ public struct QCSummary: Sendable {
     /// Head/foreground mask volume in mL (nil when no mask was computed).
     public var headMaskVolumeMilliliters: Double? { headMask?.volumeMilliliters }
 
+    /// Appended to the "Face: Likely present" row: a pointer to common defacing
+    /// tools, since an intact face is identifying when a scan is shared. A
+    /// `CoreUIText` phrase, so the preview translates it as its own part.
+    public static let defacingHint = "consider defacing before sharing (pydeface, mri_reface)"
+
     /// Compact rows for the metadata panel (label/value split like `MIQMetadata`).
     public var displayLines: [MetadataEntry] {
         var lines: [MetadataEntry] = []
@@ -65,7 +70,7 @@ public struct QCSummary: Sendable {
         }
         switch faceCheck.presence {
         case .facePresentLikely:
-            lines.append(MetadataEntry(field: nil, label: "Face", value: "Likely present (heuristic)"))
+            lines.append(MetadataEntry(field: nil, label: "Face", value: "Likely present (heuristic)" + CoreUIText.partSeparator + Self.defacingHint))
         case .defacedLikely:
             lines.append(MetadataEntry(field: nil, label: "Face", value: "Likely removed (heuristic)"))
         case .unknown:
