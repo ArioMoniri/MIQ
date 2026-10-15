@@ -2,7 +2,7 @@
 
 MIQ adds two features beyond Quick Look. Both read only the file header and work offline.
 
-- **Spotlight importer** (`MIQSpotlightImporter.mdimporter`). Indexes dimensions, voxel spacing, datatype, number of volumes and orientation for every NIfTI, MGH/MGZ, MIF and NRRD file, so you can search for them and see the values in Finder's Get Info.
+- **Spotlight importer** (`MIQSpotlightImporter.mdimporter`). Indexes dimensions, voxel spacing, datatype, number of volumes and orientation for every NIfTI, MGH/MGZ, MRtrix (`.mif`, `.mif.gz`, `.mih`), NRRD (`.nrrd`, `.nhdr`) and MetaImage (`.mha`, `.mhd`) file, so you can search for them and see the values in Finder's Get Info.
 - **App Intents** (in the MIQ app). Adds **Get Volume Info** and **Render Center Slice** actions to Shortcuts and Spotlight.
 
 Both use `VolumeSummary` (`Sources/MIQCore/VolumeSummary.swift`) for header-only parsing, the same code as `miq info`. Their numbers always match.
@@ -15,17 +15,18 @@ Both use `VolumeSummary` (`Sources/MIQCore/VolumeSummary.swift`) for header-only
 | `kMDItemPixelWidth` / `kMDItemPixelHeight` | number | `256` / `256` | x / y dimension |
 | `org_miq_dimensions` | number list | `256, 256, 128` | spatial dimensions x, y, z |
 | `org_miq_voxelSpacing` | number list | `1, 1, 1.2` | voxel size x, y, z (absolute values) |
-| `org_miq_spacingUnit` | string | `mm` | NIfTI `xyzt_units`; always `mm` for MGH/MIF; left out when unknown (always the case for NRRD) |
+| `org_miq_spacingUnit` | string | `mm` | NIfTI `xyzt_units`; always `mm` for MGH/MIF; left out when unknown (always the case for NRRD and MetaImage) |
 | `org_miq_datatype` | string | `int16` | datatype label (MIF `bit` stays `bit`) |
 | `org_miq_volumes` | number | `1` | 4th dimension; `1` for 3D |
 | `org_miq_orientation` | string | `RAS` | 3-letter storage orientation code; left out when the header has none |
 
 **No free-text header fields are indexed.** That includes NIfTI `descrip`/`aux_file`/`intent_name`, MIF comments and `command_history`, and NRRD `content`. These fields can contain patient identifiers, and any process can query the Spotlight index.
 
-**Header-only.** The importer never reads the voxel data.
-- Uncompressed files: it reads at most a few 16 KB chunks.
+**Header-only.** The importer never reads the voxel data. It uses MIQCore's single header-only reader, `MIQParser.parseHeaderOnly(url:maxBytes:)`, with the 4 MB summary cap (`MIQParser.maxTextHeaderBytes`).
+- Uncompressed files: it reads 16 KB chunks only until the header is complete.
 - `.nii.gz`, `.mgz` and `.mif.gz`: it decompresses only until the header is complete.
-- MIF and NRRD text headers: capped at 4 MB.
+- Text headers (MIF, NRRD, MetaImage): capped at 4 MB.
+- Detached headers (`.nhdr`, `.mhd`, `.mih`): only the header file is read. The data file it names is never opened.
 
 ## Example queries
 
@@ -95,10 +96,10 @@ These parts could only be checked on Linux. They have not been run on a Mac.
 
 - **Unverified on macOS 26/27.** Nobody has run the importer or the intents on real hardware yet, including whether `mdworker` loads a Developer ID–signed, hardened-runtime importer whose Swift code links MIQCore statically.
   - Checked: the C glue (syntax, plus the COM refcount/QueryInterface logic against stub CoreFoundation headers, under ASan) and the Swift attribute table (compiled and run against MIQCore on Linux).
-  - Not compiled anywhere: the `@_cdecl` entry point and everything that needs the macOS SDK (CoreServices, AppIntents, ImageIO).
+  - Not compiled anywhere: the `@_cdecl` entry point and everything that needs the macOS SDK (CoreServices, AppIntents). Render Center Slice encodes its PNG with MIQCore's `PNGEncoder`, which the Linux tests do cover.
 - **Sandbox.** `mdworker` runs importers in its own sandbox, which grants read access to the file being imported. The importer needs no more than that.
 - **App Intents** run in the MIQ app's sandbox. Shortcuts hands over security-scoped URLs, so files the user selects are readable.
-- **NRRD detached headers (`.nhdr`)** are not supported (same as the preview). `.nrrd` reports no spacing unit, because MIQCore does not parse `space units`.
+- **Detached headers (`.nhdr`, `.mhd`, `.mih`)** are indexed from the header file alone: the importer's `LSItemContentTypes` claims `org.teem.nhdr`, `org.itk.metaimage-header` and `org.mrtrix.mih`, and `VolumeSummary` never opens the data file. So a header whose data file is missing or moved is still indexed. NRRD reports no spacing unit, because MIQCore does not parse `space units`.
 - **4D `.nii.gz`:** the volume count comes from the header. The importer never checks that every volume is actually present.
 - **macOS 14:** no intents. `@Parameter(supportedContentTypes:)` for `IntentFile` is only available from macOS 15 in the current SDK. The Spotlight importer does work on macOS 14.
 - **Spotlight does not index network volumes** by default, so files on SMB/NFS shares get no attributes.
