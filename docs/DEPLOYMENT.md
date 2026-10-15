@@ -105,15 +105,64 @@ defaults read ~/Library/Containers/net.marco-duering.miq/Data/Library/Preference
 Notes:
 
 - The profile stops *automatic* checks. **MIQ → Check for Updates…** still lets a user check by hand. To prevent that too, block `miq.marco-duering.net` at your proxy or firewall. The app keeps working without it.
-- With automatic checks forced off, the toggle in the app's General pane may still appear switchable but will not persist. *Verify on your fleet.*
+- With `SUEnableAutomaticChecks` forced, the toggle in the app's General pane is shown disabled with "Managed by your organisation". `SUAutomaticallyUpdate` has no toggle in MIQ; forcing it off just keeps Sparkle from installing without asking.
 - The Homebrew cask is marked `auto_updates`, so `brew upgrade` skips it unless you pass `--greedy`.
+
+## Managed settings (configuration profiles)
+
+Every MIQ setting can be fixed centrally. MIQ checks `objectIsForced(forKey:)` for each key: a forced value wins over the user's choice, and the matching control in MIQ's Settings window is disabled with **"Managed by your organisation"**. Keys you don't force stay user-editable. A forced value of the wrong type (say, a `<string>` where a Boolean is expected) is not used: MIQ falls back to its built-in default, and the control stays locked.
+
+A ready-to-edit sample profile is in [`docs/MIQ-managed-settings.mobileconfig`](MIQ-managed-settings.mobileconfig). It uses the `com.apple.ManagedClient.preferences` payload type with two preference domains. Settings live in one of them, depending on who reads them:
+
+| Domain | Read by | Keys |
+|---|---|---|
+| `group.net.marco-duering.miq` (App Group) | App **and** both Quick Look extensions | All preview, metadata, thumbnail and feature settings below |
+| `net.marco-duering.miq` (app) | App only | Sparkle (`SUEnableAutomaticChecks`, `SUAutomaticallyUpdate`), `captionFeatureEnabled` |
+
+Put rendering settings in the App Group domain. A rendering key forced only in the app domain would not reach the extensions, so MIQ ignores it there.
+
+Most MDMs accept the same keys as a "Custom Settings" / "Application & Custom Settings" payload for each domain. *Verify on your fleet:* MIQ reads the App Group domain through `UserDefaults(suiteName:)`, which includes managed values for that domain; the project has not tested this under every MDM or macOS release.
+
+### Keys
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `hideDisclaimerInPreview` | Boolean | `false` | Hide the "not a medical device" footer in previews. Force `false` to keep it. |
+| `showThumbnails` | Boolean | `false` | Finder slice thumbnails. |
+| `showThumbnailsOnNetworkVolumes` | Boolean | `false` | Thumbnails for files on network volumes. |
+| `showMetadataDescription` | Boolean | `false` | Free-text header description row (may contain identifying text). |
+| `showMetadataProvenance` | Boolean | `false` | Processing-history row (may contain paths with subject IDs). |
+| `showMetadataFormat`, `…Dimensions`, `…Spacing`, `…Orientation`, `…Datatype`, `…Volumes`, `…Scaling`, `…Value`, `…RepetitionTime`, `…Intent`, `…Diffusion`, `…Sidecar`, `…VoxelPosition` | Boolean | `true` | The other metadata panel rows. |
+| `metadataOrder` | String | all rows, comma-separated | Row order, e.g. `format,dimensions,spacing,…`. |
+| `imageOrientation`, `thumbnailImageOrientation` | String | `stored` | `stored`, `neurological` or `radiological`. |
+| `segmentationColoring`, `thumbnailSegmentationColoring` | String | `auto` | `auto`, `random` or `off`. |
+| `windowLowerPercentile`, `windowUpperPercentile` (and `thumbnail…`) | Real | `2`, `98` | Initial intensity window (0–49 and 51–100). |
+| `perVolumeIntensityWindow` | Boolean | `true` | 4D: recompute the window per volume (`false` = shared). |
+| `defaultColormap` | String | `auto` | `auto`, `grayscale`, `hot`, `cool`, `winter`, `viridis`, `inferno` or `diverging`. |
+| `ctPresetAutoDetect` | Boolean | `false` | Detect CT and offer window presets. |
+| `ctWindowPreset` | String | `auto` | `auto`, `brain`, `subdural`, `stroke`, `bone`, `lung` or `softTissue`. |
+| `deferLargeNetworkPreviews` | Boolean | `true` | Ask before loading large files on network volumes. |
+| `volumeRenderingEnabled` | Boolean | `true` | Offer 3D / projection views. |
+| `overlayAutoDiscovery` | Boolean | `true` | List overlay candidates next to the file. |
+| `qcPanelEnabled` | Boolean | `true` | Quality-check rows in the metadata panel. |
+| `temporalSummaryEnabled` | Boolean | `true` | Temporal summary for 4D series. |
+| `axisLabelColor`, `showAxisLabels` | String, Boolean | red, `true` | Overlay colour (`r,g,b,a` in 0–1) and edge labels. |
+| `captionFeatureEnabled` *(app domain)* | Boolean | `false` | Settings › Features › "Describe file (experimental)". |
+| `SUEnableAutomaticChecks`, `SUAutomaticallyUpdate` *(app domain)* | Boolean | `true`, `false` | Sparkle; see [Updates](#updates-sparkle). |
+
+To check what a test Mac receives:
+
+```bash
+defaults read "/Library/Managed Preferences/group.net.marco-duering.miq" 2>/dev/null
+defaults read "/Library/Managed Preferences/net.marco-duering.miq" 2>/dev/null
+```
 
 ## Privacy and data handling
 
 - **No telemetry, analytics or crash reporting.** MIQ contains no analytics SDK and sends no usage data. Its only network requests are the Sparkle update check and download above. Those requests carry the installed MIQ version (and, like any web request, reveal the Mac's IP address to the host). See the [privacy policy](https://miq.marco-duering.net/privacy.html).
 - **No record of opened files.** MIQ keeps no history or list of the files it has previewed, writes no caches to disk, and uploads nothing. Previews are rendered in memory inside the sandboxed extension process, and the slice cache is discarded with it. Diagnostic messages that MIQ writes to the macOS unified log do not include file names or paths.
 - **Settings** (orientation, windowing, metadata fields…) live in the App Group container `~/Library/Group Containers/group.net.marco-duering.miq/`. They contain rendering preferences only, never file names or image data.
-- **No DICOM, no AI.** MIQ reads NIfTI, MGH/MGZ, MRtrix MIF and NRRD only, and has no machine-learning or cloud features.
+- **No cloud features.** The optional "Describe file" tool (Settings › Features, off by default, can be forced off with `captionFeatureEnabled`) runs a language model on the Mac itself or on a loopback-only local server, and sees header facts only.
 
 ### macOS thumbnail and Quick Look caches
 
@@ -126,7 +175,9 @@ qlmanage -r cache    # reset the Quick Look thumbnail cache
 qlmanage -r          # reload Quick Look generators/extensions
 ```
 
-For sensitive data, you can leave MIQ's thumbnail extension off (the default), or disable it centrally under **Login Items & Extensions → Quick Look**. FileVault protects the cache at rest like everything else in the user's home directory.
+MIQ's Settings window says this on its Thumbnails pane and offers the reset command to copy. It can't run it itself: the app is sandboxed, and so is anything it launches.
+
+For sensitive data, you can leave MIQ's thumbnail extension off (the default, and enforceable with `showThumbnails` above), or disable it centrally under **Login Items & Extensions → Quick Look**. FileVault protects the cache at rest like everything else in the user's home directory.
 
 ## Removing MIQ
 
