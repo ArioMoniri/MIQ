@@ -35,8 +35,16 @@ struct InfoReport: Encodable, Equatable {
     let spacing: [Double?]
     let datatype: String
     let volumes: Int
-    /// 3-letter storage orientation (e.g. "RAS"), `null` when undeterminable.
+    /// 3-letter orientation of MIQ's voxel grid (e.g. "RAS"), `null` when
+    /// undeterminable. MIQ walks every format's payload in storage order, so for
+    /// an MRtrix MIF whose `layout` flips or permutes axes this is the *storage*
+    /// orientation ("LAS" for `layout: -0,+1,+2` with an RAS transform) — see
+    /// `imageOrientation` for what MRtrix reports.
     let orientation: String?
+    /// MRtrix MIF only: orientation of MRtrix's image axes (the `transform:`
+    /// alone), which is what `mrinfo`/`mrview` voxel indices refer to; `null` for
+    /// other formats. Equals `orientation` when `layout` is `+0,+1,+2`.
+    let imageOrientation: String?
     let qformCode: Int
     let sformCode: Int
     let scaling: Scaling
@@ -49,7 +57,9 @@ struct InfoReport: Encodable, Equatable {
         let header = image.header
         let volume = MIQVolume(image: image)
         let orientation = volume.storageOrientationLabel()
-        let metadata = MIQMetadata(header: header, orientation: orientation)
+        // Same row text as the preview panel ("RAS · sform", "LAS · MRtrix image
+        // axes RAS · MIF transform"), so the transform source is visible too.
+        let metadata = MIQMetadata(header: header, orientation: header.orientationDiagnostics.displaySummary)
 
         file = url.lastPathComponent
         format = header.formatLabel ?? kind.displayName
@@ -61,6 +71,7 @@ struct InfoReport: Encodable, Equatable {
         datatype = header.datatypeLabel ?? header.datatype.label
         volumes = header.volumes
         self.orientation = orientation
+        imageOrientation = header.orientationDiagnostics.imageAxisCodes
         qformCode = header.qformCode
         sformCode = header.sformCode
         scaling = Scaling(
@@ -95,31 +106,75 @@ struct InfoReport: Encodable, Equatable {
 // MARK: - Loading
 
 enum VolumeLoader {
-    /// Parses `path`. `needsAllVolumes` re-parses a `.nii.gz` in full instead of
-    /// the preview's volume-0 cap, which `--volume > 0` requires.
+    /// Parses `path`: a file `MIQFileKind` recognises by name, an extensionless
+    /// DICOM Part-10 file (content sniff), or a folder of DICOM slices (stacked by
+    /// `DICOMSeriesAssembler`; the CLI has ordinary file access, unlike the
+    /// sandboxed preview). `needsAllVolumes` re-parses a `.nii.gz` in full instead of
+    /// the preview's volume-0 cap, which `--volume > 0` and DEC colouring require.
     static func load(path: String, needsAllVolumes: Bool) throws -> (URL, MIQImage, MIQFileKind) {
         let url = URL(fileURLWithPath: path)
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             throw CommandError("no such file: \(path)")
         }
-        guard let kind = MIQFileKind(url: url) else {
-            throw CommandError("unsupported file type: \(url.lastPathComponent) "
-                + "(expected .nii, .nii.gz, .mgh, .mgz, .mgh.gz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha or .mhd)")
+        if isDirectory.boolValue, MIQFileKind(url: url) != .zarr {
+            return try loadDICOMFolder(url)
         }
+        guard let kind = MIQFileKind(url: url) ?? MIQFileKind.sniffDICOM(url: url) else {
+            throw CommandError("unsupported file type: \(url.lastPathComponent) "
+                + "(expected \(Usage.suffixList), a DICOM file or a folder of DICOM slices)")
+        }
+        return (url, try parse(url, fullyDecompress: needsAllVolumes), kind)
+    }
+
+    private static func parse(_ url: URL, fullyDecompress: Bool) throws -> MIQImage {
         do {
-            let image = try MIQParser().parse(url: url, fullyDecompress: needsAllVolumes)
-            return (url, image, kind)
+            return try MIQParser().parse(url: url, fullyDecompress: fullyDecompress)
         } catch let error as LocalizedError {
             throw CommandError("cannot read \(url.lastPathComponent): \(error.errorDescription ?? "\(error)")")
         } catch {
             throw CommandError("cannot read \(url.lastPathComponent): \(error)")
         }
     }
+
+    /// Stacks the DICOM series of the folder's first Part-10 file (by name). A
+    /// folder with a single DICOM file renders that file. The returned URL is the
+    /// folder, so `info` reports the folder name.
+    static func loadDICOMFolder(_ folder: URL) throws -> (URL, MIQImage, MIQFileKind) {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]
+        ) else {
+            throw CommandError("cannot list folder \(folder.lastPathComponent)")
+        }
+        let dicoms = entries
+            .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .filter { MIQFileKind.sniffDICOM(url: $0) != nil }
+        guard let first = dicoms.first else {
+            throw CommandError("\(folder.lastPathComponent) is a folder with no DICOM Part-10 files "
+                + "(a folder is read only as a DICOM series; otherwise expected \(Usage.suffixList))")
+        }
+        if dicoms.count == 1 {
+            return (folder, try parse(first, fullyDecompress: true), .dicom)
+        }
+        let assembler = DICOMSeriesAssembler(maxFiles: max(2048, dicoms.count))
+        guard let series = assembler.assembleSeries(containing: first, candidates: dicoms) else {
+            throw CommandError("cannot assemble a volume from the \(dicoms.count) DICOM files in \(folder.lastPathComponent) "
+                + "(the first file must be a single-frame slice with position/orientation; mixed sizes, "
+                + "several slices at one position, or over 1 GiB are not stacked) — pass one file instead")
+        }
+        return (folder, series.image, .dicom)
+    }
 }
 
 // MARK: - Rendering
 
 enum SliceRenderer {
+    /// The fixed preset `--preset auto` applies to a volume that looks like CT. MIQ's
+    /// audience is mostly neuroimaging, so the brain window is the useful default;
+    /// `--preset soft-tissue` etc. cover body CT.
+    static let ctAutoPreset: WindowPreset = .brain
+
     static func renderingOptions(_ settings: RenderSettings) -> RenderingOptions {
         // An explicit window means "show these intensities", which a label LUT
         // would override — so it implies segmentation colouring off.
@@ -131,6 +186,39 @@ enum SliceRenderer {
             orientation: settings.orientation,
             segmentationColoring: segmentation
         )
+    }
+
+    /// Whether `volume` holds CT Hounsfield units, decided the way the preview
+    /// decides whether to offer presets: `WindowPreset.looksLikeCT` on the header
+    /// plus the minimum of the center axial slice of the rendered volume.
+    static func looksLikeCT(_ volume: MIQVolume, settings: RenderSettings) -> Bool {
+        let header = volume.image.header
+        guard header.datatype != .rgb24, header.datatype != .rgba32 else { return false }
+        let options = renderingOptions(settings)
+        let index = volume.sliceIndex(for: .axial, cursor: volume.centerCursor(), options: options)
+        var minimum: Float?
+        if let sample = volume.displaySliceValues(plane: .axial, index: index, volumeIndex: settings.volume, options: options) {
+            for v in sample.values where v.isFinite { minimum = min(minimum ?? v, v) }
+        }
+        return WindowPreset.looksLikeCT(header: header, sampleMin: minimum)
+    }
+
+    /// `settings` with `--preset` folded into `window`: a fixed preset becomes its
+    /// HU bounds; `auto` becomes `ctAutoPreset`'s bounds for CT and stays the
+    /// percentile window otherwise.
+    static func resolvingPreset(_ settings: RenderSettings, volume: MIQVolume) -> RenderSettings {
+        guard let preset = settings.preset else { return settings }
+        let chosen: WindowPreset?
+        if preset == .auto {
+            chosen = looksLikeCT(volume, settings: settings) ? ctAutoPreset : nil
+        } else {
+            chosen = preset
+        }
+        var resolved = settings
+        if let bounds = chosen?.bounds {
+            resolved.window = .fixed(low: bounds.low, high: bounds.high)
+        }
+        return resolved
     }
 
     /// Window + LUT the way the preview resolves them on a cold load: a detected
@@ -157,11 +245,51 @@ enum SliceRenderer {
         }
     }
 
+    /// Whether DEC colouring is wanted at all (before looking at the file):
+    /// `--dec`/`--no-dec` decide; otherwise on unless a window or preset asks for
+    /// scalar display.
+    static func wantsDEC(_ settings: RenderSettings) -> Bool {
+        if let explicit = settings.dec { return explicit }
+        return settings.preset == nil && settings.window == .auto
+    }
+
+    /// Loads the volume to render. When DEC may apply and the first parse doesn't
+    /// yield a vector field although the shape fits (a `.nii.gz` parsed with the
+    /// preview's volume-0 cap), re-parses in full so `DiffusionColor.vectorComponents`
+    /// sees every component.
+    static func load(path: String, settings: RenderSettings) throws -> (volume: MIQVolume, fileName: String) {
+        let full = settings.volume > 0 || settings.dec == true
+        let (url, image, _) = try VolumeLoader.load(path: path, needsAllVolumes: full)
+        var volume = MIQVolume(image: image)
+        if !full, wantsDEC(settings), volume.volumes == 3 || volume.componentCount == 3,
+           DiffusionColor.vectorComponents(of: volume, fileName: url.lastPathComponent) == nil {
+            volume = MIQVolume(image: try VolumeLoader.load(path: path, needsAllVolumes: true).1)
+        }
+        return (volume, url.lastPathComponent)
+    }
+
+    /// The vector components to colour, or `nil` for scalar rendering. Throws for
+    /// `--dec` on a file that isn't a recognised 3-vector field.
+    static func decComponents(_ volume: MIQVolume, fileName: String, settings: RenderSettings) throws -> MIQVolume? {
+        guard wantsDEC(settings) else { return nil }
+        if let components = DiffusionColor.vectorComponents(of: volume, fileName: fileName) { return components }
+        if settings.dec == true {
+            throw CommandError("--dec: \(fileName) is not a 3-component vector field "
+                + "(expected 3 volumes with 'V1' in the name or NIfTI intent 1007, or a 5D NIfTI with 3 components)")
+        }
+        return nil
+    }
+
     static func render(_ command: RenderCommand) throws -> Data {
-        let (_, image, _) = try VolumeLoader.load(path: command.path, needsAllVolumes: command.settings.volume > 0)
-        let volume = MIQVolume(image: image)
+        try PNGEncoder.encode(renderSlice(command))
+    }
+
+    /// The slice `render` encodes (DEC RGB, label colours or windowed grayscale).
+    static func renderSlice(_ command: RenderCommand) throws -> SliceImage {
+        let (volume, fileName) = try load(path: command.path, settings: command.settings)
         try validateVolume(volume, settings: command.settings)
-        let options = renderingOptions(command.settings)
+        let settings = resolvingPreset(command.settings, volume: volume)
+        let options = renderingOptions(settings)
 
         let geometry = volume.sliceGeometry(for: command.plane, options: options)
         let extent = [volume.width, volume.height, volume.depth][geometry.sliceAxis]
@@ -170,43 +298,64 @@ enum SliceRenderer {
             throw CommandError("--slice \(index) is out of range for the \(command.plane.rawValue) plane (valid: 0–\(extent - 1))")
         }
 
-        let (window, lut) = resolveAppearance(volume: volume, settings: command.settings, options: options)
-        let slice = volume.slice(
+        if let components = try decComponents(volume, fileName: fileName, settings: settings) {
+            guard let slice = DiffusionColor.slice(components: components, plane: command.plane, index: index,
+                                                   maxDimension: settings.maxSize, options: options) else {
+                throw CommandError("cannot colour \(fileName) by direction")
+            }
+            return slice
+        }
+
+        let (window, lut) = resolveAppearance(volume: volume, settings: settings, options: options)
+        return volume.slice(
             plane: command.plane,
             index: index,
-            volumeIndex: command.settings.volume,
-            maxDimension: command.settings.maxSize,
+            volumeIndex: settings.volume,
+            maxDimension: settings.maxSize,
             options: options,
             windowBounds: window,
             lut: lut
         )
-        return try PNGEncoder.encode(slice)
     }
 
     static func mosaic(_ command: MosaicCommand) throws -> Data {
-        let (_, image, _) = try VolumeLoader.load(path: command.path, needsAllVolumes: command.settings.volume > 0)
-        let volume = MIQVolume(image: image)
-        try validateVolume(volume, settings: command.settings)
-        let options = renderingOptions(command.settings)
-        let (window, lut) = resolveAppearance(volume: volume, settings: command.settings, options: options)
+        let canvas = try mosaicCanvas(command)
+        return try PNGEncoder.encode(pixels: canvas.pixels, width: canvas.width, height: canvas.height, colorType: .rgb8)
+    }
 
-        func center(_ plane: SlicePlane) -> SliceImage {
-            volume.centerSlice(
+    /// The RGB canvas `mosaic` encodes.
+    static func mosaicCanvas(_ command: MosaicCommand) throws -> Mosaic.Canvas {
+        let (volume, fileName) = try load(path: command.path, settings: command.settings)
+        try validateVolume(volume, settings: command.settings)
+        let settings = resolvingPreset(command.settings, volume: volume)
+        let options = renderingOptions(settings)
+        let components = try decComponents(volume, fileName: fileName, settings: settings)
+        let (window, lut): (MIQIntensityWindowBounds?, SegmentationLut?) = components == nil
+            ? resolveAppearance(volume: volume, settings: settings, options: options) : (nil, nil)
+
+        func center(_ plane: SlicePlane) -> SliceImage? {
+            if let components {
+                // Same center index `MIQVolume.centerSlice` uses for this plane.
+                let axis = volume.sliceGeometry(for: plane, options: options).sliceAxis
+                let index = max(0, [volume.width, volume.height, volume.depth][axis] / 2)
+                return DiffusionColor.slice(components: components, plane: plane, index: index,
+                                            maxDimension: settings.maxSize, options: options)
+            }
+            return volume.centerSlice(
                 plane: plane,
-                volumeIndex: command.settings.volume,
-                maxDimension: command.settings.maxSize,
+                volumeIndex: settings.volume,
+                maxDimension: settings.maxSize,
                 options: options,
                 windowBounds: window,
                 lut: lut
             )
         }
-        let canvas = Mosaic.compose(
+        return Mosaic.compose(
             topLeft: center(.coronal),
             topRight: center(.sagittal),
             bottomLeft: center(.axial),
-            tile: command.settings.maxSize
+            tile: settings.maxSize
         )
-        return try PNGEncoder.encode(pixels: canvas.pixels, width: canvas.width, height: canvas.height, colorType: .rgb8)
     }
 }
 
