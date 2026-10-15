@@ -683,7 +683,11 @@ public struct MIQVolume: Sendable {
             }
             let normalized: [UInt8]
             if let bounds {
-                normalized = IntensityWindow.apply(values, bounds: bounds)
+                var windowed = IntensityWindow.apply(values, bounds: bounds)
+                if image.header.invertsDisplay {
+                    for i in windowed.indices { windowed[i] = 255 &- windowed[i] }
+                }
+                normalized = windowed
             } else {
                 normalized = Array(repeating: 0, count: values.count)
             }

@@ -46,6 +46,18 @@ public struct MIQHeader: Sendable {
     /// building the header. Never consulted by rendering.
     public var acquisition = MIQAcquisitionInfo()
 
+    /// Display-only photometric inversion: grayscale slices render as
+    /// `255 − windowed value`, so the highest value is black. Set for DICOM
+    /// `MONOCHROME1` ("minimum is white"); voxel values keep their true
+    /// (rescaled) sign, so readouts, statistics and window presets are unaffected.
+    /// Applied by `MIQVolume`'s slice renderer (previews, thumbnails, CLI renders).
+    public var invertsDisplay = false
+
+    /// Acquisition modality code (`CT`, `MR`, `PT`, …) when the file states one —
+    /// DICOM's Modality (0008,0060); `nil` for formats that don't record it.
+    /// Consulted by `WindowPreset.looksLikeCT`.
+    public var modality: String?
+
     public var width: Int { dimensions[safe: 0] ?? 1 }
     public var height: Int { dimensions[safe: 1] ?? 1 }
     public var depth: Int { dimensions[safe: 2] ?? 1 }

@@ -13,10 +13,15 @@ import Foundation
 ///
 /// Note on FSL: `dtifit` writes vectors in FSL's radiological voxel convention,
 /// which for a neurological-orientation (det > 0) image flips the x component.
-/// The DEC colour uses |component|, so that sign flip never changes the colour.
+/// `.voxel` undoes that flip before rotating. Taking |component| afterwards does
+/// *not* make the flip harmless: for an oblique affine the rotation mixes x into
+/// the other world axes, so an unflipped vector lands on the wrong colour (for an
+/// axis-aligned affine the two agree).
 public enum DiffusionColor {
     public enum VectorFrame: Sendable, Hashable {
-        /// Components along the image's storage axes (i, j, k) — rotated by the affine.
+        /// Components along the image's storage axes (i, j, k) in FSL's convention —
+        /// x negated when the affine's determinant is positive — un-flipped, then
+        /// rotated by the affine.
         case voxel
         /// Components already in world RAS axes.
         case world
@@ -78,14 +83,19 @@ public enum DiffusionColor {
         return nil
     }
 
-    /// 3×3 rotation taking voxel-frame vectors to world for `volume`.
+    /// 3×3 matrix taking stored vectors to world for `volume`. For `.voxel` this is
+    /// the affine's direction cosines with the first column negated when
+    /// det(affine) > 0, which undoes FSL's radiological x flip in the same step.
     static func rotation(for volume: MIQVolume, frame: VectorFrame) -> [[Float]] {
         switch frame {
         case .world:
             return [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
         case .voxel:
-            let cos = volume.voxelToWorld.directionCosines
-            return cos.map { $0.map { Float($0) } }
+            let affine = volume.voxelToWorld
+            let flipX: Double = affine.determinant > 0 ? -1 : 1
+            return affine.directionCosines.map { row in
+                [Float(row[0] * flipX), Float(row[1]), Float(row[2])]
+            }
         }
     }
 

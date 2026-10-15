@@ -482,7 +482,9 @@ struct DICOMTests {
         b.element(0x7FE0, 0x0010, vr: "OB", Data([0, 200]))
         let (image, _) = try decode(b.part10(transferSyntax: DICOMTestBuilder.explicitLE))
         let volume = MIQVolume(image: image)
-        #expect(volume.voxel(x: 0, y: 0, z: 0) > volume.voxel(x: 1, y: 0, z: 0))
+        // True values are kept; inversion is display-only.
+        #expect(volume.voxel(x: 0, y: 0, z: 0) == 0 && volume.voxel(x: 1, y: 0, z: 0) == 200)
+        #expect(image.header.invertsDisplay)
     }
 
     // MARK: Privacy
