@@ -74,8 +74,8 @@ enum CaptionEngineKind: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .onDevice:      return "Apple on-device model"
-        case .localEndpoint: return "Local server (OpenAI-compatible)"
+        case .onDevice:      return String(localized: "Apple on-device model")
+        case .localEndpoint: return String(localized: "Local server (OpenAI-compatible)")
         }
     }
 }
@@ -91,26 +91,26 @@ enum CaptionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unreadableFile:
-            return "The file's header could not be read."
+            return String(localized: "The file's header could not be read.")
         case .onDeviceUnsupported:
-            return "The on-device model requires macOS 26 or later with Apple Intelligence."
+            return String(localized: "The on-device model requires macOS 26 or later with Apple Intelligence.")
         case .onDeviceUnavailable(let reason):
-            return "The on-device model is not available (\(reason))."
+            return String(localized: "The on-device model is not available (\(reason)).")
         case .endpointRejected(let rejection):
             switch rejection {
             case .nonLoopbackHost:
-                return "Only local servers are allowed: use 127.0.0.1, localhost or [::1]."
+                return String(localized: "Only local servers are allowed: use 127.0.0.1, localhost or [::1].")
             case .unsupportedScheme:
-                return "The server URL must start with http:// or https://."
+                return String(localized: "The server URL must start with http:// or https://.")
             case .credentialsNotAllowed:
-                return "The server URL must not contain a user name or password."
+                return String(localized: "The server URL must not contain a user name or password.")
             case .malformed:
-                return "The server URL is not valid."
+                return String(localized: "The server URL is not valid.")
             }
         case .endpointHTTPStatus(let status):
-            return "The local server returned HTTP \(status)."
+            return String(localized: "The local server returned HTTP \(status).")
         case .endpointMalformedResponse:
-            return "The local server's reply was not an OpenAI-compatible chat completion."
+            return String(localized: "The local server's reply was not an OpenAI-compatible chat completion.")
         }
     }
 }
@@ -123,12 +123,32 @@ struct CaptionInput: Sendable {
     let metadata: [String: String]
     let slice: RGBABitmap?
 
-    /// Parses the header off the MainActor. The full volume is decoded only
-    /// when a slice is requested.
+    /// Reads the header facts off the MainActor.
+    ///
+    /// Without a slice this is header-only (`CaptionPrompt.headerOnlyMetadata`):
+    /// the voxel payload is never read or decompressed, so a multi-GB `.nii.gz`
+    /// is described in milliseconds. Only kinds without a bounded header (Zarr,
+    /// DICOM) — and the opt-in slice image — fall back to the full parse.
+    ///
+    /// The work runs detached but stays tied to the caller's cancellation
+    /// (`withCancellableDetachedWork`), so `CaptionModel.reset()` — a new file,
+    /// the panel closing — stops a parse that is still decoding.
     static func make(fileURL: URL, includeSlice: Bool) async throws -> CaptionInput {
-        try await Task.detached(priority: .userInitiated) {
+        try await withCancellableDetachedWork(priority: .userInitiated) {
+            if !includeSlice, let metadata = try? CaptionPrompt.headerOnlyMetadata(url: fileURL) {
+                return CaptionInput(metadata: metadata, slice: nil)
+            }
+            try Task.checkCancellation()
             let kind = MIQFileKind(url: fileURL)
-            guard let image = try? MIQParser().parse(url: fileURL) else { throw CaptionError.unreadableFile }
+            let image: MIQImage
+            do {
+                image = try MIQParser().parse(url: fileURL)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                throw CaptionError.unreadableFile
+            }
+            try Task.checkCancellation()
             let volume = MIQVolume(image: image)
             let header = image.header
             let metadata = CaptionPrompt.metadata(
@@ -147,7 +167,7 @@ struct CaptionInput: Sendable {
                 slice = volume.centerSlice(plane: .axial, maxDimension: 384, options: options).rgbaBitmap()
             }
             return CaptionInput(metadata: metadata, slice: slice)
-        }.value
+        }
     }
 
     var sliceCGImage: CGImage? {
@@ -463,13 +483,13 @@ struct CaptionSettingsSection: View {
 
     private var sliceFootnote: String {
         if engine == CaptionEngineKind.localEndpoint.rawValue {
-            return "Sends one downsampled axial slice to the local server. Requires a multimodal model (e.g. loaded with --mmproj)."
+            return String(localized: "Sends one downsampled axial slice to the local server. Requires a multimodal model (e.g. loaded with --mmproj).")
         }
         #if MIQ_FM_IMAGE_ATTACHMENTS
         if #available(macOS 27, *) {
-            return "Gives the on-device model one downsampled axial slice."
+            return String(localized: "Gives the on-device model one downsampled axial slice.")
         }
         #endif
-        return "The on-device model on this macOS version uses header facts only."
+        return String(localized: "The on-device model on this macOS version uses header facts only.")
     }
 }

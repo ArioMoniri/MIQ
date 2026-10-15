@@ -33,6 +33,102 @@
         }
       }
     },
+    "%@ is a detached header: its image data is in a separate file that wasn’t passed to the shortcut. Pass the header as a file from Finder, with its data file next to it, or use a single-file format such as .nii.gz, .nrrd or .mha." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist ein separater Header: Die Bilddaten liegen in einer eigenen Datei, die nicht an den Kurzbefehl übergeben wurde. Übergeben Sie den Header als Datei aus dem Finder, mit der Datendatei im selben Ordner, oder verwenden Sie ein Einzeldateiformat wie .nii.gz, .nrrd oder .mha."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ayrık bir başlık dosyasıdır: görüntü verisi, kestirmeye aktarılmayan ayrı bir dosyadadır. Başlığı, veri dosyası aynı klasörde olacak şekilde Finder’dan dosya olarak aktarın veya .nii.gz, .nrrd ya da .mha gibi tek dosyalı bir biçim kullanın."
+          }
+        }
+      }
+    },
+    "%@ is not a supported volume. MIQ reads .nii, .nii.gz, .mgh, .mgz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha and .mhd files." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist kein unterstütztes Volumen. MIQ liest Dateien vom Typ .nii, .nii.gz, .mgh, .mgz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha und .mhd."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ desteklenen bir hacim değil. MIQ .nii, .nii.gz, .mgh, .mgz, .mif, .mif.gz, .mih, .nrrd, .nhdr, .mha ve .mhd dosyalarını okur."
+          }
+        }
+      }
+    },
+    "%@ mL (%@ voxels)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ml (%@ Voxel)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ mL (%@ voksel)"
+          }
+        }
+      }
+    },
+    "%@ s total · conform %@ s · inference %@ s · post-process %@ s" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ s gesamt · Konformierung %@ s · Inferenz %@ s · Nachbearbeitung %@ s"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "toplam %@ sn · uyumlama %@ sn · çıkarım %@ sn · son işlem %@ sn"
+          }
+        }
+      }
+    },
+    "%@ voxels" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Voxel"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ voksel"
+          }
+        }
+      }
+    },
+    "%@ · %@ mm grid" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@-mm-Raster"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ mm ızgara"
+          }
+        }
+      }
+    },
     "%lld percent" : {
       "localizations" : {
         "de" : {
@@ -45,6 +141,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "yüzde %lld"
+          }
+        }
+      }
+    },
+    "%lld × %lld × %lld voxels · %@ mm" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld × %lld × %lld Voxel · %@ mm"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld × %lld × %lld voksel · %@ mm"
           }
         }
       }
@@ -65,6 +177,22 @@
         }
       }
     },
+    "3D rendering mode" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D-Darstellungsmodus"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3B görüntüleme modu"
+          }
+        }
+      }
+    },
     "4D window" : {
       "localizations" : {
         "de" : {
@@ -77,6 +205,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "4B pencere"
+          }
+        }
+      }
+    },
+    "A NIfTI, MGH/MGZ, MIF or NRRD file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine NIfTI-, MGH/MGZ-, MIF- oder NRRD-Datei."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir NIfTI, MGH/MGZ, MIF veya NRRD dosyası."
           }
         }
       }
@@ -97,6 +241,39 @@
         }
       }
     },
+    "Accurate" : {
+      "comment" : "Brain mask model choice",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Genau"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hassas"
+          }
+        }
+      }
+    },
+    "Acknowledgements" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danksagungen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teşekkürler"
+          }
+        }
+      }
+    },
     "Adds a few rows to the metadata panel: the likely sequence, head-mask coverage, a defacing check and data sanity checks. Computed on this Mac from the image alone; a hint, not an assessment." : {
       "localizations" : {
         "de" : {
@@ -109,6 +286,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Meta veri paneline birkaç satır ekler: olası sekans, kafa maskesi kapsamı, yüz silme (defacing) denetimi ve veri tutarlılığı denetimleri. Yalnızca görüntüden, bu Mac’te hesaplanır; bir ipucudur, değerlendirme değildir."
+          }
+        }
+      }
+    },
+    "Adjust brightness & contrast" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helligkeit & Kontrast anpassen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parlaklık ve kontrastı ayarla"
           }
         }
       }
@@ -141,6 +334,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Görünüm"
+          }
+        }
+      }
+    },
+    "Apple on-device model" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apples On-Device-Modell"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple’ın cihaz üstü modeli"
           }
         }
       }
@@ -209,6 +418,38 @@
         }
       }
     },
+    "Automatic window" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisches Fenster"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otomatik pencere"
+          }
+        }
+      }
+    },
+    "Axial" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Axial"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aksiyel"
+          }
+        }
+      }
+    },
     "Axis labels & crosshair colour" : {
       "localizations" : {
         "de" : {
@@ -273,6 +514,54 @@
         }
       }
     },
+    "Brain Mask" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hirnmaske"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beyin Maskesi"
+          }
+        }
+      }
+    },
+    "Brain Mask…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hirnmaske…"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beyin Maskesi…"
+          }
+        }
+      }
+    },
+    "Brain mask for data preparation/QC only. Not a medical device; not for diagnosis." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hirnmaske nur zur Datenaufbereitung und Qualitätskontrolle. Kein Medizinprodukt; nicht für die Diagnostik."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beyin maskesi yalnızca veri hazırlama ve kalite kontrol içindir. Tıbbi cihaz değildir; tanı amaçlı kullanılamaz."
+          }
+        }
+      }
+    },
     "By hiding the disclaimer in previews, you confirm that you understand and accept these terms." : {
       "localizations" : {
         "de" : {
@@ -289,6 +578,22 @@
         }
       }
     },
+    "CT window presets: Brain, Subdural, Stroke, Bone, Lung, Soft Tissue" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CT-Fenstervorgaben: Gehirn, Subdural, Schlaganfall, Knochen, Lunge, Weichgewebe"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BT pencere ön ayarları: Beyin, Subdural, İnme, Kemik, Akciğer, Yumuşak doku"
+          }
+        }
+      }
+    },
     "Cancel" : {
       "localizations" : {
         "de" : {
@@ -301,6 +606,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vazgeç"
+          }
+        }
+      }
+    },
+    "Cancelled." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abgebrochen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İptal edildi."
+          }
+        }
+      }
+    },
+    "Change volume (4D)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumen wechseln (4D)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacmi değiştir (4B)"
           }
         }
       }
@@ -337,6 +674,22 @@
         }
       }
     },
+    "Choose" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auswählen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seç"
+          }
+        }
+      }
+    },
     "Choose File…" : {
       "localizations" : {
         "de" : {
@@ -349,6 +702,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dosya Seç…"
+          }
+        }
+      }
+    },
+    "Choose Volume…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumen auswählen…"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim Seç…"
           }
         }
       }
@@ -369,6 +738,38 @@
         }
       }
     },
+    "Choose a Volume" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumen auswählen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim Seçin"
+          }
+        }
+      }
+    },
+    "Choose a structural brain scan to mask." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wählen Sie eine strukturelle Hirnaufnahme für die Maske."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maskelenecek yapısal bir beyin taraması seçin."
+          }
+        }
+      }
+    },
     "Choose a volume to describe. Only header facts are used." : {
       "localizations" : {
         "de" : {
@@ -381,6 +782,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Açıklanacak bir hacim seçin. Yalnızca başlık bilgileri kullanılır."
+          }
+        }
+      }
+    },
+    "Click or drag" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicken oder ziehen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tıklayın veya sürükleyin"
+          }
+        }
+      }
+    },
+    "Click, tap or one-finger drag" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicken, tippen oder mit einem Finger ziehen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tıklayın, dokunun veya tek parmakla sürükleyin"
+          }
+        }
+      }
+    },
+    "Colour (RGB) images aren’t supported. Choose a grey-scale structural scan." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbbilder (RGB) werden nicht unterstützt. Wählen Sie eine strukturelle Aufnahme in Graustufen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renkli (RGB) görüntüler desteklenmiyor. Gri tonlamalı yapısal bir tarama seçin."
           }
         }
       }
@@ -509,6 +958,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Komutu Kopyala"
+          }
+        }
+      }
+    },
+    "Copy the current view as an image" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktuelle Ansicht als Bild kopieren"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geçerli görünümü görüntü olarak kopyala"
+          }
+        }
+      }
+    },
+    "Coronal" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koronal"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koronal"
+          }
+        }
+      }
+    },
+    "Couldn’t save the mask: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Maske konnte nicht gesichert werden: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maske kaydedilemedi: %@"
           }
         }
       }
@@ -689,6 +1186,22 @@
         }
       }
     },
+    "Direction-encoded colour on/off (diffusion vectors)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Richtungskodierte Farbe ein/aus (Diffusionsvektoren)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yön kodlu renk açık/kapalı (difüzyon vektörleri)"
+          }
+        }
+      }
+    },
     "Disclaimer" : {
       "localizations" : {
         "de" : {
@@ -753,6 +1266,38 @@
         }
       }
     },
+    "Double-click" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doppelklick"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çift tıklama"
+          }
+        }
+      }
+    },
+    "Double-click again, or press Esc, to restore the four panels. On a zoomed panel the first double-click resets the zoom." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneuter Doppelklick oder Esc stellt die vier Felder wieder her. In einem gezoomten Feld setzt der erste Doppelklick den Zoom zurück."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dört paneli geri getirmek için yeniden çift tıklayın veya Esc’ye basın. Yakınlaştırılmış bir panelde ilk çift tıklama yakınlaştırmayı sıfırlar."
+          }
+        }
+      }
+    },
     "Drag either end, or focus it and use the arrow keys." : {
       "localizations" : {
         "de" : {
@@ -781,6 +1326,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sıralamak için satırları sürükleyin ya da okları kullanın."
+          }
+        }
+      }
+    },
+    "Drag; pinch to zoom" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziehen; zum Zoomen zusammen-/aufziehen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürükleyin; yakınlaştırmak için kıstırın"
+          }
+        }
+      }
+    },
+    "Drag; scroll to zoom" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziehen; zum Zoomen scrollen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürükleyin; yakınlaştırmak için kaydırın"
           }
         }
       }
@@ -861,6 +1438,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Örnek meta veri paneli"
+          }
+        }
+      }
+    },
+    "Fast" : {
+      "comment" : "Brain mask model choice",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schnell"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hızlı"
           }
         }
       }
@@ -993,6 +1587,38 @@
         }
       }
     },
+    "Fourth panel: Metadata → MIP → MinIP → 3D" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viertes Feld: Metadaten → MIP → MinIP → 3D"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dördüncü panel: Meta veriler → MIP → MinIP → 3B"
+          }
+        }
+      }
+    },
+    "Full resolution (1 mm grid; about 8× slower and needs more memory)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volle Auflösung (1-mm-Raster; etwa 8× langsamer und mit höherem Speicherbedarf)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tam çözünürlük (1 mm ızgara; yaklaşık 8 kat daha yavaş ve daha fazla bellek gerektirir)"
+          }
+        }
+      }
+    },
     "General" : {
       "localizations" : {
         "de" : {
@@ -1021,6 +1647,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cihazda oluşturuldu. Tıbbi bir yorum değildir."
+          }
+        }
+      }
+    },
+    "Get Volume Info" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumeninfo abrufen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim Bilgisini Al"
+          }
+        }
+      }
+    },
+    "Get info for ${file} as ${output}" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Infos zu ${file} als ${output} abrufen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${file} için bilgileri ${output} olarak al"
+          }
+        }
+      }
+    },
+    "Gives the on-device model one downsampled axial slice." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Übergibt dem On-Device-Modell eine verkleinerte axiale Schicht."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cihaz üstü modele küçültülmüş bir aksiyel kesit verir."
           }
         }
       }
@@ -1137,6 +1811,22 @@
         }
       }
     },
+    "In the 3D fourth panel (press P to get there). R switches between MIP and DVR." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im vierten Feld in der 3D-Ansicht (mit P dorthin wechseln). R wechselt zwischen MIP und DVR."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dördüncü paneldeki 3B görünümde (oraya geçmek için P’ye basın). R, MIP ile DVR arasında geçiş yapar."
+          }
+        }
+      }
+    },
     "Include centre slice image" : {
       "localizations" : {
         "de" : {
@@ -1217,6 +1907,22 @@
         }
       }
     },
+    "Keyboard (click a slice first)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tastatur (zuerst in eine Schicht klicken)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klavye (önce bir kesite tıklayın)"
+          }
+        }
+      }
+    },
     "Label files render in colour. Auto uses FreeSurfer colours when it recognises a FreeSurfer parcellation, distinct colours otherwise. Off renders them in greyscale." : {
       "localizations" : {
         "de" : {
@@ -1261,6 +1967,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aynı klasördeki, görüntüye uyan maskeleri, segmentasyonları ve istatistik haritalarını listeler; böylece birini üst üste bindirebilirsiniz. Siz seçene kadar hiçbir şey bindirilmez. Yalnızca macOS önizlemenin klasörü okumasına izin verdiğinde."
+          }
+        }
+      }
+    },
+    "Local server (OpenAI-compatible)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lokaler Server (OpenAI-kompatibel)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel sunucu (OpenAI uyumlu)"
           }
         }
       }
@@ -1313,6 +2035,70 @@
         }
       }
     },
+    "MIQ can’t open %lld of these files." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ kann %lld dieser Dateien nicht öffnen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ bu dosyalardan %lld tanesini açamıyor."
+          }
+        }
+      }
+    },
+    "MIQ can’t open “%@”." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ kann „%@“ nicht öffnen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ “%@” dosyasını açamıyor."
+          }
+        }
+      }
+    },
+    "MIQ can’t read this file. Choose a NIfTI, MGH/MGZ, MRtrix MIF or NRRD volume." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ kann diese Datei nicht lesen. Wählen Sie ein NIfTI-, MGH/MGZ-, MRtrix-MIF- oder NRRD-Volumen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ bu dosyayı okuyamıyor. Bir NIfTI, MGH/MGZ, MRtrix MIF veya NRRD hacmi seçin."
+          }
+        }
+      }
+    },
+    "MIQ could not render an image from this volume." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ konnte aus diesem Volumen kein Bild rendern."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ bu hacimden bir görüntü oluşturamadı."
+          }
+        }
+      }
+    },
     "MIQ is **not a medical device** and is **not intended for diagnostic use**. It is a developer and researcher convenience tool only; do not use it for clinical decisions.\n\nMIQ is provided \"as is\" under the MIT License, without warranty. The authors and contributors accept no liability for any damages arising from its use or inability to use it, including data loss, incorrect image rendering, or decisions based on its previews." : {
       "localizations" : {
         "de" : {
@@ -1325,6 +2111,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MIQ **tıbbi bir cihaz değildir** ve **tanı amaçlı kullanım için tasarlanmamıştır**. Yalnızca geliştiriciler ve araştırmacılar için bir kolaylık aracıdır; klinik kararlar için kullanmayın.\n\nMIQ, MIT Lisansı altında \"olduğu gibi\" ve hiçbir garanti olmaksızın sunulur. Yazarlar ve katkıda bulunanlar; veri kaybı, hatalı görüntü oluşturma veya önizlemelere dayanarak verilen kararlar dahil, kullanımından ya da kullanılamamasından doğan hiçbir zarardan sorumlu değildir. (Bağlayıcı olan İngilizce asıl metindir.)"
+          }
+        }
+      }
+    },
+    "MIQ opens NIfTI, MGH/MGZ, MRtrix MIF and NRRD volumes." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ öffnet NIfTI-, MGH/MGZ-, MRtrix-MIF- und NRRD-Volumina."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIQ; NIfTI, MGH/MGZ, MRtrix MIF ve NRRD hacimlerini açar."
           }
         }
       }
@@ -1361,6 +2163,22 @@
         }
       }
     },
+    "Mask volume" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maskenvolumen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maske hacmi"
+          }
+        }
+      }
+    },
     "Matches Preview" : {
       "localizations" : {
         "de" : {
@@ -1373,6 +2191,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Önizlemeyle aynı"
+          }
+        }
+      }
+    },
+    "Maximize a panel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feld maximieren"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paneli büyüt"
           }
         }
       }
@@ -1409,6 +2243,22 @@
         }
       }
     },
+    "Medical Images" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medizinische Bilder"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tıbbi Görüntüler"
+          }
+        }
+      }
+    },
     "Metadata" : {
       "localizations" : {
         "de" : {
@@ -1421,6 +2271,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Meta veriler"
+          }
+        }
+      }
+    },
+    "Metadata ⇄ the last MIP / MinIP / 3D view" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metadaten ⇄ letzte MIP-/MinIP-/3D-Ansicht"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meta veriler ⇄ son MIP / MinIP / 3B görünümü"
+          }
+        }
+      }
+    },
+    "MindGrab skull stripping, any modality. About 10–20 s." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MindGrab-Skull-Stripping (Entfernung von Schädel und extrazerebralem Gewebe), jede Modalität. Etwa 10–20 s."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MindGrab ile kafatası çıkarma (skull stripping), her modalite. Yaklaşık 10–20 sn."
           }
         }
       }
@@ -1473,6 +2355,22 @@
         }
       }
     },
+    "Mouse" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maus"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fare"
+          }
+        }
+      }
+    },
     "Move %@ down" : {
       "localizations" : {
         "de" : {
@@ -1521,6 +2419,22 @@
         }
       }
     },
+    "Move the crosshair" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fadenkreuz bewegen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artı imlecini taşı"
+          }
+        }
+      }
+    },
     "Move up" : {
       "localizations" : {
         "de" : {
@@ -1549,6 +2463,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nörolojik"
+          }
+        }
+      }
+    },
+    "Next colormap (grayscale, hot, viridis, inferno)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nächste Farbtabelle (Graustufen, Hot, Viridis, Inferno)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sonraki renk haritası (gri tonlama, hot, viridis, inferno)"
+          }
+        }
+      }
+    },
+    "No volume chosen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Volumen ausgewählt."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim seçilmedi."
           }
         }
       }
@@ -1633,6 +2579,22 @@
         }
       }
     },
+    "Only local servers are allowed: use 127.0.0.1, localhost or [::1]." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur lokale Server sind erlaubt: Verwenden Sie 127.0.0.1, localhost oder [::1]."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yalnızca yerel sunuculara izin verilir: 127.0.0.1, localhost veya [::1] kullanın."
+          }
+        }
+      }
+    },
     "Open MIQ on GitHub" : {
       "localizations" : {
         "de" : {
@@ -1649,6 +2611,22 @@
         }
       }
     },
+    "Or ⌃-click. Window presets, colormaps, overlays, the fourth panel (MIP, MinIP, 3D) and Copy Image." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oder ⌃-Klick. Fenstervorgaben, Farbtabellen, Overlays, das vierte Feld (MIP, MinIP, 3D) und „Bild kopieren“."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veya ⌃ ile tıklama. Pencere ön ayarları, renk haritaları, katmanlar, dördüncü panel (MIP, MinIP, 3B) ve Görüntüyü Kopyala."
+          }
+        }
+      }
+    },
     "Orientation" : {
       "localizations" : {
         "de" : {
@@ -1661,6 +2639,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yönelim"
+          }
+        }
+      }
+    },
+    "Output" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgabe"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çıktı"
+          }
+        }
+      }
+    },
+    "Output Format" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgabeformat"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çıktı Biçimi"
+          }
+        }
+      }
+    },
+    "Over any slice or the metadata panel. Or drag the Volumes slider in the metadata panel, or click anywhere on it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Über einer beliebigen Schicht oder dem Metadatenfeld. Oder ziehen Sie den Volumina-Schieberegler im Metadatenfeld bzw. klicken Sie auf eine beliebige Stelle darauf."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herhangi bir kesitin veya meta veri panelinin üzerinde. Ya da meta veri panelindeki Hacimler kaydırıcısını sürükleyin veya üzerinde herhangi bir yere tıklayın."
+          }
+        }
+      }
+    },
+    "Overlay labels: outline ⇄ filled" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overlay-Labels: Kontur ⇄ gefüllt"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katman etiketleri: kontur ⇄ dolgulu"
+          }
+        }
+      }
+    },
+    "Overlay opacity (also ⌥ + scroll on 3D images)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overlay-Deckkraft (bei 3D-Bildern auch ⌥ + Scrollen)"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katman opaklığı (3B görüntülerde ⌥ + kaydırma ile de)"
           }
         }
       }
@@ -1709,6 +2767,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Açıklanacak bir hacim seçin. MIQ yalnızca başlık bilgilerini okur."
+          }
+        }
+      }
+    },
+    "Pinch" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenziehen/Aufziehen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kıstırma"
+          }
+        }
+      }
+    },
+    "Pinch (or ⌘ + scroll) zooms around the pointer. Zoomed in, two-finger scroll or ⇧-drag pans. Press 0 to reset." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammen-/Aufziehen (oder ⌘ + Scrollen) zoomt um den Zeiger. Vergrößert verschiebt Scrollen mit zwei Fingern oder ⇧-Ziehen die Ansicht. Mit 0 zurücksetzen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kıstırma (veya ⌘ + kaydırma) imlecin çevresinde yakınlaştırır. Yakınlaştırılmışken iki parmakla kaydırma veya ⇧ ile sürükleme görünümü kaydırır. Sıfırlamak için 0’a basın."
+          }
+        }
+      }
+    },
+    "Plane" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ebene"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Düzlem"
+          }
+        }
+      }
+    },
+    "Presets, colormaps & more" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorgaben, Farbtabellen & mehr"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ön ayarlar, renk haritaları ve dahası"
           }
         }
       }
@@ -1809,6 +2931,70 @@
         }
       }
     },
+    "Reads a medical volume's header (NIfTI, MGH/MGZ, MRtrix MIF or NRRD) and returns its format, dimensions, voxel spacing, datatype, number of volumes and orientation. The image data itself is not read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liest den Header eines medizinischen Volumens (NIfTI, MGH/MGZ, MRtrix MIF oder NRRD) und gibt Format, Dimensionen, Voxelgröße, Datentyp, Anzahl der Volumina und Orientierung zurück. Die Bilddaten selbst werden nicht gelesen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tıbbi bir hacmin başlığını (NIfTI, MGH/MGZ, MRtrix MIF veya NRRD) okur ve biçimini, boyutlarını, voksel aralığını, veri türünü, hacim sayısını ve yönelimini döndürür. Görüntü verisinin kendisi okunmaz."
+          }
+        }
+      }
+    },
+    "Render Center Slice" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zentrale Schicht rendern"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orta Kesiti Oluştur"
+          }
+        }
+      }
+    },
+    "Render the ${plane} centre slice of ${file}" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zentrale ${plane} Schicht von ${file} rendern"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${file} için ${plane} orta kesiti oluştur"
+          }
+        }
+      }
+    },
+    "Renders the centre slice of a medical volume (NIfTI, MGH/MGZ, MRtrix MIF or NRRD) in the chosen plane and returns it as a PNG image." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rendert die zentrale Schicht eines medizinischen Volumens (NIfTI, MGH/MGZ, MRtrix MIF oder NRRD) in der gewählten Ebene und gibt sie als PNG-Bild zurück."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tıbbi bir hacmin (NIfTI, MGH/MGZ, MRtrix MIF veya NRRD) orta kesitini seçilen düzlemde oluşturur ve PNG görüntüsü olarak döndürür."
+          }
+        }
+      }
+    },
     "Repetition time (TR)" : {
       "localizations" : {
         "de" : {
@@ -1905,6 +3091,22 @@
         }
       }
     },
+    "Reset zoom and the 3D view" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom und 3D-Ansicht zurücksetzen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yakınlaştırmayı ve 3B görünümü sıfırla"
+          }
+        }
+      }
+    },
     "Restore Feature Defaults" : {
       "localizations" : {
         "de" : {
@@ -1969,6 +3171,150 @@
         }
       }
     },
+    "Restore the four panels" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die vier Felder wiederherstellen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dört paneli geri getir"
+          }
+        }
+      }
+    },
+    "Result" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ergebnis"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sonuç"
+          }
+        }
+      }
+    },
+    "Rotate the 3D view" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D-Ansicht drehen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3B görünümü döndür"
+          }
+        }
+      }
+    },
+    "Run" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausführen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çalıştır"
+          }
+        }
+      }
+    },
+    "Sagittal" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sagittal"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sagital"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichern"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaydet"
+          }
+        }
+      }
+    },
+    "Save Mask as NIfTI" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maske als NIfTI sichern"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maskeyi NIfTI Olarak Kaydet"
+          }
+        }
+      }
+    },
+    "Save Mask as NIfTI…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maske als NIfTI sichern…"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maskeyi NIfTI Olarak Kaydet…"
+          }
+        }
+      }
+    },
+    "Saved “%@”." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ gesichert."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” kaydedildi."
+          }
+        }
+      }
+    },
     "Scaling" : {
       "localizations" : {
         "de" : {
@@ -1981,6 +3327,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ölçekleme"
+          }
+        }
+      }
+    },
+    "Scroll through slices" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Durch Schichten blättern"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kesitler arasında gezin"
+          }
+        }
+      }
+    },
+    "Scroll wheel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrollrad"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaydırma tekerleği"
+          }
+        }
+      }
+    },
+    "Secondary-click" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sekundärklick"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İkincil tıklama"
+          }
+        }
+      }
+    },
+    "Secondary-click + drag" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sekundärklick + ziehen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İkincil tıklama + sürükleme"
           }
         }
       }
@@ -2033,6 +3443,22 @@
         }
       }
     },
+    "Sends one downsampled axial slice to the local server. Requires a multimodal model (e.g. loaded with --mmproj)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sendet eine verkleinerte axiale Schicht an den lokalen Server. Erfordert ein multimodales Modell (z. B. mit --mmproj geladen)."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel sunucuya küçültülmüş bir aksiyel kesit gönderir. Çok kipli bir model gerektirir (ör. --mmproj ile yüklenmiş)."
+          }
+        }
+      }
+    },
     "Server URL" : {
       "localizations" : {
         "de" : {
@@ -2081,6 +3507,22 @@
         }
       }
     },
+    "Show gestures for" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesten anzeigen für"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hareketleri göster:"
+          }
+        }
+      }
+    },
     "Show slice thumbnails in Finder" : {
       "localizations" : {
         "de" : {
@@ -2125,6 +3567,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dosya başlığındaki yoğunluk ölçeklemesini x eğim +/- kesişim olarak, kesişim sıfırsa yalnızca x eğim olarak gösterir. Ölçekleme birim ise (x 1 + 0, yani voksel değerleri kaydedildiği gibi kullanılır) ya da yoksa gizlenir."
+          }
+        }
+      }
+    },
+    "Slice Plane" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schichtebene"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kesit Düzlemi"
           }
         }
       }
@@ -2241,6 +3699,38 @@
         }
       }
     },
+    "Text" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metin"
+          }
+        }
+      }
+    },
+    "The %@ model is missing from the app bundle. Reinstall MIQ." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Modell „%@“ fehlt im App-Paket. Installieren Sie MIQ neu."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ modeli uygulama paketinde bulunamadı. MIQ’yu yeniden yükleyin."
+          }
+        }
+      }
+    },
     "The b-value shells of a diffusion series, from an MRtrix gradient table or a .bval file next to the image." : {
       "localizations" : {
         "de" : {
@@ -2257,6 +3747,38 @@
         }
       }
     },
+    "The brain mask needs a 3-D volume with at least 8 voxels along each axis." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Hirnmaske benötigt ein 3D-Volumen mit mindestens 8 Voxeln entlang jeder Achse."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beyin maskesi, her eksende en az 8 voksel içeren bir 3B hacim gerektirir."
+          }
+        }
+      }
+    },
+    "The brain masks are computed on this Mac with MeshNet models from brainchop (github.com/neuroneural/brainchop): MindGrab (“Accurate”) and model5_gw_ae (“Fast”). MindGrab: Fani et al., “MindGrab for BrainChop: Fast and Accurate Skull Stripping for Command Line and Browser”, arXiv:2506.11860 (2025)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Hirnmasken werden auf diesem Mac mit MeshNet-Modellen von brainchop (github.com/neuroneural/brainchop) berechnet: MindGrab („Genau“) und model5_gw_ae („Schnell“). MindGrab: Fani et al., “MindGrab for BrainChop: Fast and Accurate Skull Stripping for Command Line and Browser”, arXiv:2506.11860 (2025)."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beyin maskeleri bu Mac’te brainchop’un (github.com/neuroneural/brainchop) MeshNet modelleriyle hesaplanır: MindGrab (“Hassas”) ve model5_gw_ae (“Hızlı”). MindGrab: Fani et al., “MindGrab for BrainChop: Fast and Accurate Skull Stripping for Command Line and Browser”, arXiv:2506.11860 (2025)."
+          }
+        }
+      }
+    },
     "The crosshair's voxel indices and world coordinates in millimetres, updating live. Appears only while interacting." : {
       "localizations" : {
         "de" : {
@@ -2269,6 +3791,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Artı imlecinin voksel indisleri ve milimetre cinsinden dünya koordinatları, canlı güncellenir. Yalnızca etkileşim sırasında görünür."
+          }
+        }
+      }
+    },
+    "The file's header could not be read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Header der Datei konnte nicht gelesen werden."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosyanın başlığı okunamadı."
           }
         }
       }
@@ -2321,6 +3859,38 @@
         }
       }
     },
+    "The local server returned HTTP %lld." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der lokale Server hat HTTP %lld zurückgegeben."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel sunucu HTTP %lld döndürdü."
+          }
+        }
+      }
+    },
+    "The local server's reply was not an OpenAI-compatible chat completion." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Antwort des lokalen Servers war keine OpenAI-kompatible Chat-Completion."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel sunucunun yanıtı OpenAI uyumlu bir sohbet tamamlama yanıtı değildi."
+          }
+        }
+      }
+    },
     "The model's answer was withheld; showing a summary of the file header instead." : {
       "localizations" : {
         "de" : {
@@ -2333,6 +3903,102 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Modelin yanıtı gösterilmedi; bunun yerine dosya başlığının özeti gösteriliyor."
+          }
+        }
+      }
+    },
+    "The on-device model is not available (%@)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das On-Device-Modell ist nicht verfügbar (%@)."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cihaz üstü model kullanılamıyor (%@)."
+          }
+        }
+      }
+    },
+    "The on-device model on this macOS version uses header facts only." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das On-Device-Modell verwendet unter dieser macOS-Version nur Angaben aus dem Header."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu macOS sürümünde cihaz üstü model yalnızca başlık bilgilerini kullanır."
+          }
+        }
+      }
+    },
+    "The on-device model requires macOS 26 or later with Apple Intelligence." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das On-Device-Modell erfordert macOS 26 oder neuer mit Apple Intelligence."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cihaz üstü model, Apple Intelligence ile birlikte macOS 26 veya sonrasını gerektirir."
+          }
+        }
+      }
+    },
+    "The server URL is not valid." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Server-URL ist ungültig."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sunucu URL’si geçerli değil."
+          }
+        }
+      }
+    },
+    "The server URL must not contain a user name or password." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Server-URL darf keinen Benutzernamen und kein Passwort enthalten."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sunucu URL’si kullanıcı adı veya parola içermemelidir."
+          }
+        }
+      }
+    },
+    "The server URL must start with http:// or https://." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Server-URL muss mit http:// oder https:// beginnen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sunucu URL’si http:// veya https:// ile başlamalıdır."
           }
         }
       }
@@ -2385,6 +4051,54 @@
         }
       }
     },
+    "Timings" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laufzeiten"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Süreler"
+          }
+        }
+      }
+    },
+    "Tools" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkzeuge"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Araçlar"
+          }
+        }
+      }
+    },
+    "Trackpad" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trackpad"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İzleme Dörtgeni"
+          }
+        }
+      }
+    },
     "Turn on “Describe file” in Settings to write a one-line technical description of this file." : {
       "localizations" : {
         "de" : {
@@ -2397,6 +4111,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bu dosyanın tek satırlık teknik açıklamasını yazmak için Ayarlar’da “Dosyayı açıkla” seçeneğini açın."
+          }
+        }
+      }
+    },
+    "Two-finger scroll" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit zwei Fingern scrollen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İki parmakla kaydırma"
+          }
+        }
+      }
+    },
+    "Up/down changes brightness (level), left/right changes contrast (window)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf/ab ändert die Helligkeit (Level), links/rechts den Kontrast (Fensterbreite)."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yukarı/aşağı parlaklığı (seviye), sola/sağa kontrastı (pencere genişliği) değiştirir."
           }
         }
       }
@@ -2461,6 +4207,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sürüm %@, MIT Lisansı"
+          }
+        }
+      }
+    },
+    "Volume" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumen"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim"
+          }
+        }
+      }
+    },
+    "Volume Info" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volumeninfo"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacim Bilgisi"
           }
         }
       }
@@ -2577,6 +4355,38 @@
         }
       }
     },
+    "Zoom & pan" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoomen & verschieben"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yakınlaştırma ve kaydırma"
+          }
+        }
+      }
+    },
+    "Zooms around the pointer. Zoomed in, ⇧-drag, Space-drag or middle-drag pans; the wheel still changes slices. Press 0 to reset." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoomt um den Zeiger. Vergrößert verschieben ⇧-Ziehen, Leertaste-Ziehen oder Ziehen mit der mittleren Taste die Ansicht; das Rad wechselt weiterhin die Schicht. Mit 0 zurücksetzen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İmlecin çevresinde yakınlaştırır. Yakınlaştırılmışken ⇧ ile, Boşluk ile veya orta tuşla sürükleme görünümü kaydırır; tekerlek yine kesit değiştirir. Sıfırlamak için 0’a basın."
+          }
+        }
+      }
+    },
     "bottom %@" : {
       "localizations" : {
         "de" : {
@@ -2589,6 +4399,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "alt %@"
+          }
+        }
+      }
+    },
+    "brainchop model5 (grey + white matter, no CSF). About 2 s." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "brainchop model5 (graue + weiße Substanz, ohne Liquor). Etwa 2 s."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "brainchop model5 (gri + beyaz cevher, BOS hariç). Yaklaşık 2 sn."
+          }
+        }
+      }
+    },
+    "first of %lld volumes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "erstes von %lld Volumina"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hacmin ilki"
           }
         }
       }

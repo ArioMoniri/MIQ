@@ -239,8 +239,8 @@ private enum InputDevice: String, CaseIterable, Hashable {
 
     var label: String {
         switch self {
-        case .trackpad: return "Trackpad"
-        case .mouse:    return "Mouse"
+        case .trackpad: return String(localized: "Trackpad")
+        case .mouse:    return String(localized: "Mouse")
         }
     }
 }
@@ -248,11 +248,11 @@ private enum InputDevice: String, CaseIterable, Hashable {
 /// One interaction on the Controls pane, as a card: what it does and how to
 /// trigger it with the selected input device.
 private struct GestureCard: View {
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
-    let gesture: String
+    let gesture: LocalizedStringKey
     var modifierKey: String? = nil
-    var note: String? = nil
+    var note: LocalizedStringKey? = nil
 
     var body: some View {
         // A system GroupBox, so the card background is the OS's own and
@@ -1370,7 +1370,7 @@ struct ContentView: View {
     private var controlsPane: some View {
         let trackpad = inputDevice == .trackpad
         // Key, action. Keys act once a slice has been clicked (keyboard focus).
-        let shortcuts: [(key: String, action: String)] = [
+        let shortcuts: [(key: String, action: LocalizedStringKey)] = [
             ("1 – 6", "CT window presets: Brain, Subdural, Stroke, Bone, Lung, Soft Tissue"),
             ("A", "Automatic window"),
             ("C", "Next colormap (grayscale, hot, viridis, inferno)"),

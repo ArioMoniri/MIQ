@@ -59,8 +59,10 @@ struct RenderCenterSliceIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ReturnsValue<IntentFile> {
         let plane = self.plane.slicePlane
-        let png = try MIQIntentSupport.withLocalFile(file) { url -> Data in
+        let maxDimension = Self.maxDimension
+        let png = try await MIQIntentSupport.withLocalFile(file) { url -> Data in
             let image = try MIQParser().parse(url: url)
+            try Task.checkCancellation()
             let volume = MIQVolume(image: image)
             let options = RenderingOptions(
                 lowerPercentile: MIQConfig.windowLowerPercentile,
@@ -74,7 +76,7 @@ struct RenderCenterSliceIntent: AppIntent {
             let slice = volume.centerSlice(
                 plane: plane,
                 volumeIndex: 0,
-                maxDimension: Self.maxDimension,
+                maxDimension: maxDimension,
                 options: options,
                 windowBounds: nil,
                 lut: lut
