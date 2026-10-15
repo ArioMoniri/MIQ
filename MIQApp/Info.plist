@@ -6,6 +6,46 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>MIQ</string>
+	<!-- Lists MIQ under Finder's "Open With" without ever taking over a format's
+	     default app (Alternate rank). The app shows the file in a Quick Look
+	     window, so the MIQ preview extension does the rendering. The gzip entry is
+	     needed for .nii.gz/.mgh.gz/.mif.gz (see UTImportedTypeDeclarations below);
+	     the app declines a .gz that MIQFileKind doesn't recognise. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Medical Image Volume</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.nifti.nii</string>
+				<string>gov.nih.nifti-1</string>
+				<string>org.nifti.nii-gz</string>
+				<string>org.freesurfer.mgh</string>
+				<string>org.freesurfer.mgz</string>
+				<string>org.mrtrix.mif</string>
+				<string>org.mrtrix.mif-gz</string>
+				<string>org.teem.nrrd</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Compressed Medical Image Volume</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.gzip</string>
+				<string>org.gnu.gnu-zip-archive</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -36,13 +76,20 @@
 	<string>https://miq.marco-duering.net/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>zMEpcrCUdLsdNOGJkcIeuJtolubF25q1savnb+nk1To=</string>
+	<!-- Imported (not exported): MIQ does not own these formats, it only reads them.
+	     Launch Services matches a file to a type by its LAST path extension only, so
+	     a two-part tag such as "nii.gz" never matches: Finder resolves x.nii.gz to the
+	     system gzip type (org.gnu.gnu-zip-archive). Compressed volumes therefore reach
+	     MIQ through the extensions' gzip claims plus the MIQFileKind filename check,
+	     not through the declarations below. Only types whose bytes are gzip conform
+	     to public.gzip; MIME tags stay format-specific (application/gzip would map
+	     every gzip download to a MIQ type). -->
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
-				<string>public.gzip</string>
 			</array>
 			<key>UTTypeDescription</key>
 			<string>NIfTI-1 Image</string>
@@ -60,6 +107,24 @@
 				</array>
 			</dict>
 		</dict>
+		<!-- The identifier other NIfTI apps (e.g. NIfTIViewQL) export for .nii; when one
+		     is installed, .nii may resolve here instead of to org.nifti.nii, which is
+		     why both extensions claim it. Declared without tags so MIQ never competes
+		     with org.nifti.nii for "nii"; it only guarantees the type exists and
+		     conforms to public.data when no exporting app is installed. -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>NIfTI-1 Image</string>
+			<key>UTTypeIdentifier</key>
+			<string>gov.nih.nifti-1</string>
+		</dict>
+		<!-- No tags (only "nii.gz" would fit, which Launch Services never matches). Kept
+		     because the extensions claim it: it documents intent and lets MIQ preview
+		     data that an app or pasteboard explicitly types as org.nifti.nii-gz. -->
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
@@ -70,17 +135,6 @@
 			<string>Gzipped NIfTI-1 Image</string>
 			<key>UTTypeIdentifier</key>
 			<string>org.nifti.nii-gz</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>nii.gz</string>
-				</array>
-				<key>public.mime-type</key>
-				<array>
-					<string>application/gzip</string>
-				</array>
-			</dict>
 		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key>
@@ -103,6 +157,8 @@
 				</array>
 			</dict>
 		</dict>
+		<!-- .mgh.gz is the same format but, like .nii.gz, resolves to the system gzip
+		     type; MIQFileKind maps it to .mgz. -->
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
@@ -118,11 +174,6 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>mgz</string>
-					<string>mgh.gz</string>
-				</array>
-				<key>public.mime-type</key>
-				<array>
-					<string>application/gzip</string>
 				</array>
 			</dict>
 		</dict>
@@ -147,6 +198,7 @@
 				</array>
 			</dict>
 		</dict>
+		<!-- No tags, for the same reason as org.nifti.nii-gz. -->
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
@@ -157,18 +209,9 @@
 			<string>Compressed MRtrix Image Format</string>
 			<key>UTTypeIdentifier</key>
 			<string>org.mrtrix.mif-gz</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>mif.gz</string>
-				</array>
-				<key>public.mime-type</key>
-				<array>
-					<string>application/gzip</string>
-				</array>
-			</dict>
 		</dict>
+		<!-- Not gzip-conformant: a .nrrd payload may be raw or gzip, and the header,
+		     not the extension, says which. -->
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
