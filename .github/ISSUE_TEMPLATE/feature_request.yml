@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        MIQ is deliberately a lightweight, fast Quick Look previewer — not a full viewer.
+        A few things are **out of scope by design**: DICOM support, AI/ML features, network
+        services or telemetry, and anything intended for diagnostic use.
+        Please don't attach patient-identifiable data.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The workflow or problem this would help with.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How you imagine it working (preview, thumbnails, settings, command-line tool…).
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+    validations:
+      required: false
+
+  - type: input
+    id: formats
+    attributes:
+      label: Relevant file formats
+      placeholder: e.g. NIfTI-2, MRtrix .mif with 5D data
+    validations:
+      required: false

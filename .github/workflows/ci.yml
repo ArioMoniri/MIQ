@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # MIQCore + miq CLI unit tests on macOS. PerformanceBaselineTests skip
+  # themselves unless MIQ_PERF=1, so a plain `swift test` runs everything else.
+  core-tests:
+    name: Core tests (macOS)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: swift test
+        run: swift test
+
+  # Opt-in performance baselines (release build). Informational only: shared
+  # runners are too noisy for timings to gate a merge.
+  performance:
+    name: Performance baselines (non-blocking)
+    runs-on: macos-26
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift test (MIQ_PERF=1)
+        env:
+          MIQ_PERF: "1"
+        run: swift test -c release -Xswiftc -enable-testing --filter PerformanceBaseline
+
+  # Full app + both extensions, unsigned. The targets' base configuration is the
+  # gitignored LocalSigning.xcconfig, so CI creates it from the template (the
+  # placeholder bundle IDs are fine for an unsigned build).
+  xcode-build:
+    name: Xcode build (unsigned)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create LocalSigning.xcconfig from template
+        run: cp LocalSigning.xcconfig.template LocalSigning.xcconfig
+      - name: xcodebuild
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project MIQ.xcodeproj \
+            -scheme MIQ \
+            -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+
+  # Same core suite on Linux via the shim harness, so the code stays portable
+  # and contributors without a Mac can reproduce CI locally.
+  linux-core:
+    name: Core tests (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: swift:6.2
+    steps:
+      - name: Install harness dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3 zlib1g-dev
+      - uses: actions/checkout@v4
+      - name: scripts/ci/linux_core_tests.sh
+        run: scripts/ci/linux_core_tests.sh
+
+  plist-consistency:
+    name: Info.plist consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: scripts/check_plists.py
+        run: python3 scripts/check_plists.py
