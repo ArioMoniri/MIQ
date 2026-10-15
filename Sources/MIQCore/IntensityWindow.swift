@@ -81,6 +81,41 @@ enum IntensityWindow {
         return Bounds(low: windowLow, high: windowHigh)
     }
 
+    /// Fewest finite in-mask values `bounds(for:…including:)` accepts before it
+    /// ignores the mask: a mask that barely touches the pooled slices would
+    /// otherwise derive the window from a handful of edge voxels.
+    static let minimumMaskedValues = 64
+
+    /// `bounds(for:lowerPercentile:upperPercentile:)` over only the elements whose
+    /// index `including` accepts — e.g. voxels inside a head mask, so air around
+    /// the head does not take part in the percentiles. `including == nil` is
+    /// exactly the unmasked call. When fewer than `minimumMaskedValues` finite
+    /// values pass the predicate the mask is ignored and the unmasked window is
+    /// returned, so a mask that misses the sampled voxels never blacks out a view.
+    static func bounds(
+        for values: [Float],
+        lowerPercentile: Double,
+        upperPercentile: Double,
+        including: ((Int) -> Bool)?
+    ) -> Bounds? {
+        guard let including else {
+            return bounds(for: values, lowerPercentile: lowerPercentile, upperPercentile: upperPercentile)
+        }
+        var kept = [Float]()
+        kept.reserveCapacity(values.count)
+        var finiteKept = 0
+        for index in values.indices where including(index) {
+            let value = values[index]
+            kept.append(value)
+            if value.isFinite { finiteKept += 1 }
+        }
+        if finiteKept >= minimumMaskedValues,
+           let masked = bounds(for: kept, lowerPercentile: lowerPercentile, upperPercentile: upperPercentile) {
+            return masked
+        }
+        return bounds(for: values, lowerPercentile: lowerPercentile, upperPercentile: upperPercentile)
+    }
+
     /// Applies precomputed window bounds to `values`, producing 8-bit grayscale.
     ///
     /// Per element this is exactly

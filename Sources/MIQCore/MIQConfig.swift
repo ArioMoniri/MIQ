@@ -78,6 +78,8 @@ public enum MIQConfig {
         public static let overlayAutoDiscovery    = "overlayAutoDiscovery"
         public static let qcPanelEnabled          = "qcPanelEnabled"
         public static let temporalSummaryEnabled  = "temporalSummaryEnabled"
+        // MARK: Final pipeline workstream (head-mask windowing)
+        public static let windowFromHeadMask      = "windowFromHeadMask"
         #if DEBUG
         public static let debugShowLayoutBorders  = "debugShowLayoutBorders"
         #endif
@@ -151,6 +153,13 @@ public enum MIQConfig {
         public static let qcPanelEnabled          = true
         /// Whether 4D previews show the temporal summary (tSNR, spike frames).
         public static let temporalSummaryEnabled  = true
+        // MARK: Final pipeline workstream (head-mask windowing)
+        /// Whether the preview's auto window for an anatomical scalar 3D volume
+        /// is taken only over voxels inside the coarse `QCHeadMask`, so noisy
+        /// air around the head no longer drags the lower percentile down. Off
+        /// by default: it adds a mask pass to every eligible cold load and
+        /// changes the familiar window.
+        public static let windowFromHeadMask      = false
     }
 
     public struct MIQColor: Sendable {
@@ -332,6 +341,14 @@ public enum MIQConfig {
 
     public static var temporalSummaryEnabled: Bool {
         value(Keys.temporalSummaryEnabled, default: Defaults.temporalSummaryEnabled)
+    }
+
+    // MARK: - Final pipeline workstream (head-mask windowing)
+
+    /// See `Defaults.windowFromHeadMask`. Read once per `load()`; it changes the
+    /// pixels of the cold preview, so it is part of the preview cache key.
+    public static var windowFromHeadMask: Bool {
+        value(Keys.windowFromHeadMask, default: Defaults.windowFromHeadMask)
     }
 
     // MARK: - Managed preferences (MDM)
