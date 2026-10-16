@@ -1128,9 +1128,7 @@ final class MIQPreviewModel {
                         let pass = try stream.makeSiblingReader()
                         return try TemporalStats.summary(
                             volumeCount: header.volumes,
-                            width: header.width,
-                            height: header.height,
-                            depth: header.depth
+                            grid: TemporalStats.Grid(width: header.width, height: header.height, depth: header.depth)
                         ) { t in try pass.volume(at: t) }
                     }
                 }

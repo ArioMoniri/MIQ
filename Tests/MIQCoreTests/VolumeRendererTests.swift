@@ -222,7 +222,7 @@ struct VolumeRendererTests {
         }
         let image = try await VolumeRenderer.render(
             volume: volume, camera: .right, mode: .mip,
-            window: MIQIntensityWindowBounds(low: 0, high: 100), width: 64, height: 64, options: Self.cpu
+            window: MIQIntensityWindowBounds(low: 0, high: 100), size: VolumeRenderer.Size(width: 64, height: 64), options: Self.cpu
         )
         #expect(Self.brightCentroidX(image) > 32)
     }
@@ -234,7 +234,7 @@ struct VolumeRendererTests {
         }
         let image = try await VolumeRenderer.render(
             volume: volume, mode: .mip,
-            window: MIQIntensityWindowBounds(low: 0, high: 100), width: 64, height: 64, options: Self.cpu
+            window: MIQIntensityWindowBounds(low: 0, high: 100), size: VolumeRenderer.Size(width: 64, height: 64), options: Self.cpu
         )
         let box = try #require(Self.bbox(image) { $0 > 127 })
         #expect(box.3 < 32)
@@ -246,11 +246,11 @@ struct VolumeRendererTests {
         let camera = VolumeRenderCamera(azimuth: 37, elevation: 12, zoom: 1.2)
         let a = try await VolumeRenderer.render(
             volume: Self.rightBlob(frame: Self.ras), camera: camera, mode: .dvr,
-            window: window, width: 64, height: 64, options: Self.cpu
+            window: window, size: VolumeRenderer.Size(width: 64, height: 64), options: Self.cpu
         )
         let b = try await VolumeRenderer.render(
             volume: Self.rightBlob(frame: Self.lps), camera: camera, mode: .dvr,
-            window: window, width: 64, height: 64, options: Self.cpu
+            window: window, size: VolumeRenderer.Size(width: 64, height: 64), options: Self.cpu
         )
         #expect(a.pixels == b.pixels)
         #expect(Self.brightCentroidX(a) >= 0)
@@ -353,7 +353,7 @@ struct VolumeRendererTests {
             }
             let image = try await VolumeRenderer.render(
                 volume: volume, mode: .dvr, window: MIQIntensityWindowBounds(low: 0, high: 100),
-                width: 32, height: 32, options: options
+                size: VolumeRenderer.Size(width: 32, height: 32), options: options
             )
             let center = Self.luma(image, 16, 16)
             #expect(center >= previous, "thickness \(thickness): \(center) < \(previous)")
@@ -400,7 +400,7 @@ struct VolumeRendererTests {
         options.opacityScale = 1
         let image = try await VolumeRenderer.render(
             volume: volume, mode: .dvr, window: MIQIntensityWindowBounds(low: 0, high: 100),
-            width: 64, height: 64, options: options
+            size: VolumeRenderer.Size(width: 64, height: 64), options: options
         )
         let centre = Self.luma(image, 32, 32)
         let limb = Self.luma(image, 32 + 10, 32)  // ~0.9 R from the centre
@@ -484,7 +484,7 @@ struct VolumeRendererTests {
         let calls = StopFlag()
         #expect(throws: CancellationError.self) {
             _ = try VolumeRenderer.renderSynchronously(
-                grid: grid, mode: .mip, window: nil, width: 256, height: 256, options: Self.cpu,
+                grid: grid, mode: .mip, window: nil, size: VolumeRenderer.Size(width: 256, height: 256), options: Self.cpu,
                 isCancelled: { calls.set(); return true }
             )
         }
@@ -505,7 +505,9 @@ struct VolumeRendererTests {
             let g = mode == .labels ? labelGrid : grid
             let a = try await VolumeRenderer.render(grid: g, camera: camera, mode: mode, window: nil, width: 96, height: 80, options: Self.cpu)
             let b = try await VolumeRenderer.render(grid: g, camera: camera, mode: mode, window: nil, width: 96, height: 80, options: Self.cpu)
-            let c = try VolumeRenderer.renderSynchronously(grid: g, camera: camera, mode: mode, window: nil, width: 96, height: 80, options: Self.cpu)
+            let c = try VolumeRenderer.renderSynchronously(
+                grid: g, camera: camera, mode: mode, window: nil, size: VolumeRenderer.Size(width: 96, height: 80), options: Self.cpu
+            )
             let h = Self.fnv1a(a.pixels)
             #expect(h == Self.fnv1a(b.pixels), "\(mode)")
             #expect(h == Self.fnv1a(c.pixels), "\(mode)")

@@ -42,6 +42,19 @@ public enum TemporalStats {
     /// Default cap on voxels sampled per volume for the framewise trace.
     public static let defaultTraceVoxels = 32 * 1024
 
+    /// Spatial size (in voxels) of every volume in a series.
+    public struct Grid: Sendable, Hashable {
+        public var width: Int
+        public var height: Int
+        public var depth: Int
+
+        public init(width: Int, height: Int, depth: Int) {
+            self.width = width
+            self.height = height
+            self.depth = depth
+        }
+    }
+
     /// `cap` evenly spaced indices covering `0..<volumeCount` (always including
     /// the first and last when `cap >= 2`); all indices when `volumeCount <= cap`.
     public static func sampleIndices(volumeCount: Int, cap: Int = defaultMaxVolumes) -> [Int] {
@@ -115,7 +128,9 @@ public enum TemporalStats {
         isCancelled: () -> Bool = { false }
     ) -> [Float]? {
         guard volume.volumes >= 2, volume.containsAllVolumes else { return nil }
-        let w = volume.width, h = volume.height, d = volume.depth
+        let w = volume.width
+        let h = volume.height
+        let d = volume.depth
         let total = w * h * d
         guard total > 0 else { return nil }
         // Isotropic stride s with ceil(w/s)·ceil(h/s)·ceil(d/s) ≤ maxVoxels.
@@ -212,18 +227,20 @@ public enum TemporalStats {
     /// every volume feeds the framewise trace (its voxel subsample only). The
     /// result is identical to `summary(for:)` on the same data.
     ///
-    /// `nil` for fewer than 2 volumes, an empty grid, or cancellation (checked
-    /// per volume, via `isCancelled` and the task). Rethrows `volumeAt`'s errors.
+    /// Every volume must be `grid`-sized; `nil` for fewer than 2 volumes, an
+    /// empty grid, a volume of another size, or cancellation (checked per
+    /// volume, via `isCancelled` and the task). Rethrows `volumeAt`'s errors.
     public static func summary(
         volumeCount: Int,
-        width: Int,
-        height: Int,
-        depth: Int,
+        grid: Grid,
         maxVolumes: Int = defaultMaxVolumes,
         maxTraceVoxels: Int = defaultTraceVoxels,
         isCancelled: () -> Bool = { false },
         volumeAt: (Int) throws -> MIQVolume
     ) throws -> TemporalSummary? {
+        let width = grid.width
+        let height = grid.height
+        let depth = grid.depth
         guard volumeCount >= 2 else { return nil }
         let count = width * height * depth
         guard count > 0 else { return nil }

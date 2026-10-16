@@ -424,7 +424,7 @@ struct StreamedSeriesTests {
         let expected = try #require(TemporalStats.summary(for: full, maxVolumes: 5))
         var asked: [Int] = []
         let streamed = try #require(try TemporalStats.summary(
-            volumeCount: Self.n, width: Self.w, height: Self.h, depth: Self.d, maxVolumes: 5
+            volumeCount: Self.n, grid: TemporalStats.Grid(width: Self.w, height: Self.h, depth: Self.d), maxVolumes: 5
         ) { t in
             asked.append(t)
             return try reader.volume(at: t)
@@ -442,7 +442,7 @@ struct StreamedSeriesTests {
         let (reader, _) = try Self.gzReader()
         var calls = 0
         let result = try TemporalStats.summary(
-            volumeCount: Self.n, width: Self.w, height: Self.h, depth: Self.d,
+            volumeCount: Self.n, grid: TemporalStats.Grid(width: Self.w, height: Self.h, depth: Self.d),
             isCancelled: { calls >= 3 }
         ) { t in
             calls += 1

@@ -27,6 +27,18 @@ public enum DiffusionColor {
         case world
     }
 
+    /// How `slice` turns vectors into colours: the frame the components are
+    /// expressed in and the brightness gain.
+    public struct Appearance: Sendable, Hashable {
+        public var frame: VectorFrame
+        public var gain: Float
+
+        public init(frame: VectorFrame = .voxel, gain: Float = 1) {
+            self.frame = frame
+            self.gain = gain
+        }
+    }
+
     /// NIfTI `intent_code` for a vector field (`NIFTI_INTENT_VECTOR`).
     public static let vectorIntentCode = 1007
 
@@ -50,7 +62,9 @@ public enum DiffusionColor {
     ///   (pass `fileName`), or with intent code 1007.
     public static func vectorComponents(of volume: MIQVolume, fileName: String? = nil) -> MIQVolume? {
         let header = volume.image.header
-        let w = volume.width, h = volume.height, d = volume.depth
+        let w = volume.width
+        let h = volume.height
+        let d = volume.depth
         let bytesPerComponent = w * h * d * header.datatype.bytesPerVoxel
         guard header.datatype != .rgb24, header.datatype != .rgba32, bytesPerComponent > 0 else { return nil }
 
@@ -146,8 +160,7 @@ public enum DiffusionColor {
         plane: SlicePlane,
         index: Int,
         fa: MIQVolume? = nil,
-        frame: VectorFrame = .voxel,
-        gain: Float = 1,
+        appearance: Appearance = Appearance(),
         maxDimension: Int = 512,
         options: RenderingOptions
     ) -> SliceImage? {
@@ -161,12 +174,12 @@ public enum DiffusionColor {
            let s = fa.displaySliceValues(plane: plane, index: index, options: options), s.values.count == cx.values.count {
             faValues = s.values
         }
-        let r = rotation(for: components, frame: frame)
+        let r = rotation(for: components, frame: appearance.frame)
         let n = cx.values.count
         var rgb = [UInt8](repeating: 0, count: n * 3)
         for i in 0..<n {
             let world = rotate(r, (cx.values[i], cy.values[i], cz.values[i]))
-            let c = color(world: world, fa: faValues?[i] ?? 1, gain: gain)
+            let c = color(world: world, fa: faValues?[i] ?? 1, gain: appearance.gain)
             rgb[i * 3] = c.0
             rgb[i * 3 + 1] = c.1
             rgb[i * 3 + 2] = c.2

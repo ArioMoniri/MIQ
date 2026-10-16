@@ -492,11 +492,19 @@ final class MetalVolumeRenderer: @unchecked Sendable {
         for z in 0..<n {
             for y in 0..<n {
                 for x in 0..<n {
-                    let dx = Float(x) - 10, dy = Float(y) - 12, dz = Float(z) - 13
+                    let dx = Float(x) - 10
+                    let dy = Float(y) - 12
+                    let dz = Float(z) - 13
                     let r = (dx * dx + dy * dy + dz * dz).squareRoot()
                     let i = (z * n + y) * n + x
                     values[i] = max(0, 100 - r * 10) + Float(x)
-                    labels[i] = r < 6 ? 1 : (x > 16 && y > 16 ? 2 : 0)
+                    if r < 6 {
+                        labels[i] = 1
+                    } else if x > 16 && y > 16 {
+                        labels[i] = 2
+                    } else {
+                        labels[i] = 0
+                    }
                 }
             }
         }

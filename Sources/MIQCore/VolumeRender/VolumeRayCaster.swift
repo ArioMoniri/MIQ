@@ -10,10 +10,16 @@ struct VolumeRenderSetup: Sendable {
 
     let width: Int
     let height: Int
-    let nx: Int, ny: Int, nz: Int
-    let sx: Float, sy: Float, sz: Float
+    let nx: Int
+    let ny: Int
+    let nz: Int
+    let sx: Float
+    let sy: Float
+    let sz: Float
     /// Half physical extent of the volume box (mm), box centred on the origin.
-    let hx: Float, hy: Float, hz: Float
+    let hx: Float
+    let hy: Float
+    let hz: Float
     /// Camera basis: screen right, screen up, view direction (eye → scene).
     let right: (Float, Float, Float)
     let up: (Float, Float, Float)
@@ -64,7 +70,10 @@ struct VolumeRenderSetup: Sendable {
         let az = camera.azimuth.isFinite ? camera.azimuth * .pi / 180 : 0
         let elDeg = camera.elevation.isFinite ? min(max(camera.elevation, -89.9), 89.9) : 0
         let el = elDeg * .pi / 180
-        let ca = cos(az), sa = sin(az), ce = cos(el), se = sin(el)
+        let ca = cos(az)
+        let sa = sin(az)
+        let ce = cos(el)
+        let se = sin(el)
         // Eye direction (centre → camera); see VolumeRenderCamera for the convention.
         let e = (sa * ce, ca * ce, se)
         let r = (-ca, sa, Float(0))
@@ -141,8 +150,12 @@ struct VolumeRenderSetup: Sendable {
 /// are continuous voxel indices (voxel centres at integers), clamped to the edge.
 struct VoxelSampler {
     let p: UnsafePointer<Float>
-    let nx: Int, ny: Int, nz: Int
-    let maxX: Float, maxY: Float, maxZ: Float
+    let nx: Int
+    let ny: Int
+    let nz: Int
+    let maxX: Float
+    let maxY: Float
+    let maxZ: Float
     let plane: Int
 
     init(_ p: UnsafePointer<Float>, _ nx: Int, _ ny: Int, _ nz: Int) {
@@ -157,16 +170,24 @@ struct VoxelSampler {
         let xc = min(max(x, 0), maxX)
         let yc = min(max(y, 0), maxY)
         let zc = min(max(z, 0), maxZ)
-        let x0 = Int(xc), y0 = Int(yc), z0 = Int(zc)
-        let fx = xc - Float(x0), fy = yc - Float(y0), fz = zc - Float(z0)
+        let x0 = Int(xc)
+        let y0 = Int(yc)
+        let z0 = Int(zc)
+        let fx = xc - Float(x0)
+        let fy = yc - Float(y0)
+        let fz = zc - Float(z0)
         let dx = x0 < nx - 1 ? 1 : 0
         let dy = y0 < ny - 1 ? nx : 0
         let dz = z0 < nz - 1 ? plane : 0
         let b = z0 * plane + y0 * nx + x0
-        let c000 = p[b], c100 = p[b + dx]
-        let c010 = p[b + dy], c110 = p[b + dy + dx]
-        let c001 = p[b + dz], c101 = p[b + dz + dx]
-        let c011 = p[b + dz + dy], c111 = p[b + dz + dy + dx]
+        let c000 = p[b]
+        let c100 = p[b + dx]
+        let c010 = p[b + dy]
+        let c110 = p[b + dy + dx]
+        let c001 = p[b + dz]
+        let c101 = p[b + dz + dx]
+        let c011 = p[b + dz + dy]
+        let c111 = p[b + dz + dy + dx]
         let c00 = c000 + (c100 - c000) * fx
         let c10 = c010 + (c110 - c010) * fx
         let c01 = c001 + (c101 - c001) * fx
@@ -225,24 +246,46 @@ enum CPUVolumeRayCaster {
         grid.storage.values.withUnsafeBufferPointer { vbuf in
             let field = VoxelSampler(vbuf.baseAddress!, s.nx, s.ny, s.nz)
             return s.transfer.withUnsafeBufferPointer { tf in
-                s.palette.withUnsafeBufferPointer { pal in
-                    let occ = grid.storage.occupancy ?? []
-                    return occ.withUnsafeBufferPointer { obuf in
-                        let occField = obuf.baseAddress.map { VoxelSampler($0, s.nx, s.ny, s.nz) }
-                        for py in rows {
-                            if shouldStop() { return false }
-                            for px in 0..<s.width {
-                                let rgb = castPixel(s, px, py, field, occField, tf.baseAddress!, pal.baseAddress)
-                                let o = (py * s.width + px) * 4
-                                out[o] = toByte(rgb.0)
-                                out[o + 1] = toByte(rgb.1)
-                                out[o + 2] = toByte(rgb.2)
-                                out[o + 3] = 255
-                            }
-                        }
-                        return true
+                castRows(
+                    setup: s, grid: grid, rows: rows, out: out,
+                    field: field, transfer: tf.baseAddress!, shouldStop: shouldStop
+                )
+            }
+        }
+    }
+
+    /// Second half of `castRows` (split out to keep closure nesting shallow):
+    /// binds the palette and occupancy buffers, then runs the row/pixel loop.
+    @inline(__always)
+    private static func castRows(
+        setup s: VolumeRenderSetup,
+        grid: VolumeRenderGrid,
+        rows: Range<Int>,
+        out: UnsafeMutablePointer<UInt8>,
+        field: VoxelSampler,
+        transfer tf: UnsafePointer<Float>,
+        shouldStop: () -> Bool
+    ) -> Bool {
+        s.palette.withUnsafeBufferPointer { pal in
+            let occ = grid.storage.occupancy ?? []
+            return occ.withUnsafeBufferPointer { obuf in
+                let occField: VoxelSampler? = if let base = obuf.baseAddress {
+                    VoxelSampler(base, s.nx, s.ny, s.nz)
+                } else {
+                    nil
+                }
+                for py in rows {
+                    if shouldStop() { return false }
+                    for px in 0..<s.width {
+                        let rgb = castPixel(s, px, py, field, occField, tf, pal.baseAddress)
+                        let o = (py * s.width + px) * 4
+                        out[o] = toByte(rgb.0)
+                        out[o + 1] = toByte(rgb.1)
+                        out[o + 2] = toByte(rgb.2)
+                        out[o + 3] = 255
                     }
                 }
+                return true
             }
         }
     }
@@ -250,6 +293,16 @@ enum CPUVolumeRayCaster {
     @inline(__always)
     static func toByte(_ v: Float) -> UInt8 {
         UInt8(min(max(v, 0), 1) * 255 + 0.5)
+    }
+
+    /// Component `axis` (0, 1 or 2) of a 3-tuple.
+    @inline(__always)
+    static func component(_ v: (Float, Float, Float), _ axis: Int) -> Float {
+        switch axis {
+        case 0: v.0
+        case 1: v.1
+        default: v.2
+        }
     }
 
     /// Ray/box slab intersection; returns the parametric [tNear, tFar] or nil.
@@ -260,9 +313,9 @@ enum CPUVolumeRayCaster {
         var tNear = -Float.greatestFiniteMagnitude
         var tFar = Float.greatestFiniteMagnitude
         for axis in 0..<3 {
-            let oa = axis == 0 ? o.0 : (axis == 1 ? o.1 : o.2)
-            let da = axis == 0 ? d.0 : (axis == 1 ? d.1 : d.2)
-            let ha = axis == 0 ? h.0 : (axis == 1 ? h.1 : h.2)
+            let oa = component(o, axis)
+            let da = component(d, axis)
+            let ha = component(h, axis)
             if abs(da) < 1e-8 {
                 if oa < -ha || oa > ha { return nil }
                 continue
@@ -295,7 +348,9 @@ enum CPUVolumeRayCaster {
         let c0x = (o.0 + s.hx) / s.sx - 0.5
         let c0y = (o.1 + s.hy) / s.sy - 0.5
         let c0z = (o.2 + s.hz) / s.sz - 0.5
-        let dvx = s.dir.0 / s.sx, dvy = s.dir.1 / s.sy, dvz = s.dir.2 / s.sz
+        let dvx = s.dir.0 / s.sx
+        let dvy = s.dir.1 / s.sy
+        let dvz = s.dir.2 / s.sz
         let count = max(1, Int((tFar - tNear) / s.stepMM))
         let jitter: Float = s.mode == .dvr || s.mode == .labels ? rayStartJitter(px, py) : 0.5
         let tStart = tNear + jitter * s.stepMM
@@ -320,7 +375,9 @@ enum CPUVolumeRayCaster {
             var hasPending = false
             for n in 0..<count {
                 let t = tStart + Float(n) * s.stepMM
-                let x = c0x + t * dvx, y = c0y + t * dvy, z = c0z + t * dvz
+                let x = c0x + t * dvx
+                let y = c0y + t * dvy
+                let z = c0z + t * dvz
                 let val = field.trilinear(x, y, z)
                 if masked && occField!.trilinear(x, y, z) < 0.999 {
                     if found {
@@ -343,12 +400,20 @@ enum CPUVolumeRayCaster {
 
         case .dvr, .labels:
             let labels = s.mode == .labels
-            var cr: Float = 0, cg: Float = 0, cb: Float = 0, ca: Float = 0
+            var cr: Float = 0
+            var cg: Float = 0
+            var cb: Float = 0
+            var ca: Float = 0
             let shadingField = labels ? occField! : field
             for n in 0..<count {
                 let t = tStart + Float(n) * s.stepMM
-                let x = c0x + t * dvx, y = c0y + t * dvy, z = c0z + t * dvz
-                var r: Float, g: Float, b: Float, a: Float
+                let x = c0x + t * dvx
+                let y = c0y + t * dvy
+                let z = c0z + t * dvz
+                var r: Float
+                var g: Float
+                var b: Float
+                var a: Float
                 if labels {
                     let idx = Int(field.nearest(x, y, z)) * 4
                     if idx == 0 { continue }

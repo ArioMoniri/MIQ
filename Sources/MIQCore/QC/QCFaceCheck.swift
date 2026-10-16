@@ -84,13 +84,19 @@ enum QCFaceDetector {
             }
         }
         let axisCoords = [coords(0), coords(1), coords(2)]
-        let rC = axisCoords[rAxis], aC = axisCoords[aAxis], sC = axisCoords[sAxis]
+        let rC = axisCoords[rAxis]
+        let aC = axisCoords[aAxis]
+        let sC = axisCoords[sAxis]
 
-        var rMin = Double.infinity, rMax = -Double.infinity
-        var aMin = Double.infinity, aMax = -Double.infinity
+        var rMin = Double.infinity
+        var rMax = -Double.infinity
+        var aMin = Double.infinity
+        var aMax = -Double.infinity
         var sMax = -Double.infinity
         forEachForeground(mask) { p in
-            let r = rC[p[rAxis]], a = aC[p[aAxis]], s = sC[p[sAxis]]
+            let r = rC[p[rAxis]]
+            let a = aC[p[aAxis]]
+            let s = sC[p[sAxis]]
             rMin = min(rMin, r); rMax = max(rMax, r)
             aMin = min(aMin, a); aMax = max(aMax, a)
             sMax = max(sMax, s)
@@ -111,8 +117,10 @@ enum QCFaceDetector {
         let rCentre = (rMin + rMax) / 2
         let rHalfBand = (rMax - rMin) / 2 * lateralBand
         let anteriorCut = aMin + 0.6 * length
-        var foreheadA: [Double] = [], faceA: [Double] = []
-        var foreheadMass = 0, faceMass = 0
+        var foreheadA: [Double] = []
+        var faceA: [Double] = []
+        var foreheadMass = 0
+        var faceMass = 0
         forEachForeground(mask) { p in
             let r = rC[p[rAxis]]
             guard abs(r - rCentre) <= rHalfBand else { return }
