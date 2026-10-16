@@ -42,7 +42,8 @@ struct PNGEncoderTests {
         try #require(all.first?.type == "IHDR")
         let ihdr = all[0].data
         try #require(ihdr.count == 13)
-        let width = Int(be32(ihdr, 0)), height = Int(be32(ihdr, 4))
+        let width = Int(be32(ihdr, 0))
+        let height = Int(be32(ihdr, 4))
         #expect(ihdr[8] == 8)                          // bit depth
         #expect(ihdr[10] == 0 && ihdr[11] == 0 && ihdr[12] == 0)
         let channels: Int
@@ -91,7 +92,8 @@ struct PNGEncoderTests {
 
     @Test
     func grayscaleRoundTripsWithValidChunkStructure() throws {
-        let width = 7, height = 5
+        let width = 7
+        let height = 5
         let pixels = (0..<(width * height)).map { UInt8(truncatingIfNeeded: $0 * 9) }
         let png = try PNGEncoder.encode(pixels: pixels, width: width, height: height, colorType: .gray8)
 
@@ -111,7 +113,8 @@ struct PNGEncoderTests {
 
     @Test
     func rgbAndRgbaRoundTrip() throws {
-        let width = 4, height = 3
+        let width = 4
+        let height = 3
         let rgb = (0..<(width * height * 3)).map { UInt8(truncatingIfNeeded: $0 &* 13) }
         let rgbDecoded = try Self.decode(try PNGEncoder.encode(pixels: rgb, width: width, height: height, colorType: .rgb8))
         #expect(rgbDecoded.colorType == 2)

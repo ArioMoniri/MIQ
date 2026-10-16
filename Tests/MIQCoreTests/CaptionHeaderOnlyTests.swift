@@ -56,8 +56,9 @@ import Testing
     }
 
     @Test func unsupportedExtensionThrows() {
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent("miq-missing-\(UUID().uuidString).txt")
         #expect(throws: (any Error).self) {
-            _ = try CaptionPrompt.headerOnlyMetadata(url: URL(fileURLWithPath: "/nonexistent/file.txt"))
+            _ = try CaptionPrompt.headerOnlyMetadata(url: missing)
         }
     }
 }

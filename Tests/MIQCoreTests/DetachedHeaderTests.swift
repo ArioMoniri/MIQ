@@ -67,10 +67,10 @@ struct DetachedHeaderTests {
     // MARK: - File kinds
 
     @Test func recognisesNewKinds() {
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/a/b.nhdr")) == .nhdr)
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/a/b.MIH")) == .mih)
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/a/b.mha")) == .mha)
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/a/b.mhd")) == .mhd)
+        #expect(MIQFileKind(url: URL(fileURLWithPath: "b.nhdr")) == .nhdr)
+        #expect(MIQFileKind(url: URL(fileURLWithPath: "b.MIH")) == .mih)
+        #expect(MIQFileKind(url: URL(fileURLWithPath: "b.mha")) == .mha)
+        #expect(MIQFileKind(url: URL(fileURLWithPath: "b.mhd")) == .mhd)
         #expect(MIQFileKind.nhdr.isDetachedHeader && MIQFileKind.mih.isDetachedHeader && MIQFileKind.mhd.isDetachedHeader)
         #expect(!MIQFileKind.mha.isDetachedHeader && !MIQFileKind.nrrd.isDetachedHeader)
         #expect(MIQFileKind.mha.payloadEncodingDecidedByHeader && !MIQFileKind.mih.payloadEncodingDecidedByHeader)
@@ -170,7 +170,10 @@ struct DetachedHeaderTests {
         #expect(throws: MIQError.self) { try parser.parseDetachedFilePattern("s%d.raw 0 2147483647 1") }
     }
 
-    @Test(arguments: ["../outside.raw", "sub/../../outside.raw", "/etc/passwd"])
+    /// An absolute `data file` path outside any header folder the tests create.
+    static let absoluteOutsideDataFile = FileManager.default.temporaryDirectory.appendingPathComponent("outside.raw").path
+
+    @Test(arguments: ["../outside.raw", "sub/../../outside.raw", absoluteOutsideDataFile])
     func nhdrRejectsPathTraversal(dataFile: String) throws {
         let parent = try Self.makeDirectory()
         defer { try? FileManager.default.removeItem(at: parent) }

@@ -45,7 +45,7 @@ struct PreviewPanelSupportTests {
     @Test func positionUsesSformAffineAndUnit() throws {
         let volume = ModalityFixtures.floatVolume(
             width: 4, height: 4, depth: 4,
-            srow: [[2, 0, 0, -10], [0, 2, 0, 5], [0, 0, 3, 0]],
+            geometry: .srow([[2, 0, 0, -10], [0, 2, 0, 5], [0, 0, 3, 0]]),
             values: [Float](repeating: 1, count: 64)
         )
         let header = volume.image.header
@@ -59,7 +59,7 @@ struct PreviewPanelSupportTests {
         // cursor the canvas produces still addresses the stored voxel.
         let volume = ModalityFixtures.floatVolume(
             width: 4, height: 3, depth: 2,
-            srow: [[-1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]],
+            geometry: .srow([[-1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]),
             values: [Float](repeating: 1, count: 24)
         )
         for mode in ViewOrientation.allCases {
@@ -82,7 +82,7 @@ struct PreviewPanelSupportTests {
     @Test func positionWithoutAffineShowsIndicesOnly() throws {
         // qform-only NIfTI: srow rows are not the affine.
         let data = ModalityFixtures.niftiBytes(
-            dims: [2, 2, 2], qformCode: 1, quatern: (0, 0, 0),
+            dims: [2, 2, 2], qform: .init(code: 1, quatern: (0, 0, 0)),
             values: [Float](repeating: 0, count: 8)
         )
         let volume = try ModalityFixtures.niftiVolume(data)
@@ -93,8 +93,7 @@ struct PreviewPanelSupportTests {
 
     @Test func positionRespectsSpatialUnit() throws {
         var bytes = ModalityFixtures.niftiBytes(
-            dims: [2, 2, 2], sformCode: 1,
-            srow: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]],
+            dims: [2, 2, 2], sform: .init(code: 1, srow: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]),
             values: [Float](repeating: 0, count: 8)
         )
         bytes[123] = 3  // xyzt_units: micron

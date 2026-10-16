@@ -28,15 +28,24 @@ private enum SyntheticVolume {
         )
     }
 
-    /// Float32 volume; `value(x, y, z, t)` fills it. With `strides`, the payload
+    /// Payload layout overrides for `float32`.
+    struct PayloadLayout {
+        /// Element strides of a MIF-style permuted layout; `nil` = canonical x-fastest.
+        var strides: [Int]?
+        /// Volumes actually stored in the payload; `nil` = all of them.
+        var payloadVolumes: Int?
+    }
+
+    /// Float32 volume; `value(x, y, z, t)` fills it. With `layout.strides`, the payload
     /// is laid out with those element strides (a MIF-style permuted layout).
     static func float32(
         _ w: Int, _ h: Int, _ d: Int, volumes: Int = 1,
         pixdim: [Float] = [1, 1, 1, 1],
-        strides: [Int]? = nil,
-        payloadVolumes: Int? = nil,
+        layout: PayloadLayout = PayloadLayout(),
         _ value: (Int, Int, Int, Int) -> Float
     ) -> MIQVolume {
+        let strides = layout.strides
+        let payloadVolumes = layout.payloadVolumes
         let header = header(dims: volumes > 1 ? [w, h, d, volumes] : [w, h, d], datatype: .float32, pixdim: pixdim)
         let stored = payloadVolumes ?? volumes
         var floats = [Float](repeating: 0, count: w * h * d * stored)
@@ -200,7 +209,7 @@ struct SharedVolumeWindowTests {
 
     @Test func cappedPayloadOnlySamplesLoadedVolumes() {
         // Header says 10 timepoints; only 2 are in the payload (volume-0-style cap).
-        let volume = SyntheticVolume.float32(6, 6, 6, volumes: 10, payloadVolumes: 2) { x, y, z, t in
+        let volume = SyntheticVolume.float32(6, 6, 6, volumes: 10, layout: .init(payloadVolumes: 2)) { x, y, z, t in
             Float(1000 + 10 * t + x + y + z)
         }
         #expect(volume.loadedVolumeCount == 2)
@@ -311,7 +320,7 @@ struct ProjectionTests {
         let (w, h, d) = (4, 3, 5)
         let f: (Int, Int, Int, Int) -> Float = { x, y, z, _ in Float((x * 7 + y * 11 + z * 5) % 17) }
         let canonical = SyntheticVolume.float32(w, h, d, f)
-        let strided = SyntheticVolume.float32(w, h, d, strides: [d, d * w, 1, w * h * d], f)
+        let strided = SyntheticVolume.float32(w, h, d, layout: .init(strides: [d, d * w, 1, w * h * d]), f)
         for mode in ProjectionMode.allCases {
             for plane in SlicePlane.allCases {
                 let a = try #require(canonical.projectedValues(plane: plane, mode: mode, options: options()))

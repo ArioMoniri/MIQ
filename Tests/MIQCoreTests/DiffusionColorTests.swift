@@ -13,7 +13,7 @@ struct DiffusionColorTests {
     @Test func fiveDimensionalNiftiVectorFieldIsDetected() throws {
         let data = ModalityFixtures.niftiBytes(
             dims: [3, 1, 1, 1, 3], pixdim: [1, 1, 1, 1], intentCode: 1007,
-            sformCode: 1, srow: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]], values: Self.axisVectors
+            sform: .init(code: 1, srow: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]), values: Self.axisVectors
         )
         let vol = try ModalityFixtures.niftiVolume(data)
         #expect(vol.componentCount == 3)
@@ -39,7 +39,7 @@ struct DiffusionColorTests {
     @Test func rotatedAffineGivesAnatomicalColours() throws {
         let srow: [[Float]] = [[0, -2, 0, 0], [2, 0, 0, 0], [0, 0, 2, 0]]
         let vol = ModalityFixtures.floatVolume(
-            width: 3, height: 1, depth: 1, volumes: 3, spacing: [2, 2, 2], srow: srow, values: Self.axisVectors
+            width: 3, height: 1, depth: 1, volumes: 3, geometry: .init(spacing: [2, 2, 2], srow: srow), values: Self.axisVectors
         )
         let comps = try #require(DiffusionColor.vectorComponents(of: vol, fileName: "dti_V1.nii.gz"))
         #expect(DiffusionColor.color(components: comps, x: 0, y: 0, z: 0) == (0, 255, 0))
@@ -53,7 +53,7 @@ struct DiffusionColorTests {
         // 45° in-plane rotation: voxel +x → world (√½, √½, 0).
         let c = Float(0.5).squareRoot()
         let srow: [[Float]] = [[c, -c, 0, 0], [c, c, 0, 0], [0, 0, 1, 0]]
-        let vol = ModalityFixtures.floatVolume(width: 1, height: 1, depth: 1, volumes: 3, srow: srow, values: [1, 0, 0])
+        let vol = ModalityFixtures.floatVolume(width: 1, height: 1, depth: 1, volumes: 3, geometry: .srow(srow), values: [1, 0, 0])
         let comps = try #require(DiffusionColor.vectorComponents(of: vol, fileName: "sub-01_V1.nii"))
         let rgb = DiffusionColor.color(components: comps, x: 0, y: 0, z: 0)
         #expect(rgb.r == 180 && rgb.g == 180 && rgb.b == 0)
@@ -81,7 +81,7 @@ struct DiffusionColorTests {
         let n = 4
         var values = [Float](repeating: 0, count: n * n * n * 3)
         for i in 0..<(n * n * n) { values[i] = 1 }  // every voxel +x
-        let vol = ModalityFixtures.floatVolume(width: n, height: n, depth: n, volumes: 3, spacing: [1, 1, 2], values: values)
+        let vol = ModalityFixtures.floatVolume(width: n, height: n, depth: n, volumes: 3, geometry: .spacing([1, 1, 2]), values: values)
         let comps = try #require(DiffusionColor.vectorComponents(of: vol, fileName: "dti_V1.nii.gz"))
         let options = RenderingOptions(lowerPercentile: 0, upperPercentile: 100)
         for plane in SlicePlane.allCases {

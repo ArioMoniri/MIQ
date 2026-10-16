@@ -293,9 +293,10 @@ struct NiftiVolumeReaderTests {
     @Test func nonNiftiKindsAnd3DHaveNoReader() throws {
         let nii = Self.niiBytes()
         let header = try Self.header(of: nii)
-        #expect(try MIQParser().niftiVolumeReader(url: URL(fileURLWithPath: "/tmp/x.mgz"), header: header, isLocal: true) == nil)
+        let tmp = FileManager.default.temporaryDirectory
+        #expect(try MIQParser().niftiVolumeReader(url: tmp.appendingPathComponent("x.mgz"), header: header, isLocal: true) == nil)
         let threeD = try MIQParser().parseNiftiHeader(from: ModalityFixtures.niftiBytes(dims: [2, 2, 2], values: Array(repeating: 0, count: 8)))
-        #expect(try MIQParser().niftiVolumeReader(url: URL(fileURLWithPath: "/tmp/x.nii"), header: threeD, isLocal: true) == nil)
+        #expect(try MIQParser().niftiVolumeReader(url: tmp.appendingPathComponent("x.nii"), header: threeD, isLocal: true) == nil)
     }
 }
 
@@ -313,7 +314,9 @@ struct HeadMaskWindowTests {
             for z in 0..<n {
                 for y in 0..<n {
                     for x in 0..<n {
-                        let dx = Float(x) - 19.5, dy = Float(y) - 19.5, dz = Float(z) - 19.5
+                        let dx = Float(x) - 19.5
+                        let dy = Float(y) - 19.5
+                        let dz = Float(z) - 19.5
                         let inside = dx * dx + dy * dy + dz * dz < 13 * 13
                         let r = Float(lcg(&seed) % 1000) / 1000
                         values.append(inside ? 300 + r * 200 : 5 + r * 25)
@@ -379,7 +382,10 @@ struct HeadMaskWindowTests {
 // MARK: - Streamed 4D series (shared window, temporal summary, memory pressure)
 
 struct StreamedSeriesTests {
-    static let w = 10, h = 9, d = 8, n = 13
+    static let w = 10
+    static let h = 9
+    static let d = 8
+    static let n = 13
 
     /// A noisy 4D float series with a drifting mean and one spike volume.
     static func values() -> [Float] {

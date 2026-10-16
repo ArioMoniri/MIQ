@@ -22,8 +22,14 @@ struct ZarrCodecTests {
             let store: String
             let shape: [Int]
             let sha256: String
-            let origin_mm: [Double]
-            let spacing_mm: [Double]
+            let originMM: [Double]
+            let spacingMM: [Double]
+
+            enum CodingKeys: String, CodingKey {
+                case store, shape, sha256
+                case originMM = "origin_mm"
+                case spacingMM = "spacing_mm"
+            }
         }
         let streams: [Stream]
         let stores: [Store]
@@ -70,13 +76,13 @@ struct ZarrCodecTests {
             #expect(image.header.srowIsUnorientedAffine)
             let affine = MIQVolume(image: image).voxelToWorld
             let origin = affine.apply(0, 0, 0)
-            #expect(abs(origin.x - store.origin_mm[0]) < 1e-6, "\(store.store)")
-            #expect(abs(origin.y - store.origin_mm[1]) < 1e-6)
-            #expect(abs(origin.z - store.origin_mm[2]) < 1e-6)
+            #expect(abs(origin.x - store.originMM[0]) < 1e-6, "\(store.store)")
+            #expect(abs(origin.y - store.originMM[1]) < 1e-6)
+            #expect(abs(origin.z - store.originMM[2]) < 1e-6)
             let far = affine.apply(1, 1, 1)
-            #expect(abs(far.x - origin.x - store.spacing_mm[0]) < 1e-7)
-            #expect(abs(far.y - origin.y - store.spacing_mm[1]) < 1e-7)
-            #expect(abs(far.z - origin.z - store.spacing_mm[2]) < 1e-7)
+            #expect(abs(far.x - origin.x - store.spacingMM[0]) < 1e-7)
+            #expect(abs(far.y - origin.y - store.spacingMM[1]) < 1e-7)
+            #expect(abs(far.z - origin.z - store.spacingMM[2]) < 1e-7)
         }
     }
 

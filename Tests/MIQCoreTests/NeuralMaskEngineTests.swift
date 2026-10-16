@@ -34,8 +34,10 @@ struct NeuralMaskEngineTests {
     static func naiveForward(_ input: NeuralTensor, layers: [NeuralLayer]) -> NeuralTensor {
         var x = input.data.map(Double.init)
         var channels = input.channels
-        let D = input.depth, H = input.height, W = input.width
-        let voxels = D * H * W
+        let depth = input.depth
+        let height = input.height
+        let width = input.width
+        let voxels = depth * height * width
         func act(_ v: Double, _ a: NeuralActivation) -> Double {
             switch a {
             case .linear, .softmax: return v
@@ -52,19 +54,19 @@ struct NeuralMaskEngineTests {
             case .conv3D(let c):
                 var y = [Double](repeating: 0, count: voxels * c.outChannels)
                 let (kd, kh, kw) = (c.kernel[0], c.kernel[1], c.kernel[2])
-                for d in 0..<D { for h in 0..<H { for w in 0..<W { for oc in 0..<c.outChannels {
+                for d in 0..<depth { for h in 0..<height { for w in 0..<width { for oc in 0..<c.outChannels {
                     var s = Double(c.bias?[oc] ?? 0)
                     for a in 0..<kd { for b in 0..<kh { for e in 0..<kw {
                         let sd = d + (a - kd / 2) * c.dilation[0]
                         let sh = h + (b - kh / 2) * c.dilation[1]
                         let sw = w + (e - kw / 2) * c.dilation[2]
-                        guard sd >= 0, sd < D, sh >= 0, sh < H, sw >= 0, sw < W else { continue }
+                        guard sd >= 0, sd < depth, sh >= 0, sh < height, sw >= 0, sw < width else { continue }
                         for ic in 0..<c.inChannels {
                             let wi = (((a * kh + b) * kw + e) * c.inChannels + ic) * c.outChannels + oc
-                            s += Double(c.weights[wi]) * x[((sd * H + sh) * W + sw) * channels + ic]
+                            s += Double(c.weights[wi]) * x[((sd * height + sh) * width + sw) * channels + ic]
                         }
                     } } }
-                    y[((d * H + h) * W + w) * c.outChannels + oc] = s
+                    y[((d * height + h) * width + w) * c.outChannels + oc] = s
                 } } } }
                 x = y
                 channels = c.outChannels
@@ -82,7 +84,8 @@ struct NeuralMaskEngineTests {
                 }
             case .instanceNorm(let eps):
                 for c in 0..<channels {
-                    var mean = 0.0, sq = 0.0
+                    var mean = 0.0
+                    var sq = 0.0
                     for v in 0..<voxels { mean += x[v * channels + c] }
                     mean /= Double(voxels)
                     for v in 0..<voxels { sq += (x[v * channels + c] - mean) * (x[v * channels + c] - mean) }
@@ -95,7 +98,7 @@ struct NeuralMaskEngineTests {
                 } }
             }
         }
-        return NeuralTensor(depth: D, height: H, width: W, channels: channels, data: x.map(Float.init))
+        return NeuralTensor(depth: depth, height: height, width: width, channels: channels, data: x.map(Float.init))
     }
 
     static func randomInput(_ d: Int, _ h: Int, _ w: Int, seed: UInt64) -> NeuralTensor {
@@ -195,7 +198,7 @@ struct NeuralMaskEngineTests {
     /// Builds a tfjs layers-model in memory; `mutate` can corrupt the JSON for error tests.
     static func makeTFJS(
         rng: inout LCG,
-        mutate: (inout [String: Any]) -> Void = { _ in }
+        mutate: (inout [String: Any]) -> Void = { _ in /* default: leave the valid model untouched */ }
     ) throws -> (json: Data, shard: Data, weights: [String: [Float]]) {
         var specs: [(String, [Int])] = [
             ("c0_gn/kernel", [3, 3, 3, 1, 4]),
@@ -269,7 +272,10 @@ struct NeuralMaskEngineTests {
         #expect(c0.dilation == [2, 2, 2])
         #expect(c1.bias == weights["c1/bias"]!)
         #expect(out.isPointwise && out.weights == weights["output/kernel"]!)
-        let g = weights["bn/gamma"]!, b = weights["bn/beta"]!, m = weights["bn/moving_mean"]!, v = weights["bn/moving_variance"]!
+        let g = weights["bn/gamma"]!
+        let b = weights["bn/beta"]!
+        let m = weights["bn/moving_mean"]!
+        let v = weights["bn/moving_variance"]!
         for c in 0..<4 {
             let expectedScale = g[c] / (v[c] + 0.001).squareRoot()
             #expect(abs(scale[c] - expectedScale) < 1e-6)
@@ -277,6 +283,17 @@ struct NeuralMaskEngineTests {
         }
         // BatchNorm's four vectors fold into two (scale, shift).
         #expect(model.parameterCount == weights.values.reduce(0) { $0 + $1.count } - 2 * 4)
+    }
+
+    /// Inserts an unsupported `Conv3DTranspose` layer named "up" at index 3.
+    private static func insertTransposeConvLayer(_ layers: inout [[String: Any]]) {
+        layers.insert(["class_name": "Conv3DTranspose", "config": ["name": "up"]], at: 3)
+        layers[3].removeValue(forKey: "inbound_nodes")
+    }
+
+    /// c1 claims two inputs (a skip connection) — not a chain.
+    private static func addSkipConnectionInput(_ layers: inout [[String: Any]]) {
+        layers[5]["inbound_nodes"] = [[["drop", 0, 0, [String: Any]()], ["a0", 0, 0, [String: Any]()]]]
     }
 
     @Test
@@ -305,13 +322,10 @@ struct NeuralMaskEngineTests {
             } }
         }
 
-        try load { _ in } // sanity: unmodified model loads
+        try load { _ in /* sanity: unmodified model loads */ }
 
         #expect(throws: NeuralModelError.unsupportedLayer(name: "up", type: "Conv3DTranspose")) {
-            try load { root in editLayers(&root) { layers in
-                layers.insert(["class_name": "Conv3DTranspose", "config": ["name": "up"]], at: 3)
-                layers[3].removeValue(forKey: "inbound_nodes")
-            } }
+            try load { root in editLayers(&root, Self.insertTransposeConvLayer) }
         }
         #expect(throws: NeuralModelError.self) { try load(editConfig(1, "strides", [2, 2, 2])) }
         #expect(throws: NeuralModelError.self) { try load(editConfig(1, "padding", "valid")) }
@@ -320,14 +334,13 @@ struct NeuralMaskEngineTests {
             try load(editConfig(5, "filters", 5))
         }
         #expect(throws: NeuralModelError.truncatedWeights(expectedBytes: 432, actualBytes: 100)) {
-            try load({ _ in }, shardBytes: 100)
+            try load({ _ in /* valid model; only the shard is truncated */ }, shardBytes: 100)
         }
-        #expect(throws: NeuralModelError.shardUnreadable("w.bin")) { try load({ _ in }, path: "other.bin") }
+        #expect(throws: NeuralModelError.shardUnreadable("w.bin")) {
+            try load({ _ in /* valid model; only the shard path differs */ }, path: "other.bin")
+        }
         #expect(throws: NeuralModelError.self) {
-            try load { root in editLayers(&root) { layers in
-                // c1 claims two inputs (a skip connection) — not a chain.
-                layers[5]["inbound_nodes"] = [[["drop", 0, 0, [String: Any]()], ["a0", 0, 0, [String: Any]()]]]
-            } }
+            try load { root in editLayers(&root, Self.addSkipConnectionInput) }
         }
         #expect(throws: NeuralModelError.unsupportedWeightDType(name: "c0_gn/kernel", dtype: "float16")) {
             try load { root in

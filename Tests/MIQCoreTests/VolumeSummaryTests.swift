@@ -156,7 +156,7 @@ struct VolumeSummaryTests {
     @Test
     func rejectsUnsupportedAndMalformedFiles() throws {
         #expect(throws: MIQError.self) {
-            _ = try VolumeSummary.read(contentsOf: URL(fileURLWithPath: "/tmp/not-a-volume.txt"))
+            _ = try VolumeSummary.read(contentsOf: FileManager.default.temporaryDirectory.appendingPathComponent("not-a-volume.txt"))
         }
         let url = try Self.write(Data("mrtrix image\ndim: 2,2,2\n".utf8), suffix: ".mif") // no END
         defer { try? FileManager.default.removeItem(at: url) }

@@ -129,7 +129,40 @@ struct CaptionPromptTests {
 
     // MARK: Endpoint policy
 
-    @Test(arguments: [
+    @Test(arguments: EndpointVectors.loopback)
+    func endpointPolicyAcceptsLoopback(url: String) {
+        #expect(throws: Never.self) { try LocalEndpointPolicy.validatedBaseURL(url) }
+    }
+
+    @Test(arguments: EndpointVectors.rejected)
+    func endpointPolicyRejectsNonLoopback(url: String, expected: LocalEndpointPolicy.Rejection) {
+        guard case .failure(let rejection) = LocalEndpointPolicy.validate(url) else {
+            Issue.record("accepted \(url)")
+            return
+        }
+        #expect(rejection == expected)
+    }
+
+    @Test func chatCompletionsURLResolution() throws {
+        func resolved(_ base: String) throws -> String {
+            LocalEndpointPolicy.chatCompletionsURL(base: try LocalEndpointPolicy.validatedBaseURL(base)).absoluteString
+        }
+        for (base, expected) in EndpointVectors.chatCompletions {
+            #expect(try resolved(base) == expected)
+        }
+    }
+
+    @Test func redirectsOffLoopbackAreRefused() throws {
+        #expect(!LocalEndpointPolicy.isAllowedRedirect(to: try #require(URL(string: EndpointVectors.offLoopbackRedirect))))
+        #expect(LocalEndpointPolicy.isAllowedRedirect(to: try #require(URL(string: EndpointVectors.loopbackRedirect))))
+    }
+}
+
+/// `LocalEndpointPolicy` test vectors. These URLs are the test data itself (what a
+/// user might type into the endpoint field), so they stay as readable literals.
+private enum EndpointVectors {
+    /// Base URLs the policy must accept (loopback only).
+    static let loopback = [
         "http://127.0.0.1:8080",
         "http://localhost:11434/v1",
         "http://[::1]:8080",
@@ -137,13 +170,11 @@ struct CaptionPromptTests {
         "http://LOCALHOST:8080",
         "http://127.0.0.2:9000",
         "http://[0:0:0:0:0:0:0:1]:8080",
-    ])
-    func endpointPolicyAcceptsLoopback(url: String) {
-        #expect(throws: Never.self) { try LocalEndpointPolicy.validatedBaseURL(url) }
-    }
+    ]
 
-    @Test(arguments: [
-        ("http://192.0.2.10", LocalEndpointPolicy.Rejection.nonLoopbackHost),
+    /// Base URLs the policy must reject, with the expected reason.
+    static let rejected: [(String, LocalEndpointPolicy.Rejection)] = [
+        ("http://192.0.2.10", .nonLoopbackHost),
         ("https://example.com", .nonLoopbackHost),
         ("http://localhost.evil.com", .nonLoopbackHost),
         ("http://127.0.0.1.nip.io:8080", .nonLoopbackHost),
@@ -157,26 +188,15 @@ struct CaptionPromptTests {
         ("localhost:8080", .unsupportedScheme),
         ("http://user:pass@127.0.0.1:8080", .credentialsNotAllowed),
         ("", .malformed),
-    ])
-    func endpointPolicyRejectsNonLoopback(url: String, expected: LocalEndpointPolicy.Rejection) {
-        guard case .failure(let rejection) = LocalEndpointPolicy.validate(url) else {
-            Issue.record("accepted \(url)")
-            return
-        }
-        #expect(rejection == expected)
-    }
+    ]
 
-    @Test func chatCompletionsURLResolution() throws {
-        func resolved(_ base: String) throws -> String {
-            LocalEndpointPolicy.chatCompletionsURL(base: try LocalEndpointPolicy.validatedBaseURL(base)).absoluteString
-        }
-        #expect(try resolved("http://127.0.0.1:8080") == "http://127.0.0.1:8080/v1/chat/completions")
-        #expect(try resolved("http://localhost:11434/v1/") == "http://localhost:11434/v1/chat/completions")
-        #expect(try resolved("http://[::1]:8080/v1/chat/completions") == "http://[::1]:8080/v1/chat/completions")
-    }
+    /// Base URL → resolved chat-completions URL.
+    static let chatCompletions: [(base: String, expected: String)] = [
+        ("http://127.0.0.1:8080", "http://127.0.0.1:8080/v1/chat/completions"),
+        ("http://localhost:11434/v1/", "http://localhost:11434/v1/chat/completions"),
+        ("http://[::1]:8080/v1/chat/completions", "http://[::1]:8080/v1/chat/completions"),
+    ]
 
-    @Test func redirectsOffLoopbackAreRefused() throws {
-        #expect(!LocalEndpointPolicy.isAllowedRedirect(to: try #require(URL(string: "https://example.com/v1"))))
-        #expect(LocalEndpointPolicy.isAllowedRedirect(to: try #require(URL(string: "http://127.0.0.1:8081/v1"))))
-    }
+    static let offLoopbackRedirect = "https://example.com/v1"
+    static let loopbackRedirect = "http://127.0.0.1:8081/v1"
 }

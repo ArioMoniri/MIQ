@@ -21,7 +21,7 @@ struct OverlayTests {
     @Test func niftiSformIsUsedWhenPresent() throws {
         let srow: [[Float]] = [[-2, 0, 0, 90], [0, 2, 0, -126], [0, 0, 2, -72]]
         let data = ModalityFixtures.niftiBytes(
-            dims: [2, 2, 2], pixdim: [1, 2, 2, 2], sformCode: 1, srow: srow, values: [Float](repeating: 0, count: 8)
+            dims: [2, 2, 2], pixdim: [1, 2, 2, 2], sform: .init(code: 1, srow: srow), values: [Float](repeating: 0, count: 8)
         )
         let vol = try ModalityFixtures.niftiVolume(data)
         let w = vol.voxelToWorld.apply(1, 1, 1)
@@ -32,8 +32,8 @@ struct OverlayTests {
     /// from the raw header. Quaternion (0, 0, 1) = 180° about z → x and y flip.
     @Test func niftiQformIsReadFromRawHeader() throws {
         let data = ModalityFixtures.niftiBytes(
-            dims: [2, 2, 2], pixdim: [1, 3, 3, 3], qformCode: 1,
-            quatern: (0, 0, 1), qoffset: (10, 20, 30), values: [Float](repeating: 0, count: 8)
+            dims: [2, 2, 2], pixdim: [1, 3, 3, 3],
+            qform: .init(code: 1, quatern: (0, 0, 1), qoffset: (10, 20, 30)), values: [Float](repeating: 0, count: 8)
         )
         let vol = try ModalityFixtures.niftiVolume(data)
         let w = vol.voxelToWorld.apply(1, 1, 1)
@@ -42,7 +42,7 @@ struct OverlayTests {
 
     @Test func derivedVolumeKeepsGridAndAffine() throws {
         let srow: [[Float]] = [[0, -2, 0, 5], [2, 0, 0, -1], [0, 0, 2, 3]]
-        let ref = ModalityFixtures.floatVolume(width: 3, height: 2, depth: 2, spacing: [2, 2, 2], srow: srow, values: (0..<12).map(Float.init))
+        let ref = ModalityFixtures.floatVolume(width: 3, height: 2, depth: 2, geometry: .init(spacing: [2, 2, 2], srow: srow), values: (0..<12).map(Float.init))
         let derived = try #require(MIQVolume.derivedVolume(values: (0..<12).map { Float($0) * 10 }, onGridOf: ref))
         #expect(derived.voxelToWorld == ref.voxelToWorld)
         #expect(derived.voxel(x: 2, y: 1, z: 1) == 110)
@@ -66,7 +66,7 @@ struct OverlayTests {
         // Overlay value = x index (a ramp along x).
         var ov: [Float] = []
         for _ in 0..<4 { for _ in 0..<4 { for x in 0..<4 { ov.append(Float(x)) } } }
-        let overlay = ModalityFixtures.floatVolume(width: 4, height: 4, depth: 4, spacing: [2, 2, 2], values: ov)
+        let overlay = ModalityFixtures.floatVolume(width: 4, height: 4, depth: 4, geometry: .spacing([2, 2, 2]), values: ov)
         let reference = ModalityFixtures.floatVolume(width: 8, height: 8, depth: 8, values: [Float](repeating: 0, count: 512))
         let tri = try #require(OverlayResampler.resample(overlay, ontoGridOf: reference, interpolation: .trilinear))
         let near = try #require(OverlayResampler.resample(overlay, ontoGridOf: reference, interpolation: .nearest))
@@ -83,7 +83,7 @@ struct OverlayTests {
         // Overlay origin shifted +2 mm in x: reference voxel x ↔ overlay x - 2.
         let overlay = ModalityFixtures.floatVolume(
             width: 4, height: 1, depth: 1,
-            srow: [[1, 0, 0, 2], [0, 1, 0, 0], [0, 0, 1, 0]],
+            geometry: .srow([[1, 0, 0, 2], [0, 1, 0, 0], [0, 0, 1, 0]]),
             values: [1, 2, 3, 4]
         )
         let reference = ModalityFixtures.floatVolume(width: 8, height: 1, depth: 1, values: [Float](repeating: 0, count: 8))
@@ -95,7 +95,7 @@ struct OverlayTests {
         // Overlay storage x runs along world +y; reference is identity.
         let overlay = ModalityFixtures.floatVolume(
             width: 3, height: 1, depth: 1,
-            srow: [[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0]],
+            geometry: .srow([[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0]]),
             values: [5, 6, 7]
         )
         let reference = ModalityFixtures.floatVolume(width: 1, height: 3, depth: 1, values: [0, 0, 0])
@@ -147,8 +147,8 @@ struct OverlayTests {
         for i in 0..<8 where i % 2 == 0 { labels[i] = 17 }
         // Origin 0.5 mm so the 2 mm voxel boundaries coincide with the 1 mm ones.
         let seg = ModalityFixtures.floatVolume(
-            width: 2, height: 2, depth: 2, spacing: [2, 2, 2],
-            srow: [[2, 0, 0, 0.5], [0, 2, 0, 0.5], [0, 0, 2, 0.5]], values: labels
+            width: 2, height: 2, depth: 2,
+            geometry: .init(spacing: [2, 2, 2], srow: [[2, 0, 0, 0.5], [0, 2, 0, 0.5], [0, 0, 2, 0.5]]), values: labels
         )
         let onGrid = try #require(OverlayResampler.resampledVolume(seg, ontoGridOf: anatomy, interpolation: .nearest))
         let options = RenderingOptions(lowerPercentile: 0, upperPercentile: 100)

@@ -96,7 +96,8 @@ struct VolumeRendererTests {
     /// Centroid x of bright pixels (luma > 127).
     private static func brightCentroidX(_ b: RGBABitmap) -> Double {
         let p = [UInt8](b.pixels)
-        var sum = 0.0, n = 0.0
+        var sum = 0.0
+        var n = 0.0
         for y in 0..<b.height {
             for x in 0..<b.width {
                 let o = (y * b.width + x) * 4
@@ -280,7 +281,7 @@ struct VolumeRendererTests {
     @Test
     func labelGridCompactsLabelsAndNeverBlends() {
         let volume = Self.makeVolume(dims: (8, 8, 8), frame: Self.ras) { x, _, _ in
-            x < 3 ? 0 : (x < 6 ? 17 : 1002)
+            if x < 3 { 0 } else if x < 6 { 17 } else { 1002 }
         }
         let grid = VolumeRenderGrid(volume: volume, maxDimension: 4, asLabels: true)
         #expect(grid.isLabelGrid)
@@ -393,7 +394,9 @@ struct VolumeRendererTests {
     func shadingDarkensObliqueSurfacesOnly() async throws {
         // A sphere: centre faces the headlight (bright), the limb is oblique (darker).
         let volume = Self.makeVolume(dims: (32, 32, 32), frame: Self.ras) { x, y, z in
-            let dx = Float(x) - 15.5, dy = Float(y) - 15.5, dz = Float(z) - 15.5
+            let dx = Float(x) - 15.5
+            let dy = Float(y) - 15.5
+            let dz = Float(z) - 15.5
             return dx * dx + dy * dy + dz * dz < 100 ? 100 : 0
         }
         var options = Self.cpu
@@ -494,7 +497,9 @@ struct VolumeRendererTests {
     @Test
     func cpuOutputIsDeterministicAcrossRunsAndEntryPoints() async throws {
         let volume = Self.makeVolume(dims: (40, 36, 30), spacing: (1, 1.2, 1.5), frame: Self.lps) { x, y, z in
-            let dx = Float(x) - 18, dy = Float(y) - 20, dz = Float(z) - 14
+            let dx = Float(x) - 18
+            let dy = Float(y) - 20
+            let dz = Float(z) - 14
             return max(0, 120 - (dx * dx + dy * dy + dz * dz).squareRoot() * 8) + Float((x * 7 + y * 3 + z) % 11)
         }
         let grid = VolumeRenderGrid(volume: volume)
