@@ -215,10 +215,10 @@ struct OnDeviceCaptionEngine: CaptionEngine {
 /// (and the header facts in it) to another host.
 private final class RefuseRedirectsDelegate: NSObject, URLSessionTaskDelegate, Sendable {
     func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest
+        _ _: URLSession,
+        task _: URLSessionTask,
+        willPerformHTTPRedirection _: HTTPURLResponse,
+        newRequest _: URLRequest
     ) async -> URLRequest? {
         nil
     }

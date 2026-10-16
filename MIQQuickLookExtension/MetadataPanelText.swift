@@ -77,34 +77,47 @@ enum MetadataPanelText {
         var positionLineIndex: Int? = nil
     }
 
+    /// The overlay-drawn rows `layout` reserves or injects: Volumes (4D), the
+    /// live voxel value and the crosshair position.
+    struct LiveRows {
+        /// Whether the file is 4D, so its Volumes row is reserved blank for the
+        /// scrubber.
+        var isFourD: Bool
+        /// Whether the live voxel-value line occupies a slot (the crosshair is
+        /// visible and the field enabled); the slot is reserved blank for the
+        /// overlay.
+        var showsValue: Bool
+        /// Instead of a reserved slot, draw the voxel-value row as ordinary text
+        /// with this value (Settings' sample). The preview never sets it.
+        var staticValueText: String? = nil
+        /// Whether the live crosshair-position line occupies a slot (reserved
+        /// blank like the value line).
+        var showsPosition: Bool = false
+        /// For a 4D file, the window-mode indicator ("per volume" / "shared")
+        /// drawn on its own row right after Volumes.
+        var volumesWindowText: String? = nil
+    }
+
     /// Orders and filters `entries` into drawn rows.
     ///
     /// - Parameters:
-    ///   - showsValue: whether the live voxel-value line occupies a slot (the
-    ///     crosshair is visible and the field enabled); the slot is reserved
-    ///     blank for the overlay.
-    ///   - staticValueText: instead of a reserved slot, draw the voxel-value row
-    ///     as ordinary text with this value (Settings' sample). The preview never
-    ///     sets it.
-    ///   - showsPosition: whether the live crosshair-position line occupies a
-    ///     slot (reserved blank like the value line).
+    ///   - liveRows: which overlay-drawn rows get a slot; see `LiveRows`.
     ///   - warnings: always-visible caution lines, drawn first whatever the
     ///     field toggles say.
-    ///   - volumesWindowText: for a 4D file, the window-mode indicator
-    ///     ("per volume" / "shared") drawn on its own row right after Volumes.
     ///   - appendix: sections drawn after the configurable rows.
     static func layout(
         entries: [MetadataEntry],
         order: [MetadataField],
         isVisible: (MetadataField) -> Bool,
-        isFourD: Bool,
-        showsValue: Bool,
-        staticValueText: String? = nil,
-        showsPosition: Bool = false,
+        liveRows: LiveRows,
         warnings: [String] = [],
-        volumesWindowText: String? = nil,
         appendix: [Section] = []
     ) -> Layout {
+        let isFourD = liveRows.isFourD
+        let showsValue = liveRows.showsValue
+        let staticValueText = liveRows.staticValueText
+        let showsPosition = liveRows.showsPosition
+        let volumesWindowText = liveRows.volumesWindowText
         let orderIndex: [MetadataField: Int] = Dictionary(
             uniqueKeysWithValues: order.enumerated().map { ($1, $0) }
         )

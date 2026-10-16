@@ -37,49 +37,8 @@ public struct DICOMTechnicalInfo: Sendable, Equatable {
     /// orientation, assumed spacing, …). Empty when everything came from the file.
     public let geometryNotes: [String]
 
-    public init(
-        transferSyntaxName: String,
-        modality: String?,
-        rows: Int,
-        columns: Int,
-        numberOfFrames: Int,
-        samplesPerPixel: Int,
-        bitsAllocated: Int,
-        bitsStored: Int,
-        photometricInterpretation: String,
-        pixelSpacing: [Double]?,
-        sliceThickness: Double?,
-        spacingBetweenSlices: Double?,
-        rescaleSlope: Double,
-        rescaleIntercept: Double,
-        magneticFieldStrength: Double?,
-        repetitionTime: Double?,
-        echoTime: Double?,
-        kvp: Double?,
-        convolutionKernel: String?,
-        geometryNotes: [String]
-    ) {
-        self.transferSyntaxName = transferSyntaxName
-        self.modality = modality
-        self.rows = rows
-        self.columns = columns
-        self.numberOfFrames = numberOfFrames
-        self.samplesPerPixel = samplesPerPixel
-        self.bitsAllocated = bitsAllocated
-        self.bitsStored = bitsStored
-        self.photometricInterpretation = photometricInterpretation
-        self.pixelSpacing = pixelSpacing
-        self.sliceThickness = sliceThickness
-        self.spacingBetweenSlices = spacingBetweenSlices
-        self.rescaleSlope = rescaleSlope
-        self.rescaleIntercept = rescaleIntercept
-        self.magneticFieldStrength = magneticFieldStrength
-        self.repetitionTime = repetitionTime
-        self.echoTime = echoTime
-        self.kvp = kvp
-        self.convolutionKernel = convolutionKernel
-        self.geometryNotes = geometryNotes
-    }
+    // Built only by the DICOM parser inside MIQCore, through the synthesized
+    // (internal) memberwise initializer; consumers read the fields.
 
     /// Rows for the metadata panel (all with `field == nil`), in display order. Only
     /// fields present in the file are listed; dimensions, spacing, datatype and

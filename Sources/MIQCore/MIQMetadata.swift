@@ -466,50 +466,51 @@ public struct MIQAcquisitionInfo: Sendable {
 
     /// Names for the codes defined in nifti1.h.
     public static func intentName(for code: Int) -> String? {
-        switch code {
-        case 0: return "none"
-        case 2: return "Correlation"
-        case 3: return "t-statistic"
-        case 4: return "F-statistic"
-        case 5: return "z-score"
-        case 6: return "Chi-squared"
-        case 7: return "Beta distribution"
-        case 8: return "Binomial distribution"
-        case 9: return "Gamma distribution"
-        case 10: return "Poisson distribution"
-        case 11: return "Normal distribution"
-        case 12: return "Noncentral F-statistic"
-        case 13: return "Noncentral chi-squared"
-        case 14: return "Logistic distribution"
-        case 15: return "Laplace distribution"
-        case 16: return "Uniform distribution"
-        case 17: return "Noncentral t-statistic"
-        case 18: return "Weibull distribution"
-        case 19: return "Chi distribution"
-        case 20: return "Inverse Gaussian"
-        case 21: return "Extreme value"
-        case 22: return "p-value"
-        case 23: return "ln(p-value)"
-        case 24: return "log10(p-value)"
-        case 1001: return "Estimate"
-        case 1002: return "Label"
-        case 1003: return "NeuroNames label"
-        case 1004: return "General matrix"
-        case 1005: return "Symmetric matrix"
-        case 1006: return "Displacement vector"
-        case 1007: return "Vector"
-        case 1008: return "Point set"
-        case 1009: return "Triangle"
-        case 1010: return "Quaternion"
-        case 1011: return "Dimensionless"
-        case 2001: return "Time series"
-        case 2002: return "Node index"
-        case 2003: return "RGB vector"
-        case 2004: return "RGBA vector"
-        case 2005: return "Shape"
-        default: return nil
-        }
+        intentNames[code]
     }
+
+    private static let intentNames: [Int: String] = [
+        0: "none",
+        2: "Correlation",
+        3: "t-statistic",
+        4: "F-statistic",
+        5: "z-score",
+        6: "Chi-squared",
+        7: "Beta distribution",
+        8: "Binomial distribution",
+        9: "Gamma distribution",
+        10: "Poisson distribution",
+        11: "Normal distribution",
+        12: "Noncentral F-statistic",
+        13: "Noncentral chi-squared",
+        14: "Logistic distribution",
+        15: "Laplace distribution",
+        16: "Uniform distribution",
+        17: "Noncentral t-statistic",
+        18: "Weibull distribution",
+        19: "Chi distribution",
+        20: "Inverse Gaussian",
+        21: "Extreme value",
+        22: "p-value",
+        23: "ln(p-value)",
+        24: "log10(p-value)",
+        1001: "Estimate",
+        1002: "Label",
+        1003: "NeuroNames label",
+        1004: "General matrix",
+        1005: "Symmetric matrix",
+        1006: "Displacement vector",
+        1007: "Vector",
+        1008: "Point set",
+        1009: "Triangle",
+        1010: "Quaternion",
+        1011: "Dimensionless",
+        2001: "Time series",
+        2002: "Node index",
+        2003: "RGB vector",
+        2004: "RGBA vector",
+        2005: "Shape",
+    ]
 
     /// Fixed-width header text field → display string: stops at the first NUL,
     /// replaces control characters with spaces, trims, and yields `nil` when

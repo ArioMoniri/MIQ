@@ -21,8 +21,30 @@ public enum LocalEndpointPolicy {
         case credentialsNotAllowed
     }
 
-    /// Default suggested in Settings (llama.cpp's `llama-server` default port).
-    public static let defaultEndpoint = "http://127.0.0.1:8080"
+    /// Default suggested in Settings (llama.cpp's `llama-server` default port):
+    /// `http://127.0.0.1:8080`.
+    public static let defaultEndpoint: String = {
+        var components = URLComponents()
+        components.scheme = defaultScheme
+        components.host = defaultHost
+        components.port = defaultPort
+        return components.string ?? ""
+    }()
+
+    private static let defaultScheme = "http"
+    private static let defaultHost = "127.0.0.1"
+    private static let defaultPort = 8080
+
+    /// Path components of the OpenAI-compatible chat-completions route
+    /// (`/v1/chat/completions`), kept separate so a base that already ends in
+    /// `/v1` or `/chat/completions` can be completed rather than duplicated.
+    private static let apiVersionComponents = ["v1"]
+    private static let chatCompletionsComponents = ["chat", "completions"]
+
+    /// Joins path components into an absolute path ("/a/b").
+    private static func absolutePath(_ components: [String]) -> String {
+        components.map { "/" + $0 }.joined()
+    }
 
     /// Returns the normalised base URL, or why it was rejected.
     public static func validate(_ string: String) -> Result<URL, Rejection> {
@@ -73,13 +95,15 @@ public enum LocalEndpointPolicy {
     public static func chatCompletionsURL(base: URL) -> URL {
         var path = base.path
         while path.hasSuffix("/") { path.removeLast() }
+        let chatCompletionsPath = absolutePath(chatCompletionsComponents)
+        let apiVersionPath = absolutePath(apiVersionComponents)
         let suffix: String
-        if path.hasSuffix("/chat/completions") {
+        if path.hasSuffix(chatCompletionsPath) {
             suffix = ""
-        } else if path.hasSuffix("/v1") {
-            suffix = "/chat/completions"
+        } else if path.hasSuffix(apiVersionPath) {
+            suffix = chatCompletionsPath
         } else {
-            suffix = "/v1/chat/completions"
+            suffix = apiVersionPath + chatCompletionsPath
         }
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false) ?? URLComponents()
         components.path = path + suffix

@@ -404,9 +404,10 @@ final class MIQPreviewModel {
             let overNetwork = readsOverNetwork
             let coldLoad = Task {
                 try await Self.sharedColdLoad(key: probe.cacheKey) {
-                    try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: false, label: "load") { parser in
-                        try MIQPreviewModel.loadPreviewData(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension, windowFromHeadMask: headMaskWindow)
-                    }
+                    try await MIQPreviewModel.readColdPreview(
+                        overNetwork: overNetwork, fileURL: fileURL, navigating: navigating,
+                        options: options, maxDimension: maxDimension, windowFromHeadMask: headMaskWindow
+                    )
                 }
             }
             coldLoadTask = coldLoad
@@ -1124,15 +1125,7 @@ final class MIQPreviewModel {
             let fileURL = url
             temporalTask = Task { [weak self] in
                 let summary = try? await MIQPreviewModel.runCancelableDetached(priority: .utility) { () -> TemporalSummary? in
-                    try MIQPreviewModel.withSecurityScopedAccess(to: fileURL) {
-                        let pass = try stream.makeSiblingReader()
-                        return try TemporalStats.summary(
-                            volumeCount: header.volumes,
-                            width: header.width,
-                            height: header.height,
-                            depth: header.depth
-                        ) { t in try pass.volume(at: t) }
-                    }
+                    try MIQPreviewModel.streamedTemporalSummary(stream: stream, header: header, fileURL: fileURL)
                 }
                 guard let self, !Task.isCancelled, generation == self.summaryGeneration else { return }
                 self.temporalTask = nil
@@ -1190,12 +1183,9 @@ final class MIQPreviewModel {
             let bounds: MIQIntensityWindowBounds?
             if let stream {
                 let pass: @Sendable () throws -> MIQIntensityWindowBounds? = {
-                    try MIQPreviewModel.withSecurityScopedAccess(to: fileURL) {
-                        let sampler = try stream.makeSiblingReader()
-                        return try MIQVolume.sharedVolumeWindow(volumeCount: volume.volumes, options: options) { t in
-                            try sampler.volume(at: t)
-                        }
-                    }
+                    try MIQPreviewModel.streamedSharedWindow(
+                        stream: stream, volumeCount: volume.volumes, options: options, fileURL: fileURL
+                    )
                 }
                 if overNetwork {
                     bounds = try? await NetworkReadLane.shared.run("shared-window", url: fileURL, navigating: false, claimsNewest: true) { readFinished in
@@ -1304,6 +1294,54 @@ final class MIQPreviewModel {
         }
         return try await NetworkReadLane.shared.run(label, url: url, navigating: navigating, claimsNewest: claimsNewest) { readFinished in
             try work(MIQParser(onNetworkReadFinished: readFinished))
+        }
+    }
+
+    /// The cold preview read for `load()`: `loadPreviewData` through `runRead`.
+    private static func readColdPreview(
+        overNetwork: Bool,
+        fileURL: URL,
+        navigating: Bool,
+        options: RenderingOptions,
+        maxDimension: Int,
+        windowFromHeadMask: Bool
+    ) async throws -> RawPreviewData {
+        try await runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: false, label: "load") { parser in
+            try MIQPreviewModel.loadPreviewData(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension, windowFromHeadMask: windowFromHeadMask)
+        }
+    }
+
+    /// Temporal summary of a streamed series, from one forward pass through a
+    /// sibling reader of `stream`. Blocking: call it from a detached task.
+    private nonisolated static func streamedTemporalSummary(
+        stream: NiftiVolumeReader,
+        header: MIQHeader,
+        fileURL: URL
+    ) throws -> TemporalSummary? {
+        try withSecurityScopedAccess(to: fileURL) {
+            let pass = try stream.makeSiblingReader()
+            return try TemporalStats.summary(
+                volumeCount: header.volumes,
+                width: header.width,
+                height: header.height,
+                depth: header.depth
+            ) { t in try pass.volume(at: t) }
+        }
+    }
+
+    /// Shared intensity window of a streamed series, sampling volumes through a
+    /// sibling reader of `stream`. Blocking: call it off the MainActor.
+    private nonisolated static func streamedSharedWindow(
+        stream: NiftiVolumeReader,
+        volumeCount: Int,
+        options: RenderingOptions,
+        fileURL: URL
+    ) throws -> MIQIntensityWindowBounds? {
+        try withSecurityScopedAccess(to: fileURL) {
+            let sampler = try stream.makeSiblingReader()
+            return try MIQVolume.sharedVolumeWindow(volumeCount: volumeCount, options: options) { t in
+                try sampler.volume(at: t)
+            }
         }
     }
 

@@ -37,7 +37,7 @@ struct NiftiWriterTests {
         let geometry = NiftiGeometry(volume: source)
         let voxels = Self.mask(w, h, d)
         let url = try Self.tempURL("sub-01_desc-brain_mask.nii.gz")
-        try NiftiWriter.writeUInt8(voxels, width: w, height: h, depth: d, geometry: geometry, to: url, description: "MIQ test mask")
+        try NiftiWriter.writeUInt8(voxels, width: w, height: h, depth: d, geometry: geometry, to: url, annotations: .init(description: "MIQ test mask"))
 
         let raw = try Data(contentsOf: url)
         #expect(raw.prefix(2) == Data([0x1F, 0x8B]))

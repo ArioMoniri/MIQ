@@ -273,7 +273,8 @@ enum BrainMaskPipeline {
     /// mask is empty or holds no finite value, or `labels` doesn't match the
     /// grid.
     static func brainWindow(volume: MIQVolume, labels: [UInt8]) -> MIQIntensityWindowBounds? {
-        let width = volume.width, height = volume.height
+        let width = volume.width
+        let height = volume.height
         let count = width * height * volume.depth
         guard count > 0, labels.count == count else { return nil }
         let inside = labels.reduce(into: 0) { if $1 != 0 { $0 += 1 } }
@@ -287,8 +288,10 @@ enum BrainMaskPipeline {
         for i in 0..<count where labels[i] != 0 {
             defer { seen += 1 }
             guard seen % step == 0 else { continue }
-            let z = i / plane, rest = i - z * plane
-            let y = rest / width, x = rest - y * width
+            let z = i / plane
+            let rest = i - z * plane
+            let y = rest / width
+            let x = rest - y * width
             let value = volume.voxel(x: x, y: y, z: z)
             if value.isFinite { values.append(value) }
         }
@@ -296,7 +299,8 @@ enum BrainMaskPipeline {
         values.sort()
         func percentile(_ p: Double) -> Float {
             let position = p / 100 * Double(values.count - 1)
-            let lower = Int(position.rounded(.down)), upper = min(values.count - 1, lower + 1)
+            let lower = Int(position.rounded(.down))
+            let upper = min(values.count - 1, lower + 1)
             let fraction = Float(position - Double(lower))
             return values[lower] + (values[upper] - values[lower]) * fraction
         }
@@ -358,7 +362,10 @@ enum BrainMaskPipeline {
     }
 
     private static func centroid(labels: [UInt8], width: Int, height: Int, depth: Int) -> MIQVolumeCursor? {
-        var sx = 0, sy = 0, sz = 0, n = 0
+        var sx = 0
+        var sy = 0
+        var sz = 0
+        var n = 0
         var i = 0
         for z in 0..<depth {
             for y in 0..<height {
@@ -391,7 +398,7 @@ enum BrainMaskPipeline {
             width: result.width, height: result.height, depth: result.depth,
             geometry: result.geometry,
             to: url,
-            description: "MIQ brain mask (\(result.model.tag), \(spacing) mm grid)"
+            annotations: NiftiWriter.Annotations(description: "MIQ brain mask (\(result.model.tag), \(spacing) mm grid)")
         )
     }
 }
@@ -736,8 +743,10 @@ struct BrainMaskToolView: View {
         let t = result.timings
         // Numbers pre-formatted so the catalogue key carries only `%@`s.
         let seconds = { (value: Double) in String(format: "%.1f", value) }
-        let total = seconds(result.wallSeconds), conform = seconds(t.conform)
-        let inference = seconds(t.inference), postprocess = seconds(t.postprocess)
+        let total = seconds(result.wallSeconds)
+        let conform = seconds(t.conform)
+        let inference = seconds(t.inference)
+        let postprocess = seconds(t.postprocess)
         return String(localized: "\(total) s total · conform \(conform) s · inference \(inference) s · post-process \(postprocess) s")
     }
 

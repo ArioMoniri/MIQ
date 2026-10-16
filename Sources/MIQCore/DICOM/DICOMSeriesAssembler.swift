@@ -163,7 +163,6 @@ public struct DICOMSeriesAssembler: Sendable {
 
         let positions = ordered.map { $0.framePositions![0] }
         let geometry = DICOMGeometry(
-            columns: anchor.columns,
             frames: ordered.count,
             pixelSpacing: anchor.pixelSpacing,
             orientation: orientation,

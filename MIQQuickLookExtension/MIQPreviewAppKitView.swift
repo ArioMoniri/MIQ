@@ -349,11 +349,13 @@ final class MIQPreviewAppKitView: NSView {
             entries: metadataEntries,
             order: order,
             isVisible: MIQConfig.showMetadataField,
-            isFourD: isFourD,
-            showsValue: showValueLine,
-            showsPosition: showPositionLine,
+            liveRows: MetadataPanelText.LiveRows(
+                isFourD: isFourD,
+                showsValue: showValueLine,
+                showsPosition: showPositionLine,
+                volumesWindowText: isFourD ? volumesWindowText : nil
+            ),
             warnings: panelWarnings,
-            volumesWindowText: isFourD ? volumesWindowText : nil,
             appendix: panelAppendix
         )
         let rows = layout.rows

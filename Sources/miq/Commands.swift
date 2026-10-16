@@ -397,7 +397,8 @@ enum Mosaic {
         case .rgb: channels = 3
         }
         let src = image.pixels
-        let w = image.width, h = image.height
+        let w = image.width
+        let h = image.height
         guard w > 0, h > 0, src.count == w * h * channels else { return }
         // Center inside the cell; crop defensively if a slice ever exceeds it.
         let offsetX = max(0, (cell - w) / 2)

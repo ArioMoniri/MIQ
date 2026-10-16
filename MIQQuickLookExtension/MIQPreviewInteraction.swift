@@ -521,10 +521,7 @@ final class MIQInteractionController {
             // Listing can block on a network mount, and fails silently in the
             // Quick Look sandbox (then the feature just isn't offered).
             let job = Task.detached(priority: .utility) { () -> [MIQOverlayCandidate] in
-                SiblingFiles.candidateURLs(for: url).compactMap { pair -> MIQOverlayCandidate? in
-                    guard pair.candidate.role != .segmentationDirectory else { return nil }
-                    return MIQOverlayCandidate(url: pair.url, fileName: pair.candidate.fileName, role: pair.candidate.role)
-                }.prefix(limit).map { $0 }
+                MIQInteractionController.overlayCandidates(near: url, limit: limit)
             }
             let found = await job.value
             guard let self, !Task.isCancelled else { return }
@@ -597,6 +594,15 @@ final class MIQInteractionController {
 
     func stepOverlayOpacity(_ steps: Int) {
         setOverlayOpacity(overlayOpacity + Float(steps) * 0.05)
+    }
+
+    /// Up to `limit` overlay files next to `url` (segmentation directories are
+    /// left out). Lists the directory, so call it off the MainActor.
+    private nonisolated static func overlayCandidates(near url: URL, limit: Int) -> [MIQOverlayCandidate] {
+        SiblingFiles.candidateURLs(for: url).compactMap { pair -> MIQOverlayCandidate? in
+            guard pair.candidate.role != .segmentationDirectory else { return nil }
+            return MIQOverlayCandidate(url: pair.url, fileName: pair.candidate.fileName, role: pair.candidate.role)
+        }.prefix(limit).map { $0 }
     }
 
     nonisolated static func loadOverlayVolume(
