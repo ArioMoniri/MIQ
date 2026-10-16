@@ -132,7 +132,7 @@ struct SecurityHardeningTests {
         try Self.writeTinyV2Array(good.appendingPathComponent("0", isDirectory: true))
         #expect(try MIQParser().parseZarr(url: good).image.payloadCount == 4)
 
-        #expect(!ZarrStore.isSafeRelativePath("/etc"))
+        #expect(!ZarrStore.isSafeRelativePath(FileManager.default.temporaryDirectory.path))   // absolute
         #expect(!ZarrStore.isSafeRelativePath("a/../../b"))
         #expect(!ZarrStore.isSafeRelativePath(".."))
         #expect(ZarrStore.isSafeRelativePath("0"))
@@ -299,22 +299,22 @@ struct SecurityHardeningTests {
     // MARK: - L5: sidecar enumerations
 
     @Test func sidecarDropsFreeTextInEnumeratedFields() throws {
-        func parse(_ pe: String, _ acq: String, _ task: String) -> SidecarMetadata? {
+        func parse(_ pe: String, _ acq: String, _ task: String) throws -> SidecarMetadata? {
             let object = ["PhaseEncodingDirection": pe, "MRAcquisitionType": acq, "TaskName": task]
-            return SidecarMetadata.parse(jsonData: try! JSONSerialization.data(withJSONObject: object))
+            return SidecarMetadata.parse(jsonData: try JSONSerialization.data(withJSONObject: object))
         }
-        let good = parse("j-", "3D", "rest2")
+        let good = try parse("j-", "3D", "rest2")
         #expect(good?.phaseEncodingDirection == "j-")
         #expect(good?.mrAcquisitionType == "3D")
         #expect(good?.taskName == "rest2")
-        #expect(parse("k", "2D", "nback")?.phaseEncodingDirection == "k")
+        #expect(try parse("k", "2D", "nback")?.phaseEncodingDirection == "k")
 
-        let bad = parse("John Doe", "Patient 12345", "rest of Jane Doe")
+        let bad = try parse("John Doe", "Patient 12345", "rest of Jane Doe")
         #expect(bad?.phaseEncodingDirection == nil)
         #expect(bad?.mrAcquisitionType == nil)
         #expect(bad?.taskName == nil)
-        #expect(parse("i--", "4D", "task_name")?.phaseEncodingDirection == nil)
-        #expect(parse("x", "3d", "tâche")?.taskName == nil)
+        #expect(try parse("i--", "4D", "task_name")?.phaseEncodingDirection == nil)
+        #expect(try parse("x", "3d", "tâche")?.taskName == nil)
     }
 
     // MARK: - L6: salted log tags
@@ -328,7 +328,7 @@ struct SecurityHardeningTests {
         #expect(salt.count == 32)
         #expect(MIQLogRedaction.salt(in: store) == salt)   // persisted, reused
 
-        let path = "/Users/x/DOE_JOHN_T1.nii.gz"
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("DOE_JOHN_T1.nii.gz").path
         let salted = MIQLogRedaction.fileTag(path: path, salt: salt)
         #expect(salted.count == 8)
         #expect(salted != MIQLogRedaction.fileTag(path: path, salt: ""))

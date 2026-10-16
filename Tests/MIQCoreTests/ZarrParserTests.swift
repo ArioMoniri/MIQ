@@ -107,13 +107,29 @@ struct ZarrParserTests {
         [["type": "scale", "scale": scale]]
     }
 
-    /// Writes a v2 array with every chunk present, values from `element`.
+    /// How a v2 array's chunks are laid out and encoded on disk; the defaults are
+    /// an uncompressed C-order array with every chunk present.
+    private struct V2Storage {
+        var order = "C"
+        var compressor: [String: Any]?
+        var separator: String?
+        var fill: Any = 0
+        /// Chunk grid positions left unwritten (read back as `fill`).
+        var skip: Set<[Int]> = []
+        var encode: (Data) throws -> Data = { $0 }
+    }
+
+    /// Writes a v2 array with every chunk not in `storage.skip` present, values from `element`.
     private static func writeV2Array(
-        _ dir: URL, shape: [Int], chunks: [Int], dtype: String, order: String = "C",
-        compressor: [String: Any]? = nil, separator: String? = nil, fill: Any = 0,
-        skip: Set<[Int]> = [], elementSize: Int, element: ([Int]) -> [UInt8],
-        encode: (Data) throws -> Data = { $0 }
+        _ dir: URL, shape: [Int], chunks: [Int], dtype: String, storage: V2Storage = V2Storage(),
+        elementSize: Int, element: ([Int]) -> [UInt8]
     ) throws {
+        let order = storage.order
+        let compressor = storage.compressor
+        let separator = storage.separator
+        let fill = storage.fill
+        let skip = storage.skip
+        let encode = storage.encode
         var meta: [String: Any] = [
             "zarr_format": 2, "shape": shape, "chunks": chunks, "dtype": dtype,
             "order": order, "compressor": compressor ?? NSNull(), "filters": NSNull(), "fill_value": fill,
@@ -133,11 +149,12 @@ struct ZarrParserTests {
     // MARK: - Tests
 
     @Test func detectsZarrStoresByDirectorySuffix() {
+        let tmp = FileManager.default.temporaryDirectory
         for name in ["a.zarr", "a.ome.zarr", "brain.nii.zarr", "B.OME.ZARR"] {
-            #expect(MIQFileKind(url: URL(fileURLWithPath: "/tmp/\(name)", isDirectory: true)) == .zarr)
+            #expect(MIQFileKind(url: tmp.appendingPathComponent(name, isDirectory: true)) == .zarr)
         }
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/tmp/a.zarr/", isDirectory: true)) == .zarr)
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/tmp/a.nii")) == .nii)
+        #expect(MIQFileKind(url: URL(fileURLWithPath: "a.zarr/", isDirectory: true, relativeTo: tmp)) == .zarr)
+        #expect(MIQFileKind(url: tmp.appendingPathComponent("a.nii")) == .nii)
         #expect(MIQFileKind.zarr.supportsBoundedNetworkRead)
     }
 
@@ -168,10 +185,10 @@ struct ZarrParserTests {
         try Self.ome04Group(root, axes: Self.zyxMicrometer, datasets: [["path": "s0"]])
         let shape = [2, 3, 5]
         let dir = root.appendingPathComponent("s0")
-        try Self.writeV2Array(dir, shape: shape, chunks: [1, 2, 2], dtype: ">i2", order: "F",
-                              compressor: ["id": "gzip", "level": 1], separator: "/",
-                              elementSize: 2, element: { Self.u16(Self.pattern($0), bigEndian: true) },
-                              encode: { try TestZlib.gzip($0) })
+        try Self.writeV2Array(dir, shape: shape, chunks: [1, 2, 2], dtype: ">i2",
+                              storage: .init(order: "F", compressor: ["id": "gzip", "level": 1], separator: "/",
+                                             encode: { try TestZlib.gzip($0) }),
+                              elementSize: 2, element: { Self.u16(Self.pattern($0), bigEndian: true) })
         #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("1/1/2").path))
 
         let result = try MIQParser().parseZarr(url: root)
@@ -187,8 +204,8 @@ struct ZarrParserTests {
         let root = try Self.makeStore("plain.zarr")
         // A bare root array (no OME metadata): trailing dims are spatial.
         try Self.writeV2Array(root, shape: [2, 2, 3], chunks: [2, 2, 3], dtype: "<u2",
-                              compressor: ["id": "zlib", "level": 6], elementSize: 2,
-                              element: { Self.u16(Self.pattern($0)) }, encode: { Self.zlibCompress($0) })
+                              storage: .init(compressor: ["id": "zlib", "level": 6], encode: { Self.zlibCompress($0) }),
+                              elementSize: 2, element: { Self.u16(Self.pattern($0)) })
         let result = try MIQParser().parseZarr(url: root)
         #expect(result.summary.flavor == .plainZarr)
         #expect(result.image.header.formatLabel == "Zarr v2")
@@ -273,7 +290,7 @@ struct ZarrParserTests {
         let root = try Self.makeStore()
         try Self.ome04Group(root, axes: Self.zyxMicrometer, datasets: [["path": "0"]])
         try Self.writeV2Array(root.appendingPathComponent("0"), shape: [1, 4, 4], chunks: [1, 2, 2], dtype: "<u2",
-                              fill: 7, skip: [[0, 1, 1]], elementSize: 2) { Self.u16(Self.pattern($0)) }
+                              storage: .init(fill: 7, skip: [[0, 1, 1]]), elementSize: 2) { Self.u16(Self.pattern($0)) }
         let image = try MIQParser().parseZarr(url: root).image
         #expect(Self.value16(image, x: 1, y: 1, z: 0) == 11)
         #expect(Self.value16(image, x: 2, y: 2, z: 0) == 7)
@@ -285,7 +302,7 @@ struct ZarrParserTests {
         let root = try Self.makeStore()
         try Self.ome04Group(root, axes: Self.zyxMicrometer, datasets: [["path": "0"]])
         try Self.writeV2Array(root.appendingPathComponent("0"), shape: [1, 2, 4], chunks: [1, 2, 2], dtype: "<f4",
-                              fill: "NaN", skip: [[0, 0, 1]], elementSize: 4) { c in
+                              storage: .init(fill: "NaN", skip: [[0, 0, 1]]), elementSize: 4) { c in
             withUnsafeBytes(of: Float(Self.pattern(c)).bitPattern.littleEndian) { Array($0) }
         }
         let image = try MIQParser().parseZarr(url: root).image
@@ -415,8 +432,8 @@ struct ZarrParserTests {
         try Self.writeV2Array(root.appendingPathComponent("1"), shape: [2, 2, 2], chunks: [2, 2, 2], dtype: "|u1",
                               elementSize: 1) { [UInt8(Self.pattern($0))] }
         try Self.writeV2Array(root.appendingPathComponent("nifti"), shape: [348], chunks: [348], dtype: "|u1",
-                              compressor: ["id": "zlib", "level": 1], elementSize: 1,
-                              element: { [Self.niftiHeader()[$0[0]]] }, encode: { Self.zlibCompress($0) })
+                              storage: .init(compressor: ["id": "zlib", "level": 1], encode: { Self.zlibCompress($0) }),
+                              elementSize: 1, element: { [Self.niftiHeader()[$0[0]]] })
 
         let result = try MIQParser().parseZarr(url: root)
         let header = result.image.header

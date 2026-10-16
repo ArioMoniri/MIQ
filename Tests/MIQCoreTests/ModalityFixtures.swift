@@ -3,15 +3,38 @@ import Foundation
 
 /// Synthetic volumes for the overlay / colormap / diffusion / temporal suites.
 enum ModalityFixtures {
+    /// Voxel spacing and sform rows for `floatVolume`.
+    struct Geometry {
+        var spacing: [Float] = [1, 1, 1]
+        /// sform rows; `nil` = `diag(spacing)`, zero origin.
+        var srow: [[Float]]?
+
+        static func spacing(_ spacing: [Float]) -> Geometry { Geometry(spacing: spacing) }
+        static func srow(_ srow: [[Float]]) -> Geometry { Geometry(srow: srow) }
+    }
+
+    /// NIfTI qform fields for `niftiBytes`.
+    struct QForm {
+        var code: Int16 = 0
+        var quatern: (Float, Float, Float) = (0, 0, 0)
+        var qoffset: (Float, Float, Float) = (0, 0, 0)
+    }
+
+    /// NIfTI sform fields for `niftiBytes`.
+    struct SForm {
+        var code: Int16 = 0
+        var srow: [[Float]] = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+    }
+
     /// Float32 volume built straight from an `MIQHeader`, x-fastest then t then
-    /// (5th axis) components. `srow` rows default to `diag(spacing)`, zero origin.
+    /// (5th axis) components. `geometry.srow` rows default to `diag(spacing)`, zero origin.
     static func floatVolume(
         width: Int, height: Int, depth: Int, volumes: Int = 1, components: Int = 1,
-        spacing: [Float] = [1, 1, 1],
-        srow: [[Float]]? = nil,
+        geometry: Geometry = Geometry(),
         values: [Float]
     ) -> MIQVolume {
-        let rows = srow ?? [
+        let spacing = geometry.spacing
+        let rows = geometry.srow ?? [
             [spacing[0], 0, 0, 0],
             [0, spacing[1], 0, 0],
             [0, 0, spacing[2], 0],
@@ -46,13 +69,15 @@ enum ModalityFixtures {
         dims: [Int],
         pixdim: [Float] = [1, 1, 1, 1],
         intentCode: Int16 = 0,
-        qformCode: Int16 = 0,
-        sformCode: Int16 = 0,
-        quatern: (Float, Float, Float) = (0, 0, 0),
-        qoffset: (Float, Float, Float) = (0, 0, 0),
-        srow: [[Float]] = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+        qform: QForm = QForm(),
+        sform: SForm = SForm(),
         values: [Float]
     ) -> Data {
+        let qformCode = qform.code
+        let sformCode = sform.code
+        let quatern = qform.quatern
+        let qoffset = qform.qoffset
+        let srow = sform.srow
         var b = [UInt8](repeating: 0, count: 352)
         func put<T: FixedWidthInteger>(_ v: T, _ o: Int) {
             withUnsafeBytes(of: v.littleEndian) { for (i, x) in $0.enumerated() { b[o + i] = x } }

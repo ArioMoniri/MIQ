@@ -495,12 +495,13 @@ struct SidecarMetadataTests {
 
     @Test
     func stemStripsFormatSuffixes() {
-        #expect(SidecarMetadata.stem(of: URL(fileURLWithPath: "/d/sub-01_T1w.nii.gz")) == "sub-01_T1w")
-        #expect(SidecarMetadata.stem(of: URL(fileURLWithPath: "/d/sub-01_dwi.nii")) == "sub-01_dwi")
-        #expect(SidecarMetadata.stem(of: URL(fileURLWithPath: "/d/brain.MGZ")) == "brain")
-        #expect(SidecarMetadata.stem(of: URL(fileURLWithPath: "/d/dwi.mif.gz")) == "dwi")
-        #expect(SidecarMetadata.stem(of: URL(fileURLWithPath: "/d/notes.txt")) == nil)
-        #expect(SidecarMetadata.stem(of: URL(fileURLWithPath: "/d/.nii")) == nil)
+        let dir = FileManager.default.temporaryDirectory
+        #expect(SidecarMetadata.stem(of: dir.appendingPathComponent("sub-01_T1w.nii.gz")) == "sub-01_T1w")
+        #expect(SidecarMetadata.stem(of: dir.appendingPathComponent("sub-01_dwi.nii")) == "sub-01_dwi")
+        #expect(SidecarMetadata.stem(of: dir.appendingPathComponent("brain.MGZ")) == "brain")
+        #expect(SidecarMetadata.stem(of: dir.appendingPathComponent("dwi.mif.gz")) == "dwi")
+        #expect(SidecarMetadata.stem(of: dir.appendingPathComponent("notes.txt")) == nil)
+        #expect(SidecarMetadata.stem(of: dir.appendingPathComponent(".nii")) == nil)
     }
 
     @Test

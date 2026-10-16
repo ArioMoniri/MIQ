@@ -109,11 +109,12 @@ struct CorrectnessRegressionTests {
     @Test func decObliqueFslVectorUndoesXFlip() {
         // 30° about S, det > 0. True direction (1,1,0)/√2 in voxel axes; FSL stores
         // it with x negated.
-        let c = Float(cos(Double.pi / 6)), s = Float(sin(Double.pi / 6))
+        let c = Float(cos(Double.pi / 6))
+        let s = Float(sin(Double.pi / 6))
         let srow: [[Float]] = [[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0]]
         let v = 1 / Float(2).squareRoot()
         let volume = ModalityFixtures.floatVolume(
-            width: 1, height: 1, depth: 1, volumes: 3, srow: srow, values: [-v, v, 0]
+            width: 1, height: 1, depth: 1, volumes: 3, geometry: .srow(srow), values: [-v, v, 0]
         )
         let rgb = DiffusionColor.color(components: volume, x: 0, y: 0, z: 0)
         #expect(rgb.r == 66 && rgb.g == 246 && rgb.b == 0)

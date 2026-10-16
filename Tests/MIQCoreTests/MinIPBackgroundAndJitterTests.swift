@@ -23,7 +23,9 @@ struct MinIPBackgroundAndJitterTests {
     static func zeroBackgroundMR() -> MIQVolume {
         var noise = QCPhantom.Noise(state: 3)
         return QCPhantom.image(dims: [32, 32, 32], spacing: 1, datatype: .float32, frame: QCPhantom.rasFrame) { x, y, z, _ in
-            let dx = Float(x) - 15.5, dy = Float(y) - 15.5, dz = Float(z) - 15.5
+            let dx = Float(x) - 15.5
+            let dy = Float(y) - 15.5
+            let dz = Float(z) - 15.5
             let r = (dx * dx + dy * dy + dz * dz).squareRoot()
             if r > 12 { return 0 }
             return (r < 4 ? 40 : 100) + Float(2 * noise.normal())
@@ -111,7 +113,8 @@ struct MinIPBackgroundAndJitterTests {
         var noise = QCPhantom.Noise(state: 5)
         // Padding −1024 outside an x/z cylinder (r 14); noisy air inside; a body block.
         let ct = QCPhantom.image(dims: [32, 32, 32], spacing: 1, datatype: .float32, frame: QCPhantom.rasFrame) { x, y, z, _ in
-            let dx = Float(x) - 15.5, dz = Float(z) - 15.5
+            let dx = Float(x) - 15.5
+            let dz = Float(z) - 15.5
             if dx * dx + dz * dz > 14 * 14 { return -1024 }
             if (8..<24).contains(x), (8..<24).contains(y), (8..<24).contains(z) { return 40 + Float(5 * noise.normal()) }
             // Scanners clip at the padding value; keep the noisy air above it.
@@ -193,7 +196,9 @@ struct MinIPBackgroundAndJitterTests {
         // pixels' samples are in phase and the DVR image is a set of smooth
         // concentric bands; jitter decorrelates neighbours.
         let volume = QCPhantom.image(dims: [48, 48, 48], spacing: 1, datatype: .float32, frame: QCPhantom.rasFrame) { x, y, z, _ in
-            let dx = Float(x) - 23.5, dy = Float(y) - 23.5, dz = Float(z) - 23.5
+            let dx = Float(x) - 23.5
+            let dy = Float(y) - 23.5
+            let dz = Float(z) - 23.5
             return max(0, 100 - 5 * (dx * dx + dy * dy + dz * dz).squareRoot())
         }
         let grid = VolumeRenderGrid(volume: volume)

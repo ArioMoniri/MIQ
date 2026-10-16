@@ -22,7 +22,8 @@ enum QCPhantom {
             return (Double(state >> 11) + 0.5) / Double(1 << 53)
         }
         mutating func normal() -> Double {
-            let u1 = uniform(), u2 = uniform()
+            let u1 = uniform()
+            let u2 = uniform()
             return (-2 * log(u1)).squareRoot() * cos(2 * Double.pi * u2)
         }
     }
@@ -34,7 +35,10 @@ enum QCPhantom {
         frame: OrientationFrame?,
         value: (Int, Int, Int, Int) -> Float
     ) -> MIQVolume {
-        let w = dims[0], h = dims[1], d = dims[2], t = dims.count > 3 ? dims[3] : 1
+        let w = dims[0]
+        let h = dims[1]
+        let d = dims[2]
+        let t = dims.count > 3 ? dims[3] : 1
         let bpv = datatype.bytesPerVoxel
         var data = Data(count: w * h * d * t * bpv)
         data.withUnsafeMutableBytes { raw in
@@ -85,15 +89,18 @@ enum QCPhantom {
         zeroBackground: Bool = false,
         backgroundArtifact: Bool = false
     ) -> MIQVolume {
-        let n = 128, sp: Float = 2
+        let n = 128
+        let sp: Float = 2
         var noise = Noise(state: 42)
         return image(dims: [n, n, n], spacing: sp, datatype: .float32, frame: frame) { x, y, z, _ in
-            let r = (Double(x) - 64) * 2, a = (Double(y) - 64) * 2, s = (Double(z) - 60) * 2
+            let r = (Double(x) - 64) * 2
+            let a = (Double(y) - 64) * 2
+            let s = (Double(z) - 60) * 2
             let e = (r / 75) * (r / 75) + (a / 90) * (a / 90) + (s / 110) * (s / 110)
             var inside = e <= 1
             var level = 0.0
             if inside {
-                level = e > 0.85 ? 300 : (e > 0.35 ? 400 : 600)
+                level = if e > 0.85 { 300 } else if e > 0.35 { 400 } else { 600 }
             }
             switch face {
             case .present:
@@ -139,7 +146,9 @@ struct QCHeadMaskTests {
     func holeFillingAndLargestComponent() throws {
         // A sphere with a dark interior cavity, plus a disconnected bright speck.
         let volume = QCPhantom.image(dims: [48, 48, 48], spacing: 1, datatype: .float32, frame: nil) { x, y, z, _ in
-            let dx = Double(x) - 24, dy = Double(y) - 24, dz = Double(z) - 24
+            let dx = Double(x) - 24
+            let dy = Double(y) - 24
+            let dz = Double(z) - 24
             let r = (dx * dx + dy * dy + dz * dz).squareRoot()
             if r < 6 { return 0 }          // cavity (e.g. ventricle-like dark region)
             if r < 18 { return 500 }
@@ -171,7 +180,9 @@ struct QCHeadMaskTests {
     func maskOn256CubeIsFast() throws {
         let n = 256
         let volume = QCPhantom.image(dims: [n, n, n], spacing: 1, datatype: .uint8, frame: QCPhantom.rasFrame) { x, y, z, _ in
-            let dx = Float(x - 128) / 80, dy = Float(y - 128) / 95, dz = Float(z - 120) / 110
+            let dx = Float(x - 128) / 80
+            let dy = Float(y - 128) / 95
+            let dz = Float(z - 120) / 110
             return dx * dx + dy * dy + dz * dz <= 1 ? 180 : Float((x &* 7 &+ y &* 13 &+ z &* 3) % 5)
         }
         let clock = ContinuousClock()
@@ -331,7 +342,9 @@ struct QCFaceCheckTests {
     @Test
     func nonHeadSizedForegroundGivesUnknown() throws {
         let tiny = QCPhantom.image(dims: [32, 32, 32], spacing: 1, datatype: .float32, frame: QCPhantom.rasFrame) { x, y, z, _ in
-            let dx = Float(x - 16), dy = Float(y - 16), dz = Float(z - 16)
+            let dx = Float(x - 16)
+            let dy = Float(y - 16)
+            let dz = Float(z - 16)
             return dx * dx + dy * dy + dz * dz < 100 ? 500 : 0
         }
         let s = try QCAnalyzer.analyze(volume: tiny)
@@ -355,7 +368,7 @@ struct QCSequenceGuessTests {
         ("sub-01_desc-aseg_dseg.nii.gz", "Segmentation"),
         ("sub-01_label-GM_probseg.nii.gz", "Probabilistic segmentation"),
         ("sub-01_ct.nii.gz", "CT"),
-        ("/data/bids/sub-01/anat/sub-01_T1w.mif.gz", "T1w"),
+        ("bids/sub-01/anat/sub-01_T1w.mif.gz", "T1w"),
     ])
     func bidsSuffix(name: String, label: String) throws {
         let g = try #require(QCSequenceGuesser.guess(fileName: name))
@@ -456,7 +469,9 @@ struct QCSequenceGuessTests {
     @Test
     func ctDetectedFromHounsfieldRange() throws {
         let ct = QCPhantom.image(dims: [48, 48, 48], spacing: 1, datatype: .int16, frame: QCPhantom.rasFrame) { x, y, z, _ in
-            let dx = Float(x - 24), dy = Float(y - 24), dz = Float(z - 24)
+            let dx = Float(x - 24)
+            let dy = Float(y - 24)
+            let dz = Float(z - 24)
             let r = (dx * dx + dy * dy + dz * dz).squareRoot()
             if r < 16 { return 40 + Float((x + y + z) % 7) }
             if r < 19 { return 1200 }
@@ -477,9 +492,11 @@ struct QCSequenceGuessTests {
     static func noiseFreeAirCT(tissueNoise: Bool) -> MIQVolume {
         var noise = QCPhantom.Noise(state: 7)
         return QCPhantom.image(dims: [48, 48, 48], spacing: 1, datatype: .int16, frame: QCPhantom.rasFrame) { x, y, z, _ in
-            let dx = Float(x - 24), dy = Float(y - 24), dz = Float(z - 24)
+            let dx = Float(x - 24)
+            let dy = Float(y - 24)
+            let dz = Float(z - 24)
             let r = (dx * dx + dy * dy + dz * dz).squareRoot()
-            let hu: Float = r < 16 ? 30 : (r < 19 ? 1000 : -1024)
+            let hu: Float = if r < 16 { 30 } else if r < 19 { 1000 } else { -1024 }
             guard tissueNoise, hu > -1000 else { return hu }
             return (hu + Float(5 * noise.normal())).rounded()
         }

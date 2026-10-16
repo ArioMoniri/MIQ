@@ -78,9 +78,9 @@ struct IntensityWindowApplyIdentityTests {
             let hi = bounds.high.isFinite ? bounds.high : 1000
             let span = abs(hi - lo).isFinite && hi != lo ? abs(hi - lo) : 1
             for i in 0..<4099 {
-                switch i % 5 {
-                case 0: values.append(rng.anyFloat())
-                default:
+                if i % 5 == 0 {
+                    values.append(rng.anyFloat())
+                } else {
                     // In and around the window, where every grey level is hit.
                     values.append(min(lo, hi) - span * 0.25 + rng.unit() * span * 1.5)
                 }

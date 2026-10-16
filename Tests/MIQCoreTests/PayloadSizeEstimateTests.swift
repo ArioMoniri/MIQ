@@ -127,16 +127,21 @@ struct PayloadSizeEstimateTests {
     // MARK: - Redaction
 
     @Test func fileTagIsStableEightHexAndHidesName() {
-        let tag = MIQLogRedaction.fileTag(path: "/Users/x/DOE_JOHN_T1.nii.gz")
+        let dir = FileManager.default.temporaryDirectory
+        let johnPath = dir.appendingPathComponent("DOE_JOHN_T1.nii.gz").path
+        let janePath = dir.appendingPathComponent("DOE_JANE_T1.nii.gz").path
+        let tag = MIQLogRedaction.fileTag(path: johnPath)
         #expect(tag.count == 8)
         #expect(tag.allSatisfy { $0.isHexDigit })
-        #expect(tag == MIQLogRedaction.fileTag(path: "/Users/x/DOE_JOHN_T1.nii.gz"))
-        #expect(tag != MIQLogRedaction.fileTag(path: "/Users/x/DOE_JANE_T1.nii.gz"))
+        #expect(tag == MIQLogRedaction.fileTag(path: johnPath))
+        #expect(tag != MIQLogRedaction.fileTag(path: janePath))
         #expect(!tag.contains("DOE"))
         // FNV-1a 32-bit reference vectors.
         #expect(MIQLogRedaction.fileTag(path: "") == "811c9dc5")
         #expect(MIQLogRedaction.fileTag(path: "a") == "e40c292c")
-        #expect(MIQLogRedaction.fileTag(URL(fileURLWithPath: "/tmp/../tmp/a.nii")) == MIQLogRedaction.fileTag(path: URL(fileURLWithPath: "/tmp/a.nii").standardizedFileURL.path))
+        // A `..`-laden URL tags the same as its standardized path (dir/../dir/a.nii == dir/a.nii).
+        let dotted = dir.appendingPathComponent("..").appendingPathComponent(dir.lastPathComponent).appendingPathComponent("a.nii")
+        #expect(MIQLogRedaction.fileTag(dotted) == MIQLogRedaction.fileTag(path: dir.appendingPathComponent("a.nii").standardizedFileURL.path))
     }
 
     // MARK: - Locality probes

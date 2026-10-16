@@ -102,6 +102,11 @@ struct DICOMTestBuilder {
 // MARK: - Tests
 
 struct DICOMTests {
+    /// A temp-dir URL that is guaranteed not to exist (nothing is created).
+    private static func missingURL() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("miq-dicom-missing-\(UUID().uuidString)")
+    }
+
     private static func tempURL(_ name: String = "img.dcm", in dir: URL? = nil) -> URL {
         let folder = dir ?? FileManager.default.temporaryDirectory.appendingPathComponent("miq-dicom-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -116,7 +121,7 @@ struct DICOMTests {
         intercept: String = "-1024",
         pixels: [Int16] = [0, 1024, 2048, 3000, 0, 0, 0, 0, 0, 0, 0, 1024],
         seriesUID: String? = nil,
-        extra: (inout DICOMTestBuilder) -> Void = { _ in }
+        extra: (inout DICOMTestBuilder) -> Void = { _ in /* default: no extra elements */ }
     ) -> DICOMTestBuilder {
         var b = DICOMTestBuilder(explicit: explicit)
         b.string(0x0008, 0x0060, vr: "CS", "CT")
@@ -151,8 +156,8 @@ struct DICOMTests {
     // MARK: Detection
 
     @Test func fileKindDetection() throws {
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/a/b.dcm")) == .dicom)
-        #expect(MIQFileKind(url: URL(fileURLWithPath: "/a/b.DICOM")) == .dicom)
+        #expect(MIQFileKind(url: URL(fileURLWithPath: "b.dcm")) == .dicom)
+        #expect(MIQFileKind(url: URL(fileURLWithPath: "b.DICOM")) == .dicom)
         #expect(MIQFileKind.dicom.displayName == "DICOM")
 
         let url = Self.tempURL("IM000001") // extensionless, as PACS exports often are
@@ -618,7 +623,7 @@ struct DICOMTests {
             .write(to: folder.appendingPathComponent("one.dcm"))
         try Data("notes".utf8).write(to: folder.appendingPathComponent("notes.txt"))
         #expect(DICOMSeriesAssembler().assembleLargestSeries(inFolder: folder) == nil)
-        #expect(DICOMSeriesAssembler().assembleLargestSeries(inFolder: URL(fileURLWithPath: "/nonexistent")) == nil)
+        #expect(DICOMSeriesAssembler().assembleLargestSeries(inFolder: Self.missingURL()) == nil)
         // Over the entry cap: refused before anything is parsed.
         #expect(DICOMSeriesAssembler(maxFiles: 1).assembleLargestSeries(inFolder: folder) == nil)
     }
@@ -627,6 +632,6 @@ struct DICOMTests {
         let url = Self.tempURL()
         try Self.ctSlice(seriesUID: "1.1").part10(transferSyntax: DICOMTestBuilder.explicitLE).write(to: url)
         #expect(DICOMSeriesAssembler().assembleSeries(containing: url) == nil)
-        #expect(DICOMSeriesAssembler().assembleSeries(containing: URL(fileURLWithPath: "/nonexistent/x.dcm")) == nil)
+        #expect(DICOMSeriesAssembler().assembleSeries(containing: Self.missingURL().appendingPathComponent("x.dcm")) == nil)
     }
 }

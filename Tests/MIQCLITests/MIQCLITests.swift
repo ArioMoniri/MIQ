@@ -248,7 +248,8 @@ struct CommandExecutionTests {
     @Test
     func runMapsOutcomesToExitStatus() throws {
         #expect(MIQTool.run(["bogus"]) == 2)
-        #expect(MIQTool.run(["info", "/nonexistent/file.nii"]) == 1)
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent("miq-cli-missing-\(UUID().uuidString).nii")
+        #expect(MIQTool.run(["info", missing.path]) == 1)
 
         let url = try Self.writeNifti(width: 4, height: 4, depth: 4)
         let out = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("miq-cli-\(UUID().uuidString).png")

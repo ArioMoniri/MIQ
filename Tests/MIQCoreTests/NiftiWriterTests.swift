@@ -30,9 +30,8 @@ struct NiftiWriterTests {
         let srow: [[Float]] = [[-1.9, 0.2, 0, 91.5], [0.3, 2.1, -0.1, -126], [0, 0.1, 2.5, -72.25]]
         let source = try ModalityFixtures.niftiVolume(ModalityFixtures.niftiBytes(
             dims: [w, h, d, 2], pixdim: [-1, 1.9, 2.1, 2.5, 0.8],
-            qformCode: 1, sformCode: 2,
-            quatern: (0.1, -0.2, 0.3), qoffset: (11, -22, 33.5),
-            srow: srow, values: [Float](repeating: 1, count: w * h * d * 2)
+            qform: .init(code: 1, quatern: (0.1, -0.2, 0.3), qoffset: (11, -22, 33.5)),
+            sform: .init(code: 2, srow: srow), values: [Float](repeating: 1, count: w * h * d * 2)
         ))
         let geometry = NiftiGeometry(volume: source)
         let voxels = Self.mask(w, h, d)
@@ -72,8 +71,8 @@ struct NiftiWriterTests {
     /// qform-only source (sform code 0): the qform travels, the sform stays unset.
     @Test func uncompressedRoundTripKeepsQformOnlyGeometry() throws {
         let source = try ModalityFixtures.niftiVolume(ModalityFixtures.niftiBytes(
-            dims: [3, 3, 2], pixdim: [1, 3, 3, 3], qformCode: 1,
-            quatern: (0, 0, 1), qoffset: (10, 20, 30), values: [Float](repeating: 0, count: 18)
+            dims: [3, 3, 2], pixdim: [1, 3, 3, 3],
+            qform: .init(code: 1, quatern: (0, 0, 1), qoffset: (10, 20, 30)), values: [Float](repeating: 0, count: 18)
         ))
         let url = try Self.tempURL("mask.nii")
         let voxels = Self.mask(3, 3, 2)
@@ -94,7 +93,7 @@ struct NiftiWriterTests {
     @Test func nonNiftiSourceWritesAffineAsSformAndQform() throws {
         let srow: [[Float]] = [[0, 0, -1.5, 40], [2, 0, 0, -30], [0, -1, 0, 12]]  // permuted, flipped, LH
         let source = ModalityFixtures.floatVolume(
-            width: 4, height: 3, depth: 2, spacing: [2, 1, 1.5], srow: srow,
+            width: 4, height: 3, depth: 2, geometry: .init(spacing: [2, 1, 1.5], srow: srow),
             values: [Float](repeating: 0, count: 24)
         )
         #expect(NIfTIRawFields(image: source.image) == nil)

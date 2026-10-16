@@ -171,7 +171,8 @@ struct GzipBombTests {
     func niiGzBudgetSpanningTwoOutputWindowsIsExact() throws {
         // Volume 0 = 4096×4097 uint8 = 16 MiB + 4 KiB: the capped inflate needs a
         // second 16 MiB window and must stop exactly at the budget, not at a window edge.
-        let width = 4096, height = 4097
+        let width = 4096
+        let height = 4097
         var header = [UInt8](TestMIQFactory.makeNii(width: 1, height: 1, depth: 1, datatype: .uint8).prefix(352))
         for (i, dim) in [Int16(width), Int16(height), 1].enumerated() {
             let u = UInt16(bitPattern: dim)
