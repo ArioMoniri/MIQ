@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Windows version (MIQ-Win)
+    url: https://github.com/marcoduering/MIQ-Win/issues
+    about: Issues with the Windows counterpart belong in the MIQ-Win repository.
+  - name: Contributing guide
+    url: https://github.com/marcoduering/MIQ/blob/main/CONTRIBUTING.md
+    about: Building from source, running tests (including on Linux), and submitting changes.

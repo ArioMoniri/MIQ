@@ -570,8 +570,9 @@ struct MIQCoreTests {
         // appended in canonical order so the result always covers every case.
         #expect(parsed.contains(.scaling))
         #expect(parsed.contains(.value))
-        #expect(Array(parsed.suffix(2)) == [.scaling, .value])
-        #expect(parsed.last == .value)
+        // Fields added later still (acquisition/provenance rows) follow them.
+        #expect(Array(parsed[6..<8]) == [.scaling, .value])
+        #expect(parsed == MetadataField.allCases)
     }
 
     @Test
@@ -761,11 +762,12 @@ struct MIQCoreTests {
 
         for (url, kind) in [(plainURL, MIQFileKind.nii), (gzURL, MIQFileKind.niiGz)] {
             let task = Task.detached {
-                // Cancellation lands before the body runs; the first per-chunk
-                // check must surface it.
-                try MIQParser().loadBoundedNiftiPrefix(url: url, kind: kind)
+                // Cancel from inside the task before reading, so the first
+                // per-chunk check must surface it. (Cancelling from outside
+                // raced the task body on a loaded machine.)
+                withUnsafeCurrentTask { $0?.cancel() }
+                return try MIQParser().loadBoundedNiftiPrefix(url: url, kind: kind)
             }
-            task.cancel()
             let result = await task.result
             #expect(throws: CancellationError.self) { try result.get() }
         }

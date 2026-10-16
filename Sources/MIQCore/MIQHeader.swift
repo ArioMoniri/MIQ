@@ -29,6 +29,41 @@ public struct MIQHeader: Sendable {
     /// Consumed by `OrientationResolver` as the single source of truth for display labels and slice planning.
     public let orientationFrame: OrientationFrame?
 
+    // MARK: Orientation diagnostics
+    /// How the orientation was derived (transform source, obliquity, NIfTI qform/sform
+    /// conflicts), for the metadata panel. Purely informational — rendering reads
+    /// `orientationFrame`. Parsers that know more than the frame (NIfTI, MIF, NRRD) pass
+    /// it explicitly; otherwise it is derived from `orientationFrame` and the srow rows.
+    public let orientationDiagnostics: OrientationDiagnostics
+    // END MARK: Orientation diagnostics
+
+    // MARK: Acquisition & provenance
+
+    /// Optional, display-only header fields (units, TR, intent, description,
+    /// extensions, diffusion scheme, history, embedded label names). A `var` with
+    /// a default, not an init parameter, so format parsers that know none of it
+    /// stay untouched; the ones that do (NIfTI, MGH, MIF) assign it after
+    /// building the header. Never consulted by rendering.
+    public var acquisition = MIQAcquisitionInfo()
+
+    /// Display-only photometric inversion: grayscale slices render as
+    /// `255 − windowed value`, so the highest value is black. Set for DICOM
+    /// `MONOCHROME1` ("minimum is white"); voxel values keep their true
+    /// (rescaled) sign, so readouts, statistics and window presets are unaffected.
+    /// Applied by `MIQVolume`'s slice renderer (previews, thumbnails, CLI renders).
+    public var invertsDisplay = false
+
+    /// Acquisition modality code (`CT`, `MR`, `PT`, …) when the file states one —
+    /// DICOM's Modality (0008,0060); `nil` for formats that don't record it.
+    /// Consulted by `WindowPreset.looksLikeCT`.
+    public var modality: String?
+
+    /// The srow rows hold a valid voxel → world affine even though `sformCode`
+    /// is 0 and no anatomical orientation is known: OME-Zarr scale and
+    /// translation. `MIQVolume.voxelToWorld` then uses the rows (true origin)
+    /// while `orientationFrame` stays `nil`, so labels remain "?".
+    public var srowIsUnorientedAffine = false
+
     public var width: Int { dimensions[safe: 0] ?? 1 }
     public var height: Int { dimensions[safe: 1] ?? 1 }
     public var depth: Int { dimensions[safe: 2] ?? 1 }
@@ -49,7 +84,8 @@ public struct MIQHeader: Sendable {
         srowZ: [Float],
         formatLabel: String? = nil,
         datatypeLabel: String? = nil,
-        orientationFrame: OrientationFrame? = nil
+        orientationFrame: OrientationFrame? = nil,
+        orientationDiagnostics: OrientationDiagnostics? = nil
     ) {
         self.littleEndian = littleEndian
         self.dimensions = dimensions
@@ -66,6 +102,10 @@ public struct MIQHeader: Sendable {
         self.formatLabel = formatLabel
         self.datatypeLabel = datatypeLabel
         self.orientationFrame = orientationFrame
+        self.orientationDiagnostics = orientationDiagnostics ?? OrientationDiagnostics.make(
+            frame: orientationFrame,
+            rows: orientationFrame?.source == .qform ? nil : [srowX, srowY, srowZ]
+        )
     }
 }
 

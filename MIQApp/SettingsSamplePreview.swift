@@ -21,7 +21,8 @@ enum SettingsSample: String, Sendable, CaseIterable {
     var displayName: String {
         switch self {
         case .intensity: return "T1w.nii.gz"
-        case .labels:    return "aseg.mgz"
+        // NIfTI, like the bundled `SampleLabels.nii.gz` it is rendered from.
+        case .labels:    return "aseg.nii.gz"
         }
     }
 }
@@ -41,14 +42,25 @@ enum SampleRenderer {
     /// single-slice sample doesn't have — so the bounds come from the sample's
     /// window table, computed on the full volume when the sample was made.
     /// Without a table, the window falls back to the slice's own percentiles.
-    static func previewSlice(_ sample: SettingsSample, options: RenderingOptions) async -> SampleRender? {
+    ///
+    /// `colormap` (the Preview pane's colour map; `nil` = auto) recolours a
+    /// windowed greyscale slice the way the preview does for scalar volumes.
+    /// Label volumes keep their segmentation colours.
+    static func previewSlice(_ sample: SettingsSample, options: RenderingOptions,
+                             colormap: Colormap? = nil) async -> SampleRender? {
         await Task.detached(priority: .userInitiated) {
             guard let volume = cache.volume(for: sample) else { return nil }
             let lut = volume.buildSegmentationLut(options: options)
             let bounds = lut == nil ? cache.windowTable(for: sample)?.bounds(for: options) : nil
             let slice = volume.centerSlice(plane: .axial, maxDimension: 300, options: options,
                                            windowBounds: bounds, lut: lut)
-            guard let bitmap = slice.rgbaBitmap() else { return nil }
+            let bitmap: RGBABitmap?
+            if lut == nil, let colormap, colormap != .grayscale, case .grayscale(let gray) = slice {
+                bitmap = gray.rgbaBitmap(colormap: colormap)
+            } else {
+                bitmap = slice.rgbaBitmap()
+            }
+            guard let bitmap else { return nil }
             return SampleRender(bitmap: bitmap, labels: volume.displayOrientation(for: .axial, options: options))
         }.value
     }
@@ -68,9 +80,23 @@ enum SampleRenderer {
 
     /// What the metadata panel would show for a sample: its header rows in the
     /// panel's own vocabulary, plus the voxel value under a centred crosshair.
+    ///
+    /// The bundled single-slice sample carries no acquisition timing, sidecar or
+    /// free text, so those rows get *illustrative* values here (marked
+    /// `illustrativeEntries`) — otherwise toggling them in Settings would change
+    /// nothing in the example. Intent and diffusion stay absent: a T1w has
+    /// neither, and the real panel hides them too. The position row is real:
+    /// the centre voxel through the sample's own voxel→world transform.
+    ///
+    /// Illustrative values carry an "(example)" suffix and are listed in
+    /// `illustrativeValues`, so the panel can also draw them dimmed and in
+    /// italics (`markingIllustrative(_:values:)`): they must never read as
+    /// something MIQ found in the sample.
     struct SampleMetadata: Sendable {
         let entries: [MetadataEntry]
         let centreValue: String
+        /// Exact value texts of the illustrative rows, suffix included.
+        let illustrativeValues: [String]
     }
 
     static func metadata(_ sample: SettingsSample) async -> SampleMetadata? {
@@ -81,9 +107,70 @@ enum SampleRenderer {
             // Same fallback chain as MIQPreviewModel's Format row.
             let format = header.formatLabel ?? sample.url.flatMap(MIQFileKind.init(url:))?.displayName ?? "Unknown"
             entries.insert(MetadataEntry(field: .format, label: "Format", value: format), at: 0)
-            let value = volume.voxel(x: volume.width / 2, y: volume.height / 2, z: volume.depth / 2)
-            return SampleMetadata(entries: entries, centreValue: MetadataPanelText.formatVoxelValue(value))
+            let centre = [volume.width / 2, volume.height / 2, volume.depth / 2]
+            let present = Set(entries.compactMap(\.field))
+            let position = MIQMetadata.formatVoxelPosition(
+                ijk: centre,
+                affine: volume.voxelToWorld.rows.map { $0.map(Float.init) }
+            )
+            entries.append(MetadataEntry(field: .voxelPosition, label: MetadataField.voxelPosition.displayLabel,
+                                         value: position))
+            var illustrative: [String] = []
+            for (field, value) in illustrativeEntries where !present.contains(field) {
+                let marked = exampleText(value)
+                illustrative.append(marked)
+                entries.append(MetadataEntry(field: field, label: field.displayLabel, value: marked))
+            }
+            let value = volume.voxel(x: centre[0], y: centre[1], z: centre[2])
+            return SampleMetadata(entries: entries, centreValue: MetadataPanelText.formatVoxelValue(value),
+                                  illustrativeValues: illustrative)
         }.value
+    }
+
+    /// Stand-in values for rows the bundled sample can't supply (see
+    /// `SampleMetadata`). Kept short: the example column is 180 pt wide. The
+    /// free-text rows say what they are rather than imitating real header text.
+    private static let illustrativeEntries: [(MetadataField, String)] = [
+        (.repetitionTime, "2.3 s"),
+        (.sidecar, "TR 2.3 s \u{00B7} 3 T"),
+        (.description, String(localized: "Header free text")),
+        (.provenance, String(localized: "Command history")),
+    ]
+
+    /// `value` with the "(example)" suffix that marks an illustrative row.
+    static func exampleText(_ value: String) -> String {
+        String(localized: "\(value) (example)", comment: "Settings sample metadata: a made-up value shown only to illustrate a row")
+    }
+
+    /// `text` with every occurrence of the illustrative `values` drawn in
+    /// italics and a dimmer grey than real values, so made-up rows are visibly
+    /// examples even before the "(example)" suffix is read.
+    @MainActor
+    static func markingIllustrative(_ text: NSAttributedString, values: [String]) -> NSAttributedString {
+        guard !values.isEmpty else { return text }
+        let marked = NSMutableAttributedString(attributedString: text)
+        let string = marked.string as NSString
+        let dimmed = NSColor(calibratedWhite: 0.6, alpha: 1.0)
+        for value in values where !value.isEmpty {
+            var search = NSRange(location: 0, length: string.length)
+            while true {
+                let found = string.range(of: value, options: [], range: search)
+                guard found.location != NSNotFound else { break }
+                // Collected first: attributes aren't changed mid-enumeration.
+                var fonts: [(NSFont, NSRange)] = []
+                marked.enumerateAttribute(.font, in: found) { font, range, _ in
+                    if let font = font as? NSFont { fonts.append((font, range)) }
+                }
+                for (font, range) in fonts {
+                    marked.addAttribute(.font, value: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask),
+                                        range: range)
+                }
+                marked.addAttribute(.foregroundColor, value: dimmed, range: found)
+                let next = found.location + found.length
+                search = NSRange(location: next, length: string.length - next)
+            }
+        }
+        return marked
     }
 
     /// Written by scripts/dev/settings_sample_window.swift (same shape).
@@ -142,6 +229,11 @@ struct SampleSliceView: View {
     var overlayColor: Color
     var showsLabels: Bool
     var showsCrosshair: Bool
+    /// The Preview pane's colour map (`nil` = auto, i.e. greyscale here).
+    var colormap: Colormap? = nil
+    /// Keep the left/right letters even with axis labels off — the preview
+    /// does this in As Stored mode, where nothing else tells left from right.
+    var forcesLeftRightLabels: Bool = false
     var side: CGFloat = 150
 
     @State private var render: SampleRender?
@@ -171,27 +263,50 @@ struct SampleSliceView: View {
                 // Same stroke as `MIQSliceCanvas.drawCrosshair`.
                 .stroke(overlayColor.opacity(0.9), style: StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
             }
-            if showsLabels, let labels = render?.labels {
-                edgeLabels(labels)
+            if showsLabels || forcesLeftRightLabels, let labels = render?.labels {
+                edgeLabels(labels, leftRightOnly: !showsLabels)
             }
         }
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .accessibilityElement()
-        .accessibilityLabel("Sample slice of \(sample.displayName)")
-        .task(id: options) {
-            guard let result = await SampleRenderer.previewSlice(sample, options: options) else { return }
+        .accessibilityLabel(String(localized: "Example axial slice of \(sample.displayName)"))
+        .accessibilityValue(accessibilityOrientation)
+        .task(id: RenderKey(options: options, colormap: colormap)) {
+            guard let result = await SampleRenderer.previewSlice(sample, options: options,
+                                                                 colormap: colormap) else { return }
             render = result
             image = MIQImageBridge.makeNSImage(from: result.bitmap)
         }
     }
 
-    private func edgeLabels(_ labels: SliceOrientationLabels) -> some View {
+    private struct RenderKey: Equatable {
+        let options: RenderingOptions
+        let colormap: Colormap?
+    }
+
+    /// Spoken edge labels ("Left edge R, right edge L, …"), so VoiceOver users
+    /// hear what the orientation setting does to the example.
+    private var accessibilityOrientation: String {
+        guard let labels = render?.labels, showsLabels || forcesLeftRightLabels else { return "" }
+        var parts = [String(localized: "Left edge \(labels.leading)"),
+                     String(localized: "right edge \(labels.trailing)")]
+        if showsLabels {
+            parts.append(String(localized: "top \(labels.top)"))
+            parts.append(String(localized: "bottom \(labels.bottom)"))
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    // Edge letters are anatomical codes (R, L, A, P, S, I), never localised.
+    private func edgeLabels(_ labels: SliceOrientationLabels, leftRightOnly: Bool) -> some View {
         ZStack {
-            Text(labels.leading).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            Text(labels.trailing).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-            Text(labels.top).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            Text(labels.bottom).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            Text(verbatim: labels.leading).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            Text(verbatim: labels.trailing).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            if !leftRightOnly {
+                Text(verbatim: labels.top).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                Text(verbatim: labels.bottom).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
         }
         .font(.system(size: 11, weight: .bold))
         .foregroundStyle(overlayColor)
@@ -239,10 +354,13 @@ struct SampleFinderIcon: View {
                 }
             }
             .frame(width: 104, height: 104)
-            Text(sample.displayName)
+            Text(verbatim: sample.displayName)
                 .font(.callout)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showsThumbnail
+            ? String(localized: "\(sample.displayName) in Finder, with a slice thumbnail")
+            : String(localized: "\(sample.displayName) in Finder, with the standard document icon"))
         .task(id: options) {
             guard let result = await SampleRenderer.thumbnail(sample, options: options) else { return }
             image = MIQImageBridge.makeNSImage(from: result.bitmap)
@@ -259,6 +377,12 @@ struct MetadataPanelSample: NSViewRepresentable {
 
     func updateNSView(_ view: PanelTextView, context _: Context) {
         view.text = text
+        // The panel is drawn glyph by glyph, so it has no accessible text of its
+        // own; expose the same text as one static-text element.
+        view.setAccessibilityElement(true)
+        view.setAccessibilityRole(.staticText)
+        view.setAccessibilityLabel(String(localized: "Example metadata panel"))
+        view.setAccessibilityValue(text.string)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView view: PanelTextView, context _: Context) -> CGSize? {

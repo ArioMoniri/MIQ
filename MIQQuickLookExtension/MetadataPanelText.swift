@@ -20,15 +20,51 @@ enum MetadataPanelText {
 
     /// Labels drawn by the preview's overlays rather than by the text, still
     /// measured when sizing the label column.
-    static let volumesRowLabel = "Volumes"
-    static let valueRowLabel = "Voxel value"
+    static let volumesRowLabel = PreviewL10n.core(MetadataField.volumes.displayLabel)
+    static let valueRowLabel = PreviewL10n.core(MetadataField.value.displayLabel)
+    static let positionRowLabel = PreviewL10n.core(MetadataField.voxelPosition.displayLabel)
+    /// Prefix of every warning line (text presentation selector: a monochrome
+    /// glyph that takes the warning colour instead of an emoji).
+    static let warningPrefix = "\u{26A0}\u{FE0E} "
 
     /// One drawn line: label + value, empty for an overlay-drawn row (Volumes,
-    /// voxel value), value-only for a row that spans the panel (the debug build
-    /// stamp).
+    /// voxel value, position), value-only for a row that spans the panel (the
+    /// debug build stamp, warnings, subheadings).
     struct Row {
+        enum Style: Sendable, Equatable {
+            case normal
+            /// Always-visible caution (orientation, sidecar mismatch): spans
+            /// the panel in the system warning colour.
+            case warning
+            /// Spanning section title ("Data QC").
+            case subheading
+        }
+
         let label: String
         let value: String
+        var style: Style = .normal
+    }
+
+    /// Rows appended after the configurable fields, under an optional
+    /// subheading: DICOM technical rows, the Data QC rows. Not subject to the
+    /// field toggles — the preview decides whether to produce them at all.
+    struct Section: Sendable {
+        let title: String?
+        let entries: [MetadataEntry]
+        /// Whether row *values* go through the catalog too. Only for rows whose
+        /// values are MIQ-generated phrases (Data QC: "12.3 · Typical", "no spike
+        /// frames"). DICOM rows carry header values — a ConvolutionKernel "Bone"
+        /// or "Brain" must not come out as "Knochen" / "Gehirn" — so only their
+        /// labels are translated.
+        let translatesValues: Bool
+
+        /// `translatesValues` nil: true only for the Data QC section
+        /// (`PreviewDataSummaries.sectionTitle`), false for anything else.
+        init(title: String?, entries: [MetadataEntry], translatesValues: Bool? = nil) {
+            self.title = title
+            self.entries = entries
+            self.translatesValues = translatesValues ?? (title == PreviewDataSummaries.sectionTitle)
+        }
     }
 
     struct Layout {
@@ -37,25 +73,51 @@ enum MetadataPanelText {
         let volumesLineIndex: Int?
         /// Line reserved blank for the live voxel-value readout, if any.
         let valueLineIndex: Int?
+        /// Line reserved blank for the live crosshair-position readout, if any.
+        var positionLineIndex: Int? = nil
+    }
+
+    /// The overlay-drawn rows `layout` reserves or injects: Volumes (4D), the
+    /// live voxel value and the crosshair position.
+    struct LiveRows {
+        /// Whether the file is 4D, so its Volumes row is reserved blank for the
+        /// scrubber.
+        var isFourD: Bool
+        /// Whether the live voxel-value line occupies a slot (the crosshair is
+        /// visible and the field enabled); the slot is reserved blank for the
+        /// overlay.
+        var showsValue: Bool
+        /// Instead of a reserved slot, draw the voxel-value row as ordinary text
+        /// with this value (Settings' sample). The preview never sets it.
+        var staticValueText: String? = nil
+        /// Whether the live crosshair-position line occupies a slot (reserved
+        /// blank like the value line).
+        var showsPosition: Bool = false
+        /// For a 4D file, the window-mode indicator ("per volume" / "shared")
+        /// drawn on its own row right after Volumes.
+        var volumesWindowText: String? = nil
     }
 
     /// Orders and filters `entries` into drawn rows.
     ///
     /// - Parameters:
-    ///   - showsValue: whether the live voxel-value line occupies a slot (the
-    ///     crosshair is visible and the field enabled); the slot is reserved
-    ///     blank for the overlay.
-    ///   - staticValueText: instead of a reserved slot, draw the voxel-value row
-    ///     as ordinary text with this value (Settings' sample). The preview never
-    ///     sets it.
+    ///   - liveRows: which overlay-drawn rows get a slot; see `LiveRows`.
+    ///   - warnings: always-visible caution lines, drawn first whatever the
+    ///     field toggles say.
+    ///   - appendix: sections drawn after the configurable rows.
     static func layout(
         entries: [MetadataEntry],
         order: [MetadataField],
         isVisible: (MetadataField) -> Bool,
-        isFourD: Bool,
-        showsValue: Bool,
-        staticValueText: String? = nil
+        liveRows: LiveRows,
+        warnings: [String] = [],
+        appendix: [Section] = []
     ) -> Layout {
+        let isFourD = liveRows.isFourD
+        let showsValue = liveRows.showsValue
+        let staticValueText = liveRows.staticValueText
+        let showsPosition = liveRows.showsPosition
+        let volumesWindowText = liveRows.volumesWindowText
         let orderIndex: [MetadataField: Int] = Dictionary(
             uniqueKeysWithValues: order.enumerated().map { ($1, $0) }
         )
@@ -69,6 +131,9 @@ enum MetadataPanelText {
         } else if showsValue {
             entries.append(MetadataEntry(field: .value, label: "", value: ""))
         }
+        if showsPosition {
+            entries.append(MetadataEntry(field: .voxelPosition, label: "", value: ""))
+        }
         let sorted = entries.sorted { a, b in
             let ai = a.field.flatMap { orderIndex[$0] } ?? Int.max
             let bi = b.field.flatMap { orderIndex[$0] } ?? Int.max
@@ -79,28 +144,107 @@ enum MetadataPanelText {
         // empty line of identical height: the matching overlay draws over exactly
         // that slot, every other line keeps its position. For the Volumes case
         // the live value renders inside the scrubber instead.
-        var rows: [Row] = []
+        var rows: [Row] = warnings.map {
+            Row(label: "", value: warningPrefix + singleLine(PreviewL10n.core($0)), style: .warning)
+        }
         var volumesLineIndex: Int?
         var valueLineIndex: Int?
+        var positionLineIndex: Int?
         for entry in sorted {
             if let field = entry.field, !isVisible(field) { continue }
             if isFourD, entry.field == .volumes {
                 volumesLineIndex = rows.count
                 rows.append(Row(label: "", value: ""))
+                if let volumesWindowText {
+                    rows.append(Row(
+                        label: PreviewL10n.core(PreviewDataSummaries.windowModeLabel),
+                        value: PreviewL10n.core(volumesWindowText)
+                    ))
+                }
             } else if entry.field == .value, staticValueText == nil {
                 valueLineIndex = rows.count
+                rows.append(Row(label: "", value: ""))
+            } else if entry.field == .voxelPosition {
+                positionLineIndex = rows.count
                 rows.append(Row(label: "", value: ""))
             } else if entry.field == nil {
                 // Not a configurable field (only the debug build stamp): span the
                 // panel rather than joining the column, whose width it would
                 // otherwise drive — "DEBUG BUILD" is wider than any shipping label,
                 // so a Debug build would misrepresent Release geometry.
-                rows.append(Row(label: "", value: entry.text))
+                rows.append(Row(label: "", value: localizedText(entry)))
             } else {
-                rows.append(Row(label: entry.label, value: entry.value))
+                rows.append(Row(label: singleLine(localizedLabel(entry)), value: singleLine(localizedValue(entry))))
             }
         }
-        return Layout(rows: rows, volumesLineIndex: volumesLineIndex, valueLineIndex: valueLineIndex)
+        for section in appendix where !section.entries.isEmpty {
+            if let title = section.title {
+                rows.append(Row(label: "", value: singleLine(PreviewL10n.core(title)), style: .subheading))
+            }
+            for entry in section.entries {
+                rows.append(Row(
+                    label: singleLine(PreviewL10n.core(entry.label)),
+                    value: singleLine(section.translatesValues ? PreviewL10n.core(entry.value) : entry.value)
+                ))
+            }
+        }
+        return Layout(
+            rows: rows,
+            volumesLineIndex: volumesLineIndex,
+            valueLineIndex: valueLineIndex,
+            positionLineIndex: positionLineIndex
+        )
+    }
+
+    /// One row per line is what the preview's reserved-slot mapping counts on
+    /// (`MetadataView.characterIndexForLine`), so no row may carry a line break.
+    private static func singleLine(_ text: String) -> String {
+        guard text.contains(where: \.isNewline) else { return text }
+        return text.split(whereSeparator: \.isNewline).joined(separator: " ")
+    }
+
+    /// A row label in the user's language: MIQCore's English field labels and
+    /// QC labels go through the Preview catalog; untranslated ones (TR, BIDS,
+    /// DICOM attribute names) come back as is.
+    private static func localizedLabel(_ entry: MetadataEntry) -> String {
+        PreviewL10n.core(entry.label)
+    }
+
+    /// A row value in the user's language — only for rows whose value is
+    /// MIQCore prose (the orientation summary, an "Unknown" format). Header
+    /// values (dimensions, datatype, intent names, sidecar text) stay verbatim.
+    private static func localizedValue(_ entry: MetadataEntry) -> String {
+        switch entry.field {
+        case .orientation, .format: return PreviewL10n.core(entry.value)
+        default: return entry.value
+        }
+    }
+
+    /// `entry.text` with its label translated (spanning rows: the debug stamp).
+    private static func localizedText(_ entry: MetadataEntry) -> String {
+        entry.label.isEmpty ? entry.value : "\(localizedLabel(entry)): \(entry.value)"
+    }
+
+    /// Plain-text rendering of `rows` for VoiceOver: "Label: value" per row;
+    /// a reserved (overlay-drawn) row is replaced by `reserved(index)`, or
+    /// skipped when that returns `nil`.
+    static func accessibilityText(rows: [Row], reserved: (Int) -> String?) -> String {
+        var lines: [String] = []
+        for (index, row) in rows.enumerated() {
+            if row.label.isEmpty, row.value.isEmpty {
+                if let text = reserved(index) { lines.append(text) }
+            } else if row.label.isEmpty {
+                if row.style == .warning {
+                    let warning = row.value.replacingOccurrences(of: warningPrefix, with: "")
+                    lines.append(String(localized: "Warning: \(warning)", table: "Preview"))
+                } else {
+                    lines.append(row.value)
+                }
+            } else {
+                lines.append("\(row.label): \(row.value)")
+            }
+        }
+        return lines.joined(separator: "\n")
     }
 
     /// The voxel-value readout's text: integers without a decimal point, other
@@ -112,6 +256,12 @@ enum MetadataPanelText {
             return String(Int(value))
         }
         return String(format: "%.6g", Double(value))
+    }
+
+    /// As `formatVoxelValue(_:)`, with the label name appended when the active
+    /// segmentation LUT names this value ("17 Left-Hippocampus").
+    static func formatVoxelValue(_ value: Float, lut: SegmentationLut?) -> String {
+        lut?.formatLabelValue(value) ?? formatVoxelValue(value)
     }
 
     /// Value-column x: widest label plus a gutter. Empty labels are skipped.
@@ -152,13 +302,32 @@ enum MetadataPanelText {
             .foregroundColor: valueColor,
             .paragraphStyle: rowStyle
         ]
+        // Spanning rows (warnings, subheadings) wrap flush left, not under the
+        // value column.
+        let spanStyle = NSMutableParagraphStyle()
+        spanStyle.paragraphSpacing = fontSize * rowSpacingFactor
+        let warningAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: fontSize, weight: .medium),
+            .foregroundColor: NSColor.systemOrange,
+            .paragraphStyle: spanStyle
+        ]
+        let subheadingAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
+            .foregroundColor: labelColor,
+            .paragraphStyle: spanStyle
+        ]
         let result = NSMutableAttributedString()
 
         for (index, row) in rows.enumerated() {
-            if !row.label.isEmpty {
+            if row.style != .normal {
+                result.append(NSAttributedString(
+                    string: row.value,
+                    attributes: row.style == .warning ? warningAttrs : subheadingAttrs
+                ))
+            } else if !row.label.isEmpty {
                 result.append(NSAttributedString(string: row.label + "\t", attributes: labelAttrs))
             }
-            if !row.value.isEmpty {
+            if row.style == .normal, !row.value.isEmpty {
                 result.append(NSAttributedString(string: row.value, attributes: valueAttrs))
             }
 
@@ -181,8 +350,8 @@ enum MetadataPanelText {
                 .font: disclaimerFont,
                 .foregroundColor: disclaimerColor
             ]
-            result.append(NSAttributedString(string: "\nNot for clinical or diagnostic use.", attributes: firstLineAttrs))
-            result.append(NSAttributedString(string: "\nNo warranty expressed or implied.", attributes: secondLineAttrs))
+            result.append(NSAttributedString(string: "\n" + String(localized: "Not for clinical or diagnostic use.", table: "Preview"), attributes: firstLineAttrs))
+            result.append(NSAttributedString(string: "\n" + String(localized: "No warranty expressed or implied.", table: "Preview"), attributes: secondLineAttrs))
         }
 
         return result

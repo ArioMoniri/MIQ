@@ -1,6 +1,6 @@
 # Releasing MIQ
 
-Maintainer-only. This is the running order; the reasoning behind each rule lives in CLAUDE.md (the Sparkle and Homebrew conventions).
+Maintainer-only. This is the running order. The rationale for the Sparkle and Homebrew rules is kept in the maintainer's notes; the steps below are complete without them.
 
 ## One-time setup
 
@@ -25,7 +25,27 @@ Maintainer-only. This is the running order; the reasoning behind each rule lives
    brew audit --cask --strict marcoduering/miq/miq
    git -C "$TAP" checkout -- Casks/miq.rb
    ```
-8. **Verify.** Install the previous release, open it, choose **MIQ → Check for Updates…**, and confirm it installs and relaunches. Then press Space on a `.nii.gz` in Finder.
+8. **CLI (optional).** See [CLI (Homebrew formula and universal binary)](#cli-homebrew-formula-and-universal-binary).
+9. **Verify.** Install the previous release, open it, choose **MIQ → Check for Updates…**, and confirm it installs and relaunches. Then press Space on a `.nii.gz` in Finder.
+
+## CLI (Homebrew formula and universal binary)
+
+The `miq` command-line tool isn't part of `MIQ.app`. It ships two ways, both optional per release:
+
+- **Universal binary on the GitHub release.** Pass `--with-cli` in step 5: `./scripts/release_github.sh --with-cli`. The script builds `swift build -c release --product miq` for arm64 and x86_64, merges them with `lipo`, checks that `miq --help` runs, and attaches `miq-vX.Y.Z-macos-universal.tar.gz`. Set `MIQ_CLI_SIGN_IDENTITY` to your Developer ID Application identity to sign it with the hardened runtime, and add `NOTARY_PROFILE` to notarize it as well. Without an identity it is only ad-hoc signed, and a copy downloaded with a browser is quarantined, so say so in the release notes.
+- **Homebrew formula.** `packaging/homebrew/miq.rb` is HEAD-only until the first release that contains the CLI; it then builds from the tag's source tarball. Per release:
+  1. Add or update `url` (the new tag) and `sha256`, the output of `curl -fsSL https://github.com/marcoduering/MIQ/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256`. `release_github.sh` prints this command. Commit the change here.
+  2. Copy it to `Formula/miq.rb` in the tap checkout. The tap also has the `miq` cask, so audit and test it as a formula:
+     ```bash
+     TAP=/opt/homebrew/Library/Taps/marcoduering/homebrew-miq
+     mkdir -p "$TAP/Formula" && cp packaging/homebrew/miq.rb "$TAP/Formula/miq.rb"
+     brew audit --formula --strict marcoduering/miq/miq
+     brew install --formula --build-from-source marcoduering/miq/miq && brew test marcoduering/miq/miq
+     git -C "$TAP" checkout -- Formula/miq.rb 2>/dev/null || rm "$TAP/Formula/miq.rb"
+     ```
+  3. Commit and push `Formula/miq.rb` in the tap checkout. Users install it with `brew install --formula marcoduering/miq/miq`.
+
+Nothing in this repository updates the tap automatically. Until step 3 is done for a release, the tap still serves the previous formula, or none at all.
 
 ## First Sparkle release (1.4.0 only)
 

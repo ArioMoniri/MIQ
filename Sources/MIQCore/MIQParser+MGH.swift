@@ -85,9 +85,21 @@ extension MIQParser {
             let za = MIQBinaryReader.float32(data, 70, littleEndian: false)
             let zs = MIQBinaryReader.float32(data, 74, littleEndian: false)
 
-            srowX = [xr, yr, zr, 0]
-            srowY = [xa, ya, za, 0]
-            srowZ = [xs, ys, zs, 0]
+            // Rows keep the unit direction cosines (spacing lives in pixdim, as
+            // consumers of `.mghDirectionCosines` expect); the fourth column is the
+            // world position of voxel (0,0,0). FreeSurfer's vox2ras puts `c_ras` at
+            // the voxel *centre* index dim/2: P0 = c_ras − Mdc · diag(spacing) · dim/2.
+            let cr = MIQBinaryReader.float32(data, 78, littleEndian: false)
+            let ca = MIQBinaryReader.float32(data, 82, littleEndian: false)
+            let cs = MIQBinaryReader.float32(data, 86, littleEndian: false)
+            let half = [Float(width) / 2 * sx, Float(height) / 2 * sy, Float(depth) / 2 * sz]
+            func origin(_ c: Float, _ row: (Float, Float, Float)) -> Float {
+                let p = c - (row.0 * half[0] + row.1 * half[1] + row.2 * half[2])
+                return p.isFinite ? p : 0
+            }
+            srowX = [xr, yr, zr, origin(cr, (xr, yr, zr))]
+            srowY = [xa, ya, za, origin(ca, (xa, ya, za))]
+            srowZ = [xs, ys, zs, origin(cs, (xs, ys, zs))]
             sformCode = 1
         } else {
             pixdim = [1.0, 1.0, 1.0, 1.0]
@@ -101,7 +113,7 @@ extension MIQParser {
             ? OrientationFrame.from(srowX: srowX, srowY: srowY, srowZ: srowZ, source: .mghDirectionCosines)
             : nil
 
-        return MIQHeader(
+        var header = MIQHeader(
             littleEndian: false,
             dimensions: [width, height, depth, frames],
             pixdim: pixdim,
@@ -116,5 +128,39 @@ extension MIQParser {
             srowZ: srowZ,
             orientationFrame: orientationFrame
         )
+        // Product bounded by `validateDimensionExtent` above; the add is checked
+        // because that bound is `Int.max` itself.
+        let payloadBytes = width * height * depth * frames * mghType.datatype.bytesPerVoxel
+        let (payloadEnd, overflow) = mghHeaderSize.addingReportingOverflow(payloadBytes)
+        if !overflow {
+            header.acquisition = mghScanParameters(from: data, payloadEnd: payloadEnd)
+        }
+        return header
+    }
+
+    // MARK: - Acquisition & provenance (optional tail)
+
+    /// The optional scan-parameter tail FreeSurfer writes straight after the
+    /// payload: big-endian float32 TR (ms), flip angle (radians), TE (ms), TI (ms)
+    /// (then FoV and tags, unread). Absent in many files, so read only when all
+    /// four floats are inside the buffer; zero or non-finite values mean "not
+    /// recorded" (FreeSurfer's writers zero-fill the tail) and are left out.
+    ///
+    /// Cost: none extra. Both `.mgh` (mapped) and `.mgz` (always fully
+    /// decompressed — MGH volume 0 is never budget-capped, see
+    /// `niftiVolumeZeroBudget`) already hold the whole file here. A buffer cut
+    /// short (header-only probes) just yields no tail.
+    private func mghScanParameters(from data: Data, payloadEnd: Int) -> MIQAcquisitionInfo {
+        var info = MIQAcquisitionInfo()
+        guard payloadEnd > 0, data.count - payloadEnd >= 16 else { return info }
+        func value(_ index: Int) -> Double? {
+            let v = Double(MIQBinaryReader.float32(data, payloadEnd + index * 4, littleEndian: false))
+            return v.isFinite && v > 0 ? v : nil
+        }
+        info.repetitionTime = value(0).map { $0 / 1000 }
+        info.flipAngle = value(1).map { $0 * 180 / .pi }
+        info.echoTime = value(2).map { $0 / 1000 }
+        info.inversionTime = value(3).map { $0 / 1000 }
+        return info
     }
 }

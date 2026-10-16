@@ -1,0 +1,18 @@
+{
+  "contractVersion": 1,
+  "cases": [
+    "nifti1_ras_float32",
+    "nifti1_las_int16",
+    "nifti1_lps_uint8_gz",
+    "nifti1_oblique_sform",
+    "nifti1_qform_only",
+    "nifti1_no_orientation",
+    "nifti2_4d_float64",
+    "nifti1_int16_scaled_gz",
+    "nifti1_uint8_labels_gz",
+    "mgh_lia_int16",
+    "mif_layout_permuted",
+    "nrrd_lps_gzip",
+    "nrrd_no_space"
+  ]
+}

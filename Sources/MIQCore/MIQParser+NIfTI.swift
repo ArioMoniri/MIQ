@@ -27,11 +27,13 @@ extension MIQParser {
         let headerSizeLE = MIQBinaryReader.int32(data, 0, littleEndian: true)
         let headerSizeBE = MIQBinaryReader.int32(data, 0, littleEndian: false)
 
-        let header: MIQHeader
+        var header: MIQHeader
         if headerSizeLE == 348 || headerSizeBE == 348 {
             header = try parseNifti1Header(from: data, littleEndian: headerSizeLE == 348)
+            header.acquisition = niftiAcquisition(from: data, layout: .nifti1, header: header)
         } else if headerSizeLE == 540 || headerSizeBE == 540 {
             header = try parseNifti2Header(from: data, littleEndian: headerSizeLE == 540, compressed: compressed)
+            header.acquisition = niftiAcquisition(from: data, layout: .nifti2, header: header)
         } else {
             throw MIQError.invalidHeaderSize(headerSizeLE)
         }
@@ -64,7 +66,7 @@ extension MIQParser {
         let srowY = MIQBinaryReader.float32Array(data, 296, count: 4, littleEndian: littleEndian)
         let srowZ = MIQBinaryReader.float32Array(data, 312, count: 4, littleEndian: littleEndian)
 
-        let orientationFrame = niftiOrientationFrame(
+        let (orientationFrame, orientationDiagnostics) = niftiOrientationFrame(
             sform: SformFields(code: sformCode, rowX: srowX, rowY: srowY, rowZ: srowZ),
             qform: QformFields(code: qformCode, quaternB: quaternB, quaternC: quaternC, quaternD: quaternD, qfac: pixdim[safe: 0] ?? 1)
         )
@@ -82,7 +84,8 @@ extension MIQParser {
             srowX: srowX,
             srowY: srowY,
             srowZ: srowZ,
-            orientationFrame: orientationFrame
+            orientationFrame: orientationFrame,
+            orientationDiagnostics: orientationDiagnostics
         )
     }
 
@@ -113,7 +116,7 @@ extension MIQParser {
         let srowY = MIQBinaryReader.float64Array(data, 432, count: 4, littleEndian: littleEndian).map { Float($0) }
         let srowZ = MIQBinaryReader.float64Array(data, 464, count: 4, littleEndian: littleEndian).map { Float($0) }
 
-        let orientationFrame = niftiOrientationFrame(
+        let (orientationFrame, orientationDiagnostics) = niftiOrientationFrame(
             sform: SformFields(code: sformCode, rowX: srowX, rowY: srowY, rowZ: srowZ),
             qform: QformFields(code: qformCode, quaternB: quaternB, quaternC: quaternC, quaternD: quaternD, qfac: pixdim[safe: 0] ?? 1)
         )
@@ -132,7 +135,8 @@ extension MIQParser {
             srowY: srowY,
             srowZ: srowZ,
             formatLabel: compressed ? "Compressed NIfTI-2" : "NIfTI-2",
-            orientationFrame: orientationFrame
+            orientationFrame: orientationFrame,
+            orientationDiagnostics: orientationDiagnostics
         )
     }
 
@@ -157,16 +161,33 @@ extension MIQParser {
     /// sform when present and non-degenerate; otherwise fall back to qform; otherwise
     /// `nil`. Sform wins when both are valid because the spec treats sform as the
     /// "newer" / preferred transform.
-    private func niftiOrientationFrame(sform: SformFields, qform: QformFields) -> OrientationFrame? {
-        if sform.code > 0,
-           let frame = OrientationFrame.from(srowX: sform.rowX, srowY: sform.rowY, srowZ: sform.rowZ, source: .sform) {
-            return frame
+    ///
+    /// Also returns the matching diagnostics: obliquity of the transform actually used,
+    /// and — when both codes are > 0 — how the qform and sform disagree. The conflict
+    /// never changes which transform is used; it only surfaces in the metadata panel.
+    private func niftiOrientationFrame(sform: SformFields, qform: QformFields) -> (OrientationFrame?, OrientationDiagnostics) {
+        let sformRows = [sform.rowX, sform.rowY, sform.rowZ]
+        let qformRows = OrientationFrame.quaternionRows(b: qform.quaternB, c: qform.quaternC, d: qform.quaternD, qfac: qform.qfac)
+        let sformFrame = sform.code > 0
+            ? OrientationFrame.from(srowX: sform.rowX, srowY: sform.rowY, srowZ: sform.rowZ, source: .sform)
+            : nil
+        let qformFrame = qform.code > 0
+            ? OrientationFrame.fromQuaternion(b: qform.quaternB, c: qform.quaternC, d: qform.quaternD, qfac: qform.qfac)
+            : nil
+
+        var conflict: OrientationDiagnostics.QSConflict?
+        if sform.code > 0, qform.code > 0 {
+            conflict = OrientationDiagnostics.qformSformConflict(sformRows: sformRows, qformRows: qformRows)
         }
-        if qform.code > 0,
-           let frame = OrientationFrame.fromQuaternion(b: qform.quaternB, c: qform.quaternC, d: qform.quaternD, qfac: qform.qfac) {
-            return frame
+        let qformCodes = conflict == nil ? nil : qformFrame.map { $0.axes.map(\.letter).joined() }
+
+        if let sformFrame {
+            return (sformFrame, .make(frame: sformFrame, rows: sformRows, qformSformConflict: conflict, qformAxisCodes: qformCodes))
         }
-        return nil
+        if let qformFrame {
+            return (qformFrame, .make(frame: qformFrame, rows: qformRows))
+        }
+        return (nil, .unknown)
     }
 
     private func readAndValidateDatatype(data: Data, at datatypeOffset: Int, bitpixAt bitpixOffset: Int, littleEndian: Bool) throws -> MIQDatatype {
@@ -186,5 +207,146 @@ extension MIQParser {
         }
         while dimensions.count < 4 { dimensions.append(1) }
         return dimensions
+    }
+}
+
+// MARK: - Acquisition & provenance fields
+// Display-only header fields, read after (and independently of) the geometry
+// parse above so they can never fail a file: every read is bounds-checked
+// against the buffer, and anything malformed is simply left out.
+
+extension MIQParser {
+    /// Byte offsets of the display-only fields, per header version.
+    struct NiftiAcquisitionLayout {
+        let intentParamsOffset: Int
+        /// Width of the float fields read here (float32 in NIfTI-1, float64 in NIfTI-2).
+        let floatWidth: Int
+        let intentCodeOffset: Int
+        /// Width of `intent_code` (int16 / int32).
+        let intentCodeWidth: Int
+        let pixdim4Offset: Int
+        let xyztUnitsOffset: Int
+        /// Width of `xyzt_units` (char / int32).
+        let xyztUnitsWidth: Int
+        let descripOffset: Int
+        let intentNameOffset: Int
+        /// Offset of the 4-byte `extension` flag, = the fixed header size.
+        let extenderOffset: Int
+
+        static let nifti1 = NiftiAcquisitionLayout(
+            intentParamsOffset: 56, floatWidth: 4,
+            intentCodeOffset: 68, intentCodeWidth: 2,
+            pixdim4Offset: 92,
+            xyztUnitsOffset: 123, xyztUnitsWidth: 1,
+            descripOffset: 148, intentNameOffset: 328,
+            extenderOffset: 348
+        )
+        static let nifti2 = NiftiAcquisitionLayout(
+            intentParamsOffset: 80, floatWidth: 8,
+            intentCodeOffset: 504, intentCodeWidth: 4,
+            pixdim4Offset: 136,
+            xyztUnitsOffset: 500, xyztUnitsWidth: 4,
+            descripOffset: 240, intentNameOffset: 508,
+            extenderOffset: 540
+        )
+    }
+
+    /// Upper bound on the number of extensions walked, so a crafted chain of
+    /// tiny extensions cannot turn the header parse into a long loop.
+    private static let maxNiftiExtensions = 256
+    /// Largest extension whose content is scanned for an embedded label table.
+    private static let maxLabelExtensionBytes = 8 * 1024 * 1024
+
+    func niftiAcquisition(from data: Data, layout: NiftiAcquisitionLayout, header: MIQHeader) -> MIQAcquisitionInfo {
+        var info = MIQAcquisitionInfo()
+        let littleEndian = header.littleEndian
+
+        let units: Int
+        if layout.xyztUnitsWidth == 1 {
+            units = Int(data[data.startIndex + layout.xyztUnitsOffset])
+        } else {
+            units = Int(MIQBinaryReader.int32(data, layout.xyztUnitsOffset, littleEndian: littleEndian))
+        }
+        info.spatialUnit = MIQSpatialUnit(rawValue: units & 0x07) ?? .unknown
+        info.temporalUnit = MIQTemporalUnit(rawValue: units & 0x38) ?? .unknown
+
+        // pixdim[4] is the time step only along a real time axis; 3D files often
+        // leave 0 or 1 there. Spectral units (Hz/ppm/rad/s) and an unknown unit
+        // yield no TR rather than a guess.
+        let timeStep: Double = layout.floatWidth == 4
+            ? Double(MIQBinaryReader.float32(data, layout.pixdim4Offset, littleEndian: littleEndian))
+            : MIQBinaryReader.float64(data, layout.pixdim4Offset, littleEndian: littleEndian)
+        if (header.dimensions[safe: 3] ?? 1) > 1,
+           let unitsPerSecond = info.temporalUnit?.unitsPerSecond,
+           timeStep.isFinite, timeStep > 0 {
+            info.repetitionTime = timeStep / unitsPerSecond
+        }
+
+        info.intentCode = layout.intentCodeWidth == 2
+            ? Int(MIQBinaryReader.int16(data, layout.intentCodeOffset, littleEndian: littleEndian))
+            : Int(MIQBinaryReader.int32(data, layout.intentCodeOffset, littleEndian: littleEndian))
+        info.intentParameters = (0..<3).map { i in
+            let offset = layout.intentParamsOffset + i * layout.floatWidth
+            return layout.floatWidth == 4
+                ? Double(MIQBinaryReader.float32(data, offset, littleEndian: littleEndian))
+                : MIQBinaryReader.float64(data, offset, littleEndian: littleEndian)
+        }
+
+        info.descrip = niftiText(data, offset: layout.descripOffset, length: 80)
+        info.intentName = niftiText(data, offset: layout.intentNameOffset, length: 16)
+
+        let (extensions, labels) = niftiExtensions(
+            from: data,
+            start: layout.extenderOffset,
+            voxOffset: header.voxOffset,
+            littleEndian: littleEndian
+        )
+        info.extensions = extensions
+        info.embeddedLabels = labels
+        return info
+    }
+
+    private func niftiText(_ data: Data, offset: Int, length: Int) -> String? {
+        let start = data.startIndex + offset
+        guard offset >= 0, data.count >= offset + length else { return nil }
+        return MIQAcquisitionInfo.headerText(data[start..<(start + length)])
+    }
+
+    /// Walks the extension chain that follows the fixed header: a 4-byte
+    /// extender (`extension[0] != 0` means extensions follow), then records of
+    /// `esize` (int32, total record size incl. this 8-byte prefix, nominally a
+    /// multiple of 16) and `ecode` (int32). The chain ends at `vox_offset` (single
+    /// `.nii` file) or the end of the buffer, whichever comes first — the bounded
+    /// cold-load prefix always includes everything up to `vox_offset`.
+    ///
+    /// Any extension whose content holds a `<Label Key=...>` table is parsed into
+    /// label names (see `SegmentationLut.parseLabelTableXML`).
+    private func niftiExtensions(
+        from data: Data,
+        start: Int,
+        voxOffset: Int,
+        littleEndian: Bool
+    ) -> ([MIQHeaderExtension], [Int: SegmentationLabel]) {
+        guard data.count >= start + 4, data[data.startIndex + start] != 0 else { return ([], [:]) }
+        let end = min(voxOffset, data.count)
+        var offset = start + 4
+        var extensions: [MIQHeaderExtension] = []
+        var labels: [Int: SegmentationLabel] = [:]
+        while offset + 8 <= end, extensions.count < Self.maxNiftiExtensions {
+            let esize = Int(MIQBinaryReader.int32(data, offset, littleEndian: littleEndian))
+            let ecode = Int(MIQBinaryReader.int32(data, offset + 4, littleEndian: littleEndian))
+            guard esize >= 8, esize <= end - offset else { break }
+            extensions.append(MIQHeaderExtension(ecode: ecode, size: esize))
+            let contentSize = esize - 8
+            if labels.isEmpty, contentSize > 0, contentSize <= Self.maxLabelExtensionBytes {
+                let contentStart = data.startIndex + offset + 8
+                let content = data[contentStart..<(contentStart + contentSize)]
+                if content.range(of: Data("<Label".utf8)) != nil {
+                    labels = SegmentationLut.parseLabelTableXML(String(decoding: content, as: UTF8.self))
+                }
+            }
+            offset += esize
+        }
+        return (extensions, labels)
     }
 }

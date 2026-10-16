@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4B3A00000000000000000002 /* BrainMaskTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000001 /* BrainMaskTool.swift */; };
+		4B3A00000000000000000004 /* mindgrab in Resources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000003 /* mindgrab */; };
+		4B3A00000000000000000006 /* model5_gw_ae in Resources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000005 /* model5_gw_ae */; };
+		4B3A00000000000000000008 /* LICENSE-brainchop in Resources */ = {isa = PBXBuildFile; fileRef = 4B3A00000000000000000007 /* LICENSE-brainchop */; };
+		5EC0A0000000000000000002 /* CaptionFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC0A0000000000000000001 /* CaptionFeature.swift */; };
 		5E77A000000000000000000F /* SampleIntensity.window.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E77A000000000000000000E /* SampleIntensity.window.json */; };
 		5E77A0000000000000000011 /* SampleLabels.window.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E77A0000000000000000010 /* SampleLabels.window.json */; };
 		5E77A000000000000000000C /* MetadataPanelText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E77A000000000000000000B /* MetadataPanelText.swift */; };
@@ -22,6 +27,10 @@
 		0701E1F39439EE434DE78D66 /* MIQQuickLookExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DEACD5BFB1B39E6BB6A9F28F /* MIQQuickLookExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		1525C5A90753349409A6DC7B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00FF4BD21CCF016F9EE93B3D /* ContentView.swift */; };
 		1F7BAF3D389C4B31A8A8EA6E /* MIQPreviewCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827A41D521B17E9ABFF27BF5 /* MIQPreviewCache.swift */; };
+		7A11000000000000000000B1 /* MIQPreviewInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11000000000000000000A1 /* MIQPreviewInteraction.swift */; };
+		7A11000000000000000000B2 /* MIQViewModes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11000000000000000000A2 /* MIQViewModes.swift */; };
+		7A11000000000000000000B3 /* MIQVolumeRenderTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11000000000000000000A3 /* MIQVolumeRenderTile.swift */; };
+		7A11000000000000000000B4 /* MIQExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11000000000000000000A4 /* MIQExport.swift */; };
 		4E7A1C2B9D3F4A5B6C7D8E9F /* NetworkReadLane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F8B2D3C0E4A5B6C7D8E9FA0 /* NetworkReadLane.swift */; };
 		4CFCB7FE2FAD03EF00715102 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 4CFCB7FD2FAD03EF00715102 /* AppIcon.icon */; };
 		9C6AE0FE9F91ECE1B1923E18 /* MIQCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0D703866A54AAA65D0773EF7 /* MIQCore */; };
@@ -37,6 +46,22 @@
 		E9B000A957C87B753436028A /* MIQPreviewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C034A78ADECC902D98B3BF2F /* MIQPreviewController.swift */; };
 		E9D1739EF930782E62D9FE97 /* MIQApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35E6221C4BB0043A82D4EA0 /* MIQApp.swift */; };
 		EC5608D3469B46449C5FE429 /* MIQPreviewAppKitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BA3B91B2654D418D9CD49E /* MIQPreviewAppKitView.swift */; };
+		5D0A5E000000000000000005 /* IntentSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000001 /* IntentSupport.swift */; };
+		5D0A5E000000000000000006 /* GetVolumeInfoIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000002 /* GetVolumeInfoIntent.swift */; };
+		5D0A5E000000000000000007 /* RenderCenterSliceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000003 /* RenderCenterSliceIntent.swift */; };
+		5D0A5E000000000000000008 /* MIQAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000004 /* MIQAppShortcuts.swift */; };
+		5D0A5E000000000000000020 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000010 /* main.c */; };
+		5D0A5E000000000000000021 /* MIQSpotlightImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000011 /* MIQSpotlightImporter.swift */; };
+		5D0A5E000000000000000022 /* schema.xml in Resources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000013 /* schema.xml */; };
+		5D0A5E000000000000000023 /* schema.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000016 /* schema.strings */; };
+		5D0A5E000000000000000024 /* MIQCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5D0A5E000000000000000052 /* MIQCore */; };
+		5D0A5E000000000000000025 /* MIQSpotlightImporter.mdimporter in Embed Spotlight Importer */ = {isa = PBXBuildFile; fileRef = 5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		5E77B00000000000000000A2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 5E77B00000000000000000A1 /* Localizable.xcstrings */; };
+		1A1000000000000000000011 /* Preview.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000001 /* Preview.xcstrings */; };
+		1A1000000000000000000012 /* Preview.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000001 /* Preview.xcstrings */; };
+		1A1000000000000000000013 /* Preview.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000001 /* Preview.xcstrings */; };
+		1A1000000000000000000021 /* PreviewLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000002 /* PreviewLocalization.swift */; };
+		1A1000000000000000000023 /* PreviewLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1000000000000000000002 /* PreviewLocalization.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +79,13 @@
 			remoteGlobalIDString = BB100000000000000000A001;
 			remoteInfo = MIQThumbnailExtension;
 		};
+		5D0A5E000000000000000050 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8EFB9F75CA40FD696A3D6853 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D0A5E000000000000000040;
+			remoteInfo = MIQSpotlightImporter;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -69,9 +101,25 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5D0A5E000000000000000033 /* Embed Spotlight Importer */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/Spotlight;
+			dstSubfolderSpec = 1;
+			files = (
+				5D0A5E000000000000000025 /* MIQSpotlightImporter.mdimporter in Embed Spotlight Importer */,
+			);
+			name = "Embed Spotlight Importer";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4B3A00000000000000000001 /* BrainMaskTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainMaskTool.swift; sourceTree = "<group>"; };
+		4B3A00000000000000000003 /* mindgrab */ = {isa = PBXFileReference; lastKnownFileType = folder; path = mindgrab; sourceTree = "<group>"; };
+		4B3A00000000000000000005 /* model5_gw_ae */ = {isa = PBXFileReference; lastKnownFileType = folder; path = model5_gw_ae; sourceTree = "<group>"; };
+		4B3A00000000000000000007 /* LICENSE-brainchop */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-brainchop"; sourceTree = "<group>"; };
+		5EC0A0000000000000000001 /* CaptionFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionFeature.swift; sourceTree = "<group>"; };
 		5E77A000000000000000000E /* SampleIntensity.window.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SampleIntensity.window.json; sourceTree = "<group>"; };
 		5E77A0000000000000000010 /* SampleLabels.window.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SampleLabels.window.json; sourceTree = "<group>"; };
 		5E77A000000000000000000B /* MetadataPanelText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPanelText.swift; sourceTree = "<group>"; };
@@ -91,6 +139,10 @@
 		4CFCB7FD2FAD03EF00715102 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		5FA8F818819F192C0EB31251 /* MIQ */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MIQ; path = .; sourceTree = SOURCE_ROOT; };
 		827A41D521B17E9ABFF27BF5 /* MIQPreviewCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQPreviewCache.swift; sourceTree = "<group>"; };
+		7A11000000000000000000A1 /* MIQPreviewInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQPreviewInteraction.swift; sourceTree = "<group>"; };
+		7A11000000000000000000A2 /* MIQViewModes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQViewModes.swift; sourceTree = "<group>"; };
+		7A11000000000000000000A3 /* MIQVolumeRenderTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQVolumeRenderTile.swift; sourceTree = "<group>"; };
+		7A11000000000000000000A4 /* MIQExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQExport.swift; sourceTree = "<group>"; };
 		5F8B2D3C0E4A5B6C7D8E9FA0 /* NetworkReadLane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkReadLane.swift; sourceTree = "<group>"; };
 		901139238A3C73F5F746D7A0 /* MIQPreviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQPreviewModel.swift; sourceTree = "<group>"; };
 		B9BA3B91B2654D418D9CD49E /* MIQPreviewAppKitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQPreviewAppKitView.swift; sourceTree = "<group>"; };
@@ -102,6 +154,19 @@
 		0F5A0000000000000000A004 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		DD43E5703AD6ABBED64F738F /* MIQ.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MIQ.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DEACD5BFB1B39E6BB6A9F28F /* MIQQuickLookExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MIQQuickLookExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D0A5E000000000000000001 /* IntentSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentSupport.swift; sourceTree = "<group>"; };
+		5D0A5E000000000000000002 /* GetVolumeInfoIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetVolumeInfoIntent.swift; sourceTree = "<group>"; };
+		5D0A5E000000000000000003 /* RenderCenterSliceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderCenterSliceIntent.swift; sourceTree = "<group>"; };
+		5D0A5E000000000000000004 /* MIQAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQAppShortcuts.swift; sourceTree = "<group>"; };
+		5D0A5E000000000000000010 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		5D0A5E000000000000000011 /* MIQSpotlightImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIQSpotlightImporter.swift; sourceTree = "<group>"; };
+		5D0A5E000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		5D0A5E000000000000000013 /* schema.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = schema.xml; sourceTree = "<group>"; };
+		5D0A5E000000000000000014 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/schema.strings; sourceTree = "<group>"; };
+		5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MIQSpotlightImporter.mdimporter; sourceTree = BUILT_PRODUCTS_DIR; };
+		5E77B00000000000000000A1 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		1A1000000000000000000001 /* Preview.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Preview.xcstrings; sourceTree = "<group>"; };
+		1A1000000000000000000002 /* PreviewLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewLocalization.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -130,9 +195,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5D0A5E000000000000000031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D0A5E000000000000000024 /* MIQCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4B3A00000000000000000009 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				4B3A00000000000000000003 /* mindgrab */,
+				4B3A00000000000000000005 /* model5_gw_ae */,
+				4B3A00000000000000000007 /* LICENSE-brainchop */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		5E77A0000000000000000006 /* SettingsSamples */ = {
 			isa = PBXGroup;
 			children = (
@@ -155,6 +238,8 @@
 		295F76FA9C1925A5383F55EA /* MIQApp */ = {
 			isa = PBXGroup;
 			children = (
+				5EC0A0000000000000000001 /* CaptionFeature.swift */,
+				4B3A00000000000000000001 /* BrainMaskTool.swift */,
 				00FF4BD21CCF016F9EE93B3D /* ContentView.swift */,
 				1069830D6ED40B3AB5757858 /* Info.plist */,
 				38D75F862B31E42F5A44BD93 /* MIQ.entitlements */,
@@ -164,6 +249,8 @@
 				5E77A0000000000000000003 /* PercentileRangeControl.swift */,
 				5E77A0000000000000000001 /* SettingsSamplePreview.swift */,
 				5E77A0000000000000000006 /* SettingsSamples */,
+				5D0A5E000000000000000009 /* Intents */,
+				5E77B00000000000000000A1 /* Localizable.xcstrings */,
 			);
 			path = MIQApp;
 			sourceTree = "<group>";
@@ -174,6 +261,7 @@
 				DD43E5703AD6ABBED64F738F /* MIQ.app */,
 				DEACD5BFB1B39E6BB6A9F28F /* MIQQuickLookExtension.appex */,
 				BB100000000000000000A008 /* MIQThumbnailExtension.appex */,
+				5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -190,6 +278,12 @@
 				24EC29AEA4504CC7AE152ACC /* MIQSliceCanvas.swift */,
 				827A41D521B17E9ABFF27BF5 /* MIQPreviewCache.swift */,
 				5F8B2D3C0E4A5B6C7D8E9FA0 /* NetworkReadLane.swift */,
+				7A11000000000000000000A1 /* MIQPreviewInteraction.swift */,
+				7A11000000000000000000A2 /* MIQViewModes.swift */,
+				7A11000000000000000000A3 /* MIQVolumeRenderTile.swift */,
+				7A11000000000000000000A4 /* MIQExport.swift */,
+				1A1000000000000000000002 /* PreviewLocalization.swift */,
+				1A1000000000000000000001 /* Preview.xcstrings */,
 			);
 			path = MIQQuickLookExtension;
 			sourceTree = "<group>";
@@ -208,9 +302,11 @@
 			isa = PBXGroup;
 			children = (
 				295F76FA9C1925A5383F55EA /* MIQApp */,
+				4B3A00000000000000000009 /* Models */,
 				0ED64C3613347F16C87F4D91 /* Packages */,
 				6BD9CA3ED049BC872048F4E5 /* MIQQuickLookExtension */,
 				BB100000000000000000A010 /* MIQThumbnailExtension */,
+				5D0A5E000000000000000017 /* MIQSpotlightImporter */,
 				46F873B00B4816F59C2C4223 /* Products */,
 				4CFCB8032FAD200000715102 /* Config */,
 				4CFCB7F62FAC9F5F00715102 /* LocalSigning.xcconfig */,
@@ -225,6 +321,29 @@
 			path = MIQThumbnailExtension;
 			sourceTree = "<group>";
 		};
+		5D0A5E000000000000000009 /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				5D0A5E000000000000000002 /* GetVolumeInfoIntent.swift */,
+				5D0A5E000000000000000001 /* IntentSupport.swift */,
+				5D0A5E000000000000000004 /* MIQAppShortcuts.swift */,
+				5D0A5E000000000000000003 /* RenderCenterSliceIntent.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
+		5D0A5E000000000000000017 /* MIQSpotlightImporter */ = {
+			isa = PBXGroup;
+			children = (
+				5D0A5E000000000000000010 /* main.c */,
+				5D0A5E000000000000000011 /* MIQSpotlightImporter.swift */,
+				5D0A5E000000000000000012 /* Info.plist */,
+				5D0A5E000000000000000013 /* schema.xml */,
+				5D0A5E000000000000000016 /* schema.strings */,
+			);
+			path = MIQSpotlightImporter;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -236,12 +355,14 @@
 				AA00BB00CC00DD00EE00FF03 /* Frameworks */,
 				AA000003BB000003CC000003 /* Resources */,
 				D6C47D8BB6941EF06180E097 /* Embed Foundation Extensions */,
+				5D0A5E000000000000000033 /* Embed Spotlight Importer */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				390A43D6230CD60A637EFA7B /* PBXTargetDependency */,
 				BB100000000000000000A011 /* PBXTargetDependency */,
+				5D0A5E000000000000000051 /* PBXTargetDependency */,
 			);
 			name = MIQ;
 			packageProductDependencies = (
@@ -258,6 +379,7 @@
 			buildPhases = (
 				8DB6FB9A7CFA2F97620EB353 /* Sources */,
 				8C48C992A41DE01638927B3B /* Frameworks */,
+				1A1000000000000000000031 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -277,6 +399,7 @@
 			buildPhases = (
 				BB100000000000000000A005 /* Sources */,
 				BB100000000000000000A006 /* Frameworks */,
+				1A1000000000000000000032 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -289,6 +412,26 @@
 			productName = MIQThumbnailExtension;
 			productReference = BB100000000000000000A008 /* MIQThumbnailExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		5D0A5E000000000000000040 /* MIQSpotlightImporter */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5D0A5E000000000000000041 /* Build configuration list for PBXNativeTarget "MIQSpotlightImporter" */;
+			buildPhases = (
+				5D0A5E000000000000000030 /* Sources */,
+				5D0A5E000000000000000031 /* Frameworks */,
+				5D0A5E000000000000000032 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MIQSpotlightImporter;
+			packageProductDependencies = (
+				5D0A5E000000000000000052 /* MIQCore */,
+			);
+			productName = MIQSpotlightImporter;
+			productReference = 5D0A5E000000000000000015 /* MIQSpotlightImporter.mdimporter */;
+			productType = "com.apple.product-type.bundle";
 		};
 /* End PBXNativeTarget section */
 
@@ -305,6 +448,8 @@
 			knownRegions = (
 				Base,
 				en,
+				de,
+				tr,
 			);
 			mainGroup = 8101F0FD020FAD658B294485;
 			minimizedProjectReferenceProxies = 1;
@@ -319,6 +464,7 @@
 			targets = (
 				A449378A6379BA6BE275CF60 /* MIQQuickLookExtension */,
 				BB100000000000000000A001 /* MIQThumbnailExtension */,
+				5D0A5E000000000000000040 /* MIQSpotlightImporter */,
 				9E0A2FD123D13263216F6002 /* MIQ */,
 			);
 		};
@@ -334,6 +480,36 @@
 				5E77A000000000000000000A /* SampleLabels.nii.gz in Resources */,
 				5E77A000000000000000000F /* SampleIntensity.window.json in Resources */,
 				5E77A0000000000000000011 /* SampleLabels.window.json in Resources */,
+				4B3A00000000000000000004 /* mindgrab in Resources */,
+				4B3A00000000000000000006 /* model5_gw_ae in Resources */,
+				4B3A00000000000000000008 /* LICENSE-brainchop in Resources */,
+				5E77B00000000000000000A2 /* Localizable.xcstrings in Resources */,
+				1A1000000000000000000013 /* Preview.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5D0A5E000000000000000032 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D0A5E000000000000000022 /* schema.xml in Resources */,
+				5D0A5E000000000000000023 /* schema.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1000000000000000000031 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A1000000000000000000011 /* Preview.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1000000000000000000032 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A1000000000000000000012 /* Preview.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,6 +520,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A1000000000000000000023 /* PreviewLocalization.swift in Sources */,
+				5EC0A0000000000000000002 /* CaptionFeature.swift in Sources */,
+				4B3A00000000000000000002 /* BrainMaskTool.swift in Sources */,
 				1525C5A90753349409A6DC7B /* ContentView.swift in Sources */,
 				E9D1739EF930782E62D9FE97 /* MIQApp.swift in Sources */,
 				0F5A0000000000000000A005 /* UpdaterController.swift in Sources */,
@@ -351,6 +530,10 @@
 				5E77A0000000000000000004 /* PercentileRangeControl.swift in Sources */,
 				5E77A0000000000000000005 /* MIQImageBridge.swift in Sources */,
 				5E77A000000000000000000D /* MetadataPanelText.swift in Sources */,
+				5D0A5E000000000000000005 /* IntentSupport.swift in Sources */,
+				5D0A5E000000000000000006 /* GetVolumeInfoIntent.swift in Sources */,
+				5D0A5E000000000000000007 /* RenderCenterSliceIntent.swift in Sources */,
+				5D0A5E000000000000000008 /* MIQAppShortcuts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -358,6 +541,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A1000000000000000000021 /* PreviewLocalization.swift in Sources */,
 				00B97D85B148478FBA844F26 /* MIQImageBridge.swift in Sources */,
 				BA1109BAE7000001000003E5 /* MIQLogger.swift in Sources */,
 				E9B000A957C87B753436028A /* MIQPreviewController.swift in Sources */,
@@ -367,6 +551,10 @@
 				E8089EA1F58D4F049738209C /* MIQSliceCanvas.swift in Sources */,
 				1F7BAF3D389C4B31A8A8EA6E /* MIQPreviewCache.swift in Sources */,
 				4E7A1C2B9D3F4A5B6C7D8E9F /* NetworkReadLane.swift in Sources */,
+				7A11000000000000000000B1 /* MIQPreviewInteraction.swift in Sources */,
+				7A11000000000000000000B2 /* MIQViewModes.swift in Sources */,
+				7A11000000000000000000B3 /* MIQVolumeRenderTile.swift in Sources */,
+				7A11000000000000000000B4 /* MIQExport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -377,6 +565,15 @@
 				BB100000000000000000A0C1 /* MIQThumbnailProvider.swift in Sources */,
 				BB100000000000000000A0C2 /* MIQImageBridge.swift in Sources */,
 				BB100000000000000000A0C3 /* MIQLogger.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5D0A5E000000000000000030 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D0A5E000000000000000020 /* main.c in Sources */,
+				5D0A5E000000000000000021 /* MIQSpotlightImporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,7 +590,23 @@
 			target = BB100000000000000000A001 /* MIQThumbnailExtension */;
 			targetProxy = BB100000000000000000A012 /* PBXContainerItemProxy */;
 		};
+		5D0A5E000000000000000051 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D0A5E000000000000000040 /* MIQSpotlightImporter */;
+			targetProxy = 5D0A5E000000000000000050 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		5D0A5E000000000000000016 /* schema.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				5D0A5E000000000000000014 /* en */,
+			);
+			name = schema.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		5691C15F5B977874F3264BB0 /* Release */ = {
@@ -422,6 +635,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Medical Image Quick Look";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Debug;
 		};
@@ -472,6 +686,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Medical Image Quick Look";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = MIQ_Provisioning;
 			};
 			name = Release;
@@ -494,6 +709,30 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4CFCB8022FAD200000715102 /* Release.xcconfig */;
 			buildSettings = {
+			};
+			name = Release;
+		};
+		5D0A5E000000000000000042 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4CFCB7F62FAC9F5F00715102 /* LocalSigning.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = MIQSpotlightImporter/Info.plist;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Spotlight";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).spotlight";
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = mdimporter;
+			};
+			name = Debug;
+		};
+		5D0A5E000000000000000043 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4CFCB7F62FAC9F5F00715102 /* LocalSigning.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = MIQSpotlightImporter/Info.plist;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Spotlight";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).spotlight";
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = mdimporter;
 			};
 			name = Release;
 		};
@@ -536,6 +775,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		5D0A5E000000000000000041 /* Build configuration list for PBXNativeTarget "MIQSpotlightImporter" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D0A5E000000000000000042 /* Debug */,
+				5D0A5E000000000000000043 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -573,6 +821,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0F5A0000000000000000A001 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		5D0A5E000000000000000052 /* MIQCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MIQCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

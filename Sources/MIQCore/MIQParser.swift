@@ -17,9 +17,26 @@ public struct MIQParser {
     ///   4D navigation re-parses with `true` once the user scrolls past volume 0.
     ///   A no-op for every other kind (uncompressed `.nii` is mmap'd; `.mgz` /
     ///   `.mif.gz` already decompress in full).
+    ///
+    /// Detached-header kinds (`.nhdr`, `.mih`, `.mhd` — and a `.nrrd`/`.mha` whose
+    /// header names a data file) also read their payload file(s) from next to
+    /// `url`; see `resolveDetachedDataFile(_:relativeTo:)` for which paths are
+    /// allowed and `readDetachedDataFile(_:name:)` for the Quick Look sandbox error.
     public func parse(url: URL, fullyDecompress: Bool = false) throws -> MIQImage {
-        let (data, kind) = try loadAndDecompress(url: url, fullyDecompress: fullyDecompress)
-        return try parseImage(data: data, kind: kind)
+        let extensionKind = MIQFileKind(url: url)
+        if extensionKind == .zarr { return try parseZarr(url: url).image }
+        // A detached header's read isn't finished when the (tiny) header is in:
+        // hand the network lane over only once the payload file has been read too.
+        let detached = extensionKind?.isDetachedHeader == true
+        defer {
+            if detached, !VolumeLocation.isLocal(url) { onNetworkReadFinished?() }
+        }
+        let (data, kind) = try loadAndDecompress(
+            url: url,
+            fullyDecompress: fullyDecompress,
+            notifyNetworkRead: !detached
+        )
+        return try parseImage(data: data, kind: kind, url: url)
     }
 
     // MARK: - Internal
@@ -35,8 +52,13 @@ public struct MIQParser {
     /// fast share. Local files never reach these reads (they are memory-mapped).
     private static let networkReadChunkBytes = 2 * 1024 * 1024
 
-    private func loadAndDecompress(url: URL, fullyDecompress: Bool = false) throws -> (Data, MIQFileKind) {
-        guard let kind = MIQFileKind(url: url) else {
+    private func loadAndDecompress(
+        url: URL,
+        fullyDecompress: Bool = false,
+        notifyNetworkRead: Bool = true
+    ) throws -> (Data, MIQFileKind) {
+        // Extension first; only an unrecognised name pays for the 132-byte DICOM sniff.
+        guard let kind = MIQFileKind(url: url) ?? MIQFileKind.sniffDICOM(url: url) else {
             throw MIQError.unsupportedFileFormat
         }
 
@@ -76,7 +98,7 @@ public struct MIQParser {
         let raw = isLocal
             ? try Data(contentsOf: url, options: [.mappedIfSafe])
             : try readCancelable(url: url)
-        if !isLocal { onNetworkReadFinished?() }
+        if !isLocal, notifyNetworkRead { onNetworkReadFinished?() }
         guard kind.isCompressed else {
             return (raw, kind)
         }
@@ -219,7 +241,8 @@ public struct MIQParser {
     /// chunks lets a dismissed/replaced preview's cancelled parse task stop pulling
     /// bytes immediately, freeing the slow link for Finder. Capacity is reserved
     /// from the file size to avoid repeated reallocations of a large buffer.
-    private func readCancelable(url: URL) throws -> Data {
+    /// `internal` so detached-header payload reads share it.
+    func readCancelable(url: URL) throws -> Data {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
 
@@ -290,16 +313,26 @@ public struct MIQParser {
         }
     }
 
-    private func parseImage(data: Data, kind: MIQFileKind) throws -> MIQImage {
+    /// `url` is the header's location, used only to resolve detached data files.
+    private func parseImage(data: Data, kind: MIQFileKind, url: URL) throws -> MIQImage {
         switch kind {
         case .nii, .niiGz:
             return try parseNifti(data, compressed: kind.isCompressed)
         case .mgh, .mgz:
             return try parseMgh(data)
         case .mif, .mifGz:
+            // MRtrix defines `.mif` as single-file; an external `file:` is a `.mih`.
             return try parseMif(data)
-        case .nrrd:
-            return try parseNrrd(data)
+        case .mih:
+            return try parseMif(data, headerURL: url)
+        case .nrrd, .nhdr:
+            return try parseNrrd(data, headerURL: url)
+        case .mha, .mhd:
+            return try parseMetaImage(data, headerURL: url)
+        case .zarr:
+            throw MIQError.unsupportedFileFormat // directory store; dispatched in `parse(url:)`
+        case .dicom:
+            return try parseDicom(data)
         }
     }
 }

@@ -8,9 +8,14 @@ final class MIQPreviewModel {
     private let logger = MIQLogger.make(category: "model")
 
     private struct RawPreviewData: Sendable {
-        let slices: [SlicePlane: RGBABitmap]
+        /// 8-bit grey for grayscale slices, RGBA for colour / LUT output.
+        let slices: [SlicePlane: PreviewSliceBitmap]
         let orientations: [SlicePlane: SliceOrientationLabels]
         let metadataEntries: [MetadataEntry]
+        /// Always-visible panel warnings (orientation caution, sidecar mismatch).
+        let panelWarnings: [String]
+        /// Format-specific rows drawn after the configurable ones (DICOM).
+        let extraEntries: [MetadataEntry]
         let interactiveState: InteractivePreviewState
     }
 
@@ -21,6 +26,25 @@ final class MIQPreviewModel {
         let windowBounds: MIQIntensityWindowBounds?
         let segmentationLut: SegmentationLut?
         let centerCursor: MIQVolumeCursor
+
+        /// The same state over another backing volume — a streamed single
+        /// volume, rendered as its volume 0 with this state's window and LUT.
+        func replacingVolume(_ volume: MIQVolume) -> InteractivePreviewState {
+            InteractivePreviewState(
+                volume: volume,
+                options: options,
+                maxDimension: maxDimension,
+                windowBounds: windowBounds,
+                segmentationLut: segmentationLut,
+                centerCursor: centerCursor
+            )
+        }
+    }
+
+    /// The cold-preview memory gate refused the file (header-only probe, run
+    /// inside the read lane); carries the display message.
+    private struct ColdPreviewRefusal: Error, Sendable {
+        let message: String
     }
 
     enum State {
@@ -37,6 +61,20 @@ final class MIQPreviewModel {
         /// Not `.failed` — nothing went wrong, there is just nothing to render, and
         /// the resulting black grid is otherwise indistinguishable from a bug.
         case noFiniteVoxels
+
+        /// For the unified log, which records `.public` values in plain text:
+        /// `.deferred`'s name and `.failed`'s message (Cocoa I/O errors quote the
+        /// file name) can carry patient identifiers, so neither is included.
+        var logDescription: String {
+            switch self {
+            case .idle: return "idle"
+            case .loading: return "loading"
+            case .ready: return "ready"
+            case .failed: return "failed"
+            case .deferred(_, let sizeBytes): return "deferred(\(sizeBytes / (1024 * 1024))MB)"
+            case .noFiniteVoxels: return "noFiniteVoxels"
+            }
+        }
     }
 
     /// Lifecycle of the lazy full-decompression for 4D `.nii.gz`. Every other
@@ -47,12 +85,20 @@ final class MIQPreviewModel {
     /// `.failed` keeps volumes > 0 on the backstop *without* retrying on every
     /// step (no storm), but is reset to `.pending` at the next scroll-gesture
     /// start so a transient failure isn't permanent for the session.
-    private enum ExpansionState {
+    /// Over `MIQPayloadSizeEstimate.previewFullDecompressionBudgetBytes` the
+    /// payload is never expanded in full. A canonical NIfTI (`.nii`/`.nii.gz`)
+    /// goes `.streaming` instead: each volume > 0 is decoded on demand by
+    /// `volumeStream` while scrubbing. Every other kind goes `.tooLarge`, which
+    /// is final for the model: volume 0 stays on screen and volumes > 0 keep
+    /// the zero backstop.
+    private enum ExpansionState: Equatable {
         case notNeeded
         case pending
         case expanding
         case expanded
         case failed
+        case streaming
+        case tooLarge(bytes: Int)
     }
 
     var state: State = .idle
@@ -63,6 +109,20 @@ final class MIQPreviewModel {
     var sagittalOrientation = SliceOrientationLabels.placeholderSagittal
     var axialOrientation = SliceOrientationLabels.placeholderAxial
     var metadataEntries: [MetadataEntry] = []
+    /// Caution lines the panel shows whatever the field toggles say.
+    private(set) var panelWarnings: [String] = [] { didSet { panelRevision &+= 1 } }
+    /// DICOM technical rows (cached with the bundle).
+    private var extraEntries: [MetadataEntry] = [] { didSet { panelRevision &+= 1 } }
+    /// "Data QC" rows from `QCAnalyzer`, once the background pass lands.
+    private var qcEntries: [MetadataEntry] = [] { didSet { panelRevision &+= 1 } }
+    /// The temporal (tSNR / spike) row, once its background pass lands.
+    private var temporalEntry: MetadataEntry? { didSet { panelRevision &+= 1 } }
+    /// Bumped whenever `panelWarnings` or `panelAppendix` change, so the view's
+    /// rebuild gate compares one integer instead of the row arrays.
+    private(set) var panelRevision = 0
+    /// Whether a deferred placeholder is for a dataless cloud file (iCloud "not
+    /// downloaded") rather than a file on a network volume.
+    private(set) var deferredIsDataless = false
     var onChange: (() -> Void)?
     private(set) var hasInteracted = false
 
@@ -71,13 +131,24 @@ final class MIQPreviewModel {
     private let maxDimension = 512
     private var renderingOptions: RenderingOptions?
     private var interactiveState: InteractivePreviewState? {
-        didSet { interactiveStateGeneration &+= 1 }
+        didSet {
+            renderGate.advance()
+            snapshotGeneration &+= 1
+            // A streamed source belongs to the state it was opened for.
+            volumeStream = nil
+            streamedVolume = nil
+            streamedVolumeLoading = false
+            streamedVolumeFailed = false
+        }
     }
-    /// Bumped on every `interactiveState` swap (fresh parse, cache-hit prep, 4D
-    /// expansion). A render captures it at start; if it changed by completion,
-    /// the render's auto window was derived from a buffer that's no longer
-    /// current (e.g. the volume-0-capped one) and must not be remembered.
-    private var interactiveStateGeneration = 0
+    /// Advanced on every `interactiveState` swap (fresh parse, cache-hit prep, 4D
+    /// expansion). A render takes a ticket at start and asks the gate on
+    /// completion (`RenderGenerationGate.decision`): a cancelled render is
+    /// dropped, and one whose state was swapped meanwhile shows its pixels but
+    /// must not remember the auto window it derived from a buffer that is no
+    /// longer current (e.g. the volume-0-capped one).
+    private var renderGate = RenderGenerationGate()
+    private var interactiveStateGeneration: Int { renderGate.current }
     /// Set on a cache hit for a file the large-network gate would defer: the
     /// cached frame is shown, but the full read waits for the first interaction.
     private var interactivePreparationDeferred = false
@@ -101,6 +172,29 @@ final class MIQPreviewModel {
     /// `MIQConfig.perVolumeIntensityWindow` captured at `load()`. Settings can
     /// only change while no preview is open, so it is fixed for an interaction.
     private var perVolumeWindow = false
+    /// `MIQConfig.windowFromHeadMask` captured at `load()` (it is part of the
+    /// cache key, so it must not change between the key and the parse).
+    private var windowFromHeadMask = false
+    /// Per-volume source while `expansionState == .streaming`: a 4D NIfTI over
+    /// the decompression budget, decoded one volume at a time as the user
+    /// scrubs (`NiftiVolumeReader`). Cleared whenever the interactive state is
+    /// replaced.
+    private var volumeStream: NiftiVolumeReader?
+    /// The streamed volume the slices currently show (`t` > 0), for the
+    /// crosshair value readout.
+    private var streamedVolume: (t: Int, volume: MIQVolume)? {
+        didSet { snapshotGeneration &+= 1 }
+    }
+    /// `MIQInteractionSnapshot.generation`: bumped on every interactive-state
+    /// swap *and* every streamed volume change, since for a streamed series
+    /// the snapshot's volume is the displayed timepoint (addressed as t = 0),
+    /// so view-feature caches keyed on (generation, t) must not collide.
+    private var snapshotGeneration = 0
+    /// A streamed volume read is in flight (the Volumes line says
+    /// "decompressing…").
+    private var streamedVolumeLoading = false
+    /// The last streamed read failed; cleared at the next scroll gesture.
+    private var streamedVolumeFailed = false
     /// The auto (non-manual) window the most recent render actually applied. In
     /// per-volume mode this is the displayed volume's own window, so a W/L drag
     /// starts from what's on screen instead of snapping back to volume 0.
@@ -117,6 +211,22 @@ final class MIQPreviewModel {
     private var interactionPreparationTask: Task<Void, Never>?
     private var renderTask: Task<Void, Never>?
     private var pendingRenderCursor: MIQVolumeCursor?
+    /// The background QC / temporal passes. Cancelled with the rest of the
+    /// in-flight work; `summaryGeneration` (bumped per `load()`) keeps a stale
+    /// pass from landing after a reload.
+    private var qcTask: Task<Void, Never>?
+    private var temporalTask: Task<Void, Never>?
+    private var summaryGeneration = 0
+    private var qcStarted = false
+    private var temporalStarted = false
+    /// One window for the whole 4D series when `perVolumeWindow` is off
+    /// (`MIQVolume.sharedVolumeWindow`), computed off-main on the first volume
+    /// step and again once a capped buffer has been expanded. `nil` until then,
+    /// which keeps volume 0's window.
+    private var sharedWindow: MIQIntensityWindowBounds?
+    private var sharedWindowTask: Task<Void, Never>?
+    /// `interactiveStateGeneration` `sharedWindow` was computed for.
+    private var sharedWindowGeneration: Int?
 
     init(url: URL) {
         self.url = url
@@ -133,6 +243,9 @@ final class MIQPreviewModel {
         interactionPreparationTask?.cancel()
         renderTask?.cancel()
         expansionTask?.cancel()
+        qcTask?.cancel()
+        temporalTask?.cancel()
+        sharedWindowTask?.cancel()
     }
 
     /// Stops every in-flight background task: interactive-state prep, the 4D
@@ -150,6 +263,12 @@ final class MIQPreviewModel {
         pendingRenderCursor = nil
         expansionTask?.cancel()
         expansionTask = nil
+        qcTask?.cancel()
+        qcTask = nil
+        temporalTask?.cancel()
+        temporalTask = nil
+        sharedWindowTask?.cancel()
+        sharedWindowTask = nil
     }
 
     /// A 4D buffer that was loaded with the volume-0 cap (any `.nii.gz`, or a
@@ -187,7 +306,11 @@ final class MIQPreviewModel {
         // on a cache hit too (the setting only affects volumes > 0, never the
         // cached volume-0 cold preview — see MIQConfig.perVolumeIntensityWindow).
         perVolumeWindow = MIQConfig.perVolumeIntensityWindow
-        logger.notice("load() started for: \(fileURL.lastPathComponent, privacy: .public)")
+        // Changes the cold preview's pixels, so it is also in the cache key.
+        let headMaskWindow = MIQConfig.windowFromHeadMask
+        windowFromHeadMask = headMaskWindow
+        // File names carry patient identifiers: log a stable tag, never the name.
+        logger.notice("load() started: file=\(MIQLogRedaction.fileTag(fileURL), privacy: .public)")
         logger.notice("MIQConfig percentiles: lower=\(options.lowerPercentile, privacy: .public), upper=\(options.upperPercentile, privacy: .public), orientation=\(options.orientation.rawValue, privacy: .public), showAxisLabels=\(MIQConfig.showAxisLabels, privacy: .public)")
 
         // The controller creates one model per URL, and a second load() only comes
@@ -206,17 +329,38 @@ final class MIQPreviewModel {
         windowAdjustment = nil
         pendingForceRender = false
         pendingRenderCursor = nil
+        summaryGeneration &+= 1
+        qcStarted = false
+        temporalStarted = false
+        qcEntries = []
+        temporalEntry = nil
+        sharedWindow = nil
+        sharedWindowGeneration = nil
+        deferredIsDataless = false
 
         do {
             // The cache key stats the file (mtime) and the gate probes locality and
             // size; either can block on a hung network mount, so both run off the
             // MainActor. Only the String key and the size come back — cached
             // bundles hold NSImages, so the lookup itself stays on the MainActor.
-            let probe = try await Self.runCancelableDetached { () -> (cacheKey: String, isLocal: Bool, deferralSizeBytes: Int?) in
-                let cacheKey = MIQPreviewCache.makeKey(fileURL: fileURL, maxDimension: maxDimension, options: options)
-                let isLocal = VolumeLocation.isLocal(fileURL)
-                let deferralSizeBytes = applyNetworkGate && !isLocal ? Self.networkDeferralSizeBytes(fileURL: fileURL, kind: kind) : nil
-                return (cacheKey, isLocal, deferralSizeBytes)
+            //
+            // A dataless cloud placeholder (iCloud Drive "Optimize Mac Storage",
+            // other File Providers) is routed like a network file: reading it
+            // downloads it, so its reads go through `NetworkReadLane` and a large
+            // one is deferred behind the "Load preview" placeholder.
+            let probe = try await Self.runCancelableDetached { () -> (cacheKey: String, isLocal: Bool, isDataless: Bool, deferralSizeBytes: Int?) in
+                let cacheKey = MIQPreviewCache.makeKey(fileURL: fileURL, maxDimension: maxDimension, options: options, windowFromHeadMask: headMaskWindow)
+                let isDataless = VolumeLocation.isDataless(fileURL)
+                let isLocal = VolumeLocation.isLocal(fileURL) && !isDataless
+                let deferralSizeBytes: Int?
+                if !applyNetworkGate || isLocal {
+                    deferralSizeBytes = nil
+                } else if isDataless {
+                    deferralSizeBytes = Self.datalessDeferralSizeBytes(fileURL: fileURL)
+                } else {
+                    deferralSizeBytes = Self.networkDeferralSizeBytes(fileURL: fileURL, kind: kind)
+                }
+                return (cacheKey, isLocal, isDataless, deferralSizeBytes)
             }
             try Task.checkCancellation()
             readsOverNetwork = !probe.isLocal
@@ -243,18 +387,27 @@ final class MIQPreviewModel {
             }
 
             if let sizeBytes = probe.deferralSizeBytes {
+                deferredIsDataless = probe.isDataless
                 state = .deferred(name: fileURL.lastPathComponent, sizeBytes: sizeBytes)
                 logger.notice("load() deferred large network preview: \(sizeBytes / (1024 * 1024), privacy: .public)MB")
                 onChange?()
                 return
             }
 
+            // The header-only memory gate (≤ 64 KB read: a tiny file whose header
+            // claims a multi-GB payload must not make the cold parse allocate it)
+            // runs first *inside* the read closure, so on a network volume or for
+            // a dataless cloud file its probe waits in `NetworkReadLane` with the
+            // rest of the read — dwell while navigating, newest file first —
+            // instead of issuing an immediate read (or iCloud download) per file
+            // the user arrows past. It throws `ColdPreviewRefusal`, caught below.
             let overNetwork = readsOverNetwork
             let coldLoad = Task {
                 try await Self.sharedColdLoad(key: probe.cacheKey) {
-                    try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: false, label: "load \(fileURL.lastPathComponent)") { parser in
-                        try MIQPreviewModel.loadPreviewData(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension)
-                    }
+                    try await MIQPreviewModel.readColdPreview(
+                        overNetwork: overNetwork, fileURL: fileURL, navigating: navigating,
+                        options: options, maxDimension: maxDimension, windowFromHeadMask: headMaskWindow
+                    )
                 }
             }
             coldLoadTask = coldLoad
@@ -280,6 +433,11 @@ final class MIQPreviewModel {
                 logger.notice("load() finished successfully")
             }
             onChange?()
+        } catch let refusal as ColdPreviewRefusal {
+            coldLoadTask = nil
+            state = .failed(refusal.message)
+            logger.notice("load() declined: header exceeds the cold-preview memory budget")
+            onChange?()
         } catch is NetworkReadLane.Superseded {
             state = .idle
             loadSuperseded = true
@@ -290,8 +448,11 @@ final class MIQPreviewModel {
             // untouched and don't surface a failure.
             logger.notice("load() canceled before completion")
         } catch {
-            logger.error("load() failed: \(error.localizedDescription, privacy: .public)")
-            state = .failed(error.localizedDescription)
+            // Cocoa I/O errors quote the file name: keep the text out of the public log.
+            logger.error("load() failed: \(error.localizedDescription, privacy: .private)")
+            // `unsupportedFeature` reasons are written for display (e.g. which
+            // DICOM compression is missing) and shown verbatim.
+            state = .failed(PreviewStatusText.failureMessage(for: error))
             onChange?()
         }
     }
@@ -324,6 +485,9 @@ final class MIQPreviewModel {
         pendingRenderCursor = nil
         // A new gesture earns one more expansion attempt after a prior failure.
         if expansionState == .failed { expansionState = .pending }
+        // ...and one more streamed read; a cancelled one is no longer loading.
+        streamedVolumeFailed = false
+        streamedVolumeLoading = false
     }
 
     func stepSlice(plane: SlicePlane, deltaSteps: Int) {
@@ -383,6 +547,7 @@ final class MIQPreviewModel {
 
         currentCursor = updated
         triggerExpansionIfNeeded()
+        ensureSharedWindowIfNeeded()
         onChange?()
         scheduleRender(for: updated)
     }
@@ -390,16 +555,26 @@ final class MIQPreviewModel {
     /// What the Volumes line says about the lazy 4D expansion: nothing, a
     /// "decompressing" affordance while it runs, or that it failed — without the
     /// last, volumes > 0 render the zero backstop with no explanation.
-    enum VolumeExpansionStatus {
+    enum VolumeExpansionStatus: Equatable {
         case idle
         case expanding
         case failed
+        /// The full payload is over the preview's decompression budget; carries
+        /// the short user-facing message (e.g. "Too large for 4D in Quick Look
+        /// (4.3 GB)").
+        case tooLarge(message: String)
     }
 
     var volumeExpansionStatus: VolumeExpansionStatus {
         switch expansionState {
         case .expanding: return .expanding
         case .failed: return .failed
+        case .tooLarge(let bytes): return .tooLarge(message: MIQPayloadSizeEstimate.tooLargeFor4DMessage(bytes: bytes))
+        // Per-volume decoding keeps the scrubber; "decompressing…" while the
+        // volume about to be shown is read.
+        case .streaming:
+            if streamedVolumeFailed { return .failed }
+            return streamedVolumeLoading ? .expanding : .idle
         case .notNeeded, .pending, .expanded: return .idle
         }
     }
@@ -409,6 +584,38 @@ final class MIQPreviewModel {
     /// `.pending` → `.expanding` transition can't race a second caller.
     private func triggerExpansionIfNeeded() {
         guard expansionState == .pending, let interactiveState else { return }
+        // Refuse before decompressing: a multi-GB series would get the extension
+        // killed mid-gunzip (Apple publishes no Quick Look memory limit, so the
+        // budget is a conservative named constant). Volume 0 stays on screen and
+        // the Volumes line says why the rest is unavailable; the caller's
+        // `onChange` repaints it.
+        let header = interactiveState.volume.image.header
+        if header.exceedsFullDecompressionBudget() {
+            // NIfTI keeps time outermost with no strides, so a single volume is
+            // a byte range of the (decompressed) file: decode just the volume
+            // being shown. Opening the reader does no I/O.
+            if interactiveState.volume.image.payloadElementStrides == nil,
+               let reader = try? MIQParser().niftiVolumeReader(url: url, header: header, isLocal: !readsOverNetwork) {
+                volumeStream = reader
+                expansionState = .streaming
+                logger.notice("4D over the Quick Look budget — decoding single volumes on demand")
+                // Shared mode needs ≤ 8 sampled volumes; where that would pull
+                // the whole compressed series over the network, fall back to
+                // per-volume windows — and the window-mode row says so.
+                if !perVolumeWindow,
+                   !PreviewDataSummaries.streamedSharedWindowAllowed(compressed: reader.isCompressed, readsOverNetwork: readsOverNetwork) {
+                    perVolumeWindow = true
+                    logger.notice("streamed 4D on a network volume: per-volume windows instead of a shared window")
+                }
+                // The caller (`applyVolume`) runs `ensureSharedWindowIfNeeded`.
+                startDataSummariesIfNeeded()
+                return
+            }
+            let bytes = header.estimatedPayloadBytes ?? Int.max
+            expansionState = .tooLarge(bytes: bytes)
+            logger.notice("4D expansion skipped: full payload \(bytes / (1024 * 1024), privacy: .public)MB exceeds the Quick Look budget")
+            return
+        }
         expansionState = .expanding
         let fileURL = self.url
         let options = interactiveState.options
@@ -421,7 +628,7 @@ final class MIQPreviewModel {
         // by type, not `Self`, so nothing in the closure retains the model.
         expansionTask = Task { [weak self] in
             do {
-                let expanded = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: false, claimsNewest: true, label: "expand \(fileURL.lastPathComponent)") { parser in
+                let expanded = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: false, claimsNewest: true, label: "expand") { parser in
                     try MIQPreviewModel.loadExpandedInteractiveState(
                         parser: parser,
                         fileURL: fileURL,
@@ -440,6 +647,10 @@ final class MIQPreviewModel {
                 self.perVolumeWindowCache = [:]
                 self.expansionState = .expanded
                 self.logger.notice("4D expansion complete — full decompression swapped in")
+                // Every volume is present now: the shared window can sample the
+                // whole series, and the temporal summary can run.
+                self.ensureSharedWindowIfNeeded()
+                self.startDataSummariesIfNeeded()
                 // The cursor is unchanged but the underlying volume is not, so
                 // force every plane to re-render against the real data.
                 self.scheduleFullRender()
@@ -459,7 +670,7 @@ final class MIQPreviewModel {
                 // transient failure (I/O, security scope) isn't permanent.
                 // Volumes > 0 keep the zero backstop; volume 0 stays correct.
                 self.expansionState = .failed
-                self.logger.error("4D expansion failed: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("4D expansion failed: \(error.localizedDescription, privacy: .private)")
                 // Repaint so the Volumes line drops "decompressing…" and says so.
                 self.onChange?()
             }
@@ -534,9 +745,61 @@ final class MIQPreviewModel {
     /// must not be shown as a real 0).
     var crosshairVoxelText: String? {
         guard showsVoxelValue, let interactiveState, let cursor = currentCursor else { return nil }
-        if cursor.t > 0, !interactiveState.volume.containsAllVolumes { return "—" }
+        if cursor.t > 0, !interactiveState.volume.containsAllVolumes {
+            // A streamed volume on screen holds the real values (as its volume 0).
+            guard let streamed = streamedVolume, streamed.t == cursor.t else { return "—" }
+            let value = streamed.volume.voxel(x: cursor.x, y: cursor.y, z: cursor.z, t: 0)
+            return MetadataPanelText.formatVoxelValue(value, lut: interactiveState.segmentationLut)
+        }
         let value = interactiveState.volume.voxel(x: cursor.x, y: cursor.y, z: cursor.z, t: cursor.t)
-        return MetadataPanelText.formatVoxelValue(value)
+        // A label map names the value ("17 Left-Hippocampus").
+        return MetadataPanelText.formatVoxelValue(value, lut: interactiveState.segmentationLut)
+    }
+
+    /// Whether the live crosshair-position line occupies a panel slot. Same gate
+    /// as the crosshair itself; unlike the value it applies to RGB data too.
+    var showsVoxelPosition: Bool {
+        hasInteracted && interactiveState != nil
+    }
+
+    /// "i, j, k  (x, y, z mm)" for the crosshair voxel. The cursor addresses
+    /// stored voxels in every display mode (see
+    /// `MIQMetadata.voxelPositionText(cursor:header:)`), so it maps through the
+    /// header's affine directly.
+    var crosshairPositionText: String? {
+        guard showsVoxelPosition, let interactiveState, let cursor = currentCursor else { return nil }
+        return MIQMetadata.voxelPositionText(cursor: cursor, header: interactiveState.volume.image.header)
+    }
+
+    /// Rows drawn after the configurable fields: DICOM technical rows, then the
+    /// "Data QC" section (QC rows and the temporal summary).
+    var panelAppendix: [MetadataPanelText.Section] {
+        var sections: [MetadataPanelText.Section] = []
+        if !extraEntries.isEmpty {
+            sections.append(MetadataPanelText.Section(title: nil, entries: extraEntries))
+        }
+        let summaryRows = qcEntries + (temporalEntry.map { [$0] } ?? [])
+        if !summaryRows.isEmpty {
+            sections.append(MetadataPanelText.Section(title: PreviewDataSummaries.sectionTitle, entries: summaryRows))
+        }
+        return sections
+    }
+
+    /// The 4D window-mode indicator ("per volume" / "shared") for the row after
+    /// Volumes; `nil` for 3D, RGB and label maps (no intensity window).
+    var volumeWindowModeText: String? {
+        guard volumeCount > 1, let interactiveState else { return nil }
+        guard interactiveState.segmentationLut == nil, interactiveState.windowBounds != nil else { return nil }
+        return PreviewDataSummaries.windowModeText(perVolume: perVolumeWindow)
+    }
+
+    /// The display mode the slices are drawn in, for the badge: the configured
+    /// one, or "As stored" when the orientation is unknown (the resolver falls
+    /// back to stored order then).
+    var displayMode: ViewOrientation {
+        let configured = renderingOptions?.orientation ?? MIQConfig.imageOrientation
+        let known = !(axialOrientation.isUnknown || coronalOrientation.isUnknown || sagittalOrientation.isUnknown)
+        return configured.effective(orientationKnown: known)
     }
 
     /// Whole numbers (integer datatypes, identity-scaled data) render as plain
@@ -556,6 +819,8 @@ final class MIQPreviewModel {
         sagittalOrientation = bundle.orientations[.sagittal] ?? .placeholderSagittal
         axialOrientation = bundle.orientations[.axial] ?? .placeholderAxial
         metadataEntries = bundle.metadataEntries
+        panelWarnings = bundle.panelWarnings
+        extraEntries = bundle.extraEntries
         cachedVolumeCount = bundle.volumeCount
     }
 
@@ -569,23 +834,26 @@ final class MIQPreviewModel {
         currentCursor = raw.interactiveState.centerCursor
         displayedCursor = raw.interactiveState.centerCursor
         metadataEntries = raw.metadataEntries
+        panelWarnings = raw.panelWarnings
+        extraEntries = raw.extraEntries
         coronalOrientation = raw.orientations[.coronal] ?? .placeholderCoronal
         sagittalOrientation = raw.orientations[.sagittal] ?? .placeholderSagittal
         axialOrientation = raw.orientations[.axial] ?? .placeholderAxial
         apply(bitmaps: raw.slices)
+        startDataSummariesIfNeeded()
     }
 
     /// MainActor side of the render handoff: the bitmaps arrive pre-expanded
     /// from the detached task, so this only wraps them in CGImage/NSImage —
     /// no per-pixel work on the main thread.
-    private func apply(bitmaps: [SlicePlane: RGBABitmap]) {
-        if let coronalImage = bitmaps[.coronal].flatMap(MIQImageBridge.makeNSImage) {
+    private func apply(bitmaps: [SlicePlane: PreviewSliceBitmap]) {
+        if let bitmap = bitmaps[.coronal], let coronalImage = MIQImageBridge.makeNSImage(from: bitmap) {
             coronal = coronalImage
         }
-        if let sagittalImage = bitmaps[.sagittal].flatMap(MIQImageBridge.makeNSImage) {
+        if let bitmap = bitmaps[.sagittal], let sagittalImage = MIQImageBridge.makeNSImage(from: bitmap) {
             sagittal = sagittalImage
         }
-        if let axialImage = bitmaps[.axial].flatMap(MIQImageBridge.makeNSImage) {
+        if let bitmap = bitmaps[.axial], let axialImage = MIQImageBridge.makeNSImage(from: bitmap) {
             axial = axialImage
         }
     }
@@ -603,16 +871,23 @@ final class MIQPreviewModel {
 
     private func makeBundle(from raw: RawPreviewData) -> MIQPreviewBundle {
         var nsSlices: [SlicePlane: NSImage] = [:]
+        var cachedBitmaps: [PreviewSliceBitmap] = []
         for plane in SlicePlane.allCases {
             if let bitmap = raw.slices[plane], let image = MIQImageBridge.makeNSImage(from: bitmap) {
                 nsSlices[plane] = image
+                cachedBitmaps.append(bitmap)
             }
         }
         return MIQPreviewBundle(
             slices: nsSlices,
             orientations: raw.orientations,
             metadataEntries: raw.metadataEntries,
-            volumeCount: raw.interactiveState.volume.volumes
+            panelWarnings: raw.panelWarnings,
+            extraEntries: raw.extraEntries,
+            volumeCount: raw.interactiveState.volume.volumes,
+            // The images share these buffers (zero-copy providers), so their
+            // byte counts are the images' resident pixel memory.
+            costBytes: PreviewCachePolicy.bundleCost(cachedBitmaps)
         )
     }
 
@@ -629,12 +904,13 @@ final class MIQPreviewModel {
     ) {
         let maxDimension = self.maxDimension
         let overNetwork = readsOverNetwork
+        let headMaskWindow = windowFromHeadMask
         interactionPreparationTask?.cancel()
         // Weak across the await; see deinit.
         interactionPreparationTask = Task { [weak self] in
             do {
-                let interactiveState = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: claimsNewest, label: "prepare \(fileURL.lastPathComponent)") { parser in
-                    try MIQPreviewModel.loadInteractiveState(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension)
+                let interactiveState = try await MIQPreviewModel.runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: claimsNewest, label: "prepare") { parser in
+                    try MIQPreviewModel.loadInteractiveState(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension, windowFromHeadMask: headMaskWindow)
                 }
                 guard let self, !Task.isCancelled else { return }
                 self.interactionPreparationTask = nil
@@ -644,6 +920,7 @@ final class MIQPreviewModel {
                 self.expansionState = Self.needsExpansion(volume: interactiveState.volume) ? .pending : .notNeeded
                 self.currentCursor = interactiveState.centerCursor
                 self.displayedCursor = interactiveState.centerCursor
+                self.startDataSummariesIfNeeded()
                 self.onChange?()
             } catch {
                 // A cancelled task may already have been replaced; don't clear
@@ -655,7 +932,7 @@ final class MIQPreviewModel {
                     self.interactivePreparationDeferred = true
                     return
                 }
-                self.logger.error("interactive state preparation failed: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("interactive state preparation failed: \(error.localizedDescription, privacy: .private)")
             }
         }
     }
@@ -700,29 +977,90 @@ final class MIQPreviewModel {
         // volume off the MainActor inside the detached task below.
         let manualBounds = windowAdjustment
         let perVolume = perVolumeWindow
+        let shared = perVolume ? nil : sharedWindow
         // Memoized per-volume window: when we've already derived this timepoint's
         // auto window, hand it to the task so it skips the 3-center-slice decode.
         let cachedAutoBounds = (manualBounds == nil && perVolume) ? perVolumeWindowCache[cursor.t] : nil
-        let generation = interactiveStateGeneration
+        let generation = renderGate.ticket()
+        // Over the decompression budget, volumes > 0 come from the per-volume
+        // reader: decode that one volume first, then render it as volume 0.
+        let stream = (expansionState == .streaming && cursor.t > 0) ? volumeStream : nil
+        let fileURL = self.url
+        let overNetwork = readsOverNetwork
+        if let stream, !stream.isCached(cursor.t) {
+            streamedVolumeLoading = true
+            onChange?()
+        }
 
         // Weak across the await; see deinit.
         renderTask = Task { [weak self] in
-            let result = await Task.detached(priority: .userInitiated) {
+            var renderState = interactiveState
+            var renderCursor = cursor
+            var streamed: MIQVolume?
+            if let stream {
+                do {
+                    let volume = try await MIQPreviewModel.readStreamedVolume(stream, t: cursor.t, fileURL: fileURL, overNetwork: overNetwork)
+                    streamed = volume
+                    renderState = interactiveState.replacingVolume(volume)
+                    renderCursor = MIQVolumeCursor(x: cursor.x, y: cursor.y, z: cursor.z, t: 0)
+                } catch {
+                    // Cancelled: whoever cancelled already reset the queue.
+                    guard let self, !Task.isCancelled, !(error is CancellationError) else { return }
+                    self.streamedVolumeLoading = false
+                    if !(error is NetworkReadLane.Superseded) {
+                        // Volumes > 0 keep their last image; the next gesture retries.
+                        self.streamedVolumeFailed = true
+                        self.logger.error("streamed volume read failed: \(error.localizedDescription, privacy: .private)")
+                    }
+                    self.onChange?()
+                    self.renderTask = nil
+                    self.startNextRenderIfNeeded()
+                    return
+                }
+            }
+            let renderInput = renderState
+            let planeCursor = renderCursor
+            // A detached task doesn't inherit cancellation: forward this task's
+            // (scroll-gesture restart, `cancelInFlightWork`) so a superseded render
+            // stops between planes instead of decoding all three for nothing.
+            let render = Task.detached(priority: .userInitiated) {
                 MIQPreviewModel.renderBitmaps(
-                    cursor: cursor,
+                    cursor: planeCursor,
                     planes: planesToRender,
-                    interactiveState: interactiveState,
+                    interactiveState: renderInput,
                     manual: manualBounds,
                     perVolume: perVolume,
+                    shared: shared,
                     cached: cachedAutoBounds
                 )
-            }.value
-            guard let self, !Task.isCancelled else { return }
+            }
+            let rendered = await withTaskCancellationHandler {
+                await render.value
+            } onCancel: {
+                render.cancel()
+            }
+            guard let self else { return }
+            let decision = self.renderGate.decision(for: generation, cancelled: Task.isCancelled || rendered == nil)
+            guard decision != .discard, let result = rendered else { return }
             self.apply(bitmaps: result.bitmaps)
+            // Renders run one at a time, so none is reading a volume now.
+            self.streamedVolumeLoading = false
+            if stream != nil {
+                self.streamedVolumeFailed = false
+                // Only while the stream is still this state's (not after a swap).
+                // Re-rendering the same timepoint (slice scrolling) keeps the
+                // entry, so the snapshot generation — and the view features'
+                // caches keyed on it — only change with the timepoint.
+                if decision == .apply, let streamed, self.streamedVolume?.t != cursor.t {
+                    self.streamedVolume = (cursor.t, streamed)
+                }
+            } else if cursor.t == 0, self.streamedVolume != nil {
+                self.streamedVolume = nil
+            }
             // Remember the auto window so a subsequent W/L drag starts from it,
             // and memoize it per timepoint for per-volume mode — unless the state
             // was swapped mid-render (4D expansion), which makes it stale.
-            if manualBounds == nil, generation == self.interactiveStateGeneration {
+            if manualBounds == nil, decision == .apply {
                 self.lastAppliedAutoBounds = result.bounds
                 if perVolume, let bounds = result.bounds {
                     self.perVolumeWindowCache[cursor.t] = bounds
@@ -732,6 +1070,147 @@ final class MIQPreviewModel {
             self.onChange?()
             self.renderTask = nil
             self.startNextRenderIfNeeded()
+        }
+    }
+
+    // MARK: - Background data summaries
+
+    /// Starts the "Data QC" passes the current interactive state allows: QC
+    /// once per load (volume 0 suffices, so a capped buffer is fine), the
+    /// temporal summary once every volume is in memory (after the 4D expansion
+    /// for a capped `.nii.gz`). Each runs detached at utility priority, is
+    /// cancelled with the model's other work, and lands only if no reload
+    /// happened meanwhile (`summaryGeneration`).
+    private func startDataSummariesIfNeeded() {
+        guard let interactiveState else { return }
+        let volume = interactiveState.volume
+        let header = volume.image.header
+        let generation = summaryGeneration
+        let fileName = url.lastPathComponent
+
+        if !qcStarted, MIQConfig.qcPanelEnabled, PreviewDataSummaries.shouldRunQC(header: header) {
+            qcStarted = true
+            let options = QCOptions(
+                intentCode: header.acquisition.intentCode == 0 ? nil : header.acquisition.intentCode,
+                descrip: header.acquisition.descrip
+            )
+            qcTask = Task { [weak self] in
+                let lines: [MetadataEntry]
+                do {
+                    lines = try await MIQPreviewModel.runCancelableDetached(priority: .utility) {
+                        try QCAnalyzer.analyze(volume: volume, fileName: fileName, options: options).displayLines
+                    }
+                } catch {
+                    guard !(error is CancellationError) else { return }
+                    MIQLogger.make(category: "model").error("QC pass failed: \(error.localizedDescription, privacy: .private)")
+                    return
+                }
+                guard let self, !Task.isCancelled, generation == self.summaryGeneration else { return }
+                self.qcTask = nil
+                self.qcEntries = lines
+                self.onChange?()
+            }
+        }
+
+        // A streamed series (over the decompression budget) gets the summary
+        // from one forward pass through its own reader — local files only; on
+        // a network volume the row is left out rather than pulling the series.
+        if !temporalStarted, MIQConfig.temporalSummaryEnabled, expansionState == .streaming, let stream = volumeStream,
+           PreviewDataSummaries.shouldRunStreamedTemporalSummary(
+               header: header,
+               isLabelMap: interactiveState.segmentationLut != nil,
+               readsOverNetwork: readsOverNetwork
+           ) {
+            temporalStarted = true
+            let fileURL = url
+            temporalTask = Task { [weak self] in
+                let summary = try? await MIQPreviewModel.runCancelableDetached(priority: .utility) { () -> TemporalSummary? in
+                    try MIQPreviewModel.streamedTemporalSummary(stream: stream, header: header, fileURL: fileURL)
+                }
+                guard let self, !Task.isCancelled, generation == self.summaryGeneration else { return }
+                self.temporalTask = nil
+                // `try?` flattens: `nil` on cancellation, a read error or an
+                // empty foreground — the row is then simply absent.
+                guard let entry = summary.flatMap(PreviewDataSummaries.temporalEntry) else { return }
+                self.temporalEntry = entry
+                self.onChange?()
+            }
+        }
+
+        if !temporalStarted, MIQConfig.temporalSummaryEnabled,
+           PreviewDataSummaries.shouldRunTemporalSummary(volume: volume, isLabelMap: interactiveState.segmentationLut != nil) {
+            temporalStarted = true
+            temporalTask = Task { [weak self] in
+                // `nil` on cancellation as well as on an empty foreground.
+                let summary = try? await MIQPreviewModel.runCancelableDetached(priority: .utility) {
+                    TemporalStats.summary(for: volume)
+                }
+                guard let self, !Task.isCancelled, generation == self.summaryGeneration else { return }
+                self.temporalTask = nil
+                guard let entry = summary.flatMap(PreviewDataSummaries.temporalEntry) else { return }
+                self.temporalEntry = entry
+                self.onChange?()
+            }
+        }
+    }
+
+    /// Computes the shared 4D window (`perVolumeWindow` off) for the current
+    /// interactive state, off the MainActor, then repaints with it unless the
+    /// user has taken manual W/L control. Idempotent per interactive state;
+    /// waits for a capped buffer's expansion, since sampling it would only see
+    /// volume 0.
+    ///
+    /// A streamed series (`.streaming`) samples its volumes through a sibling
+    /// `NiftiVolumeReader` (one volume resident at a time) instead; on a
+    /// network volume that read goes through `NetworkReadLane`. Where that
+    /// would pull a whole compressed series over the network,
+    /// `triggerExpansionIfNeeded` has already switched to per-volume windows.
+    private func ensureSharedWindowIfNeeded() {
+        let stream = expansionState == .streaming ? volumeStream : nil
+        guard !perVolumeWindow, let interactiveState,
+              interactiveState.volume.volumes > 1,
+              interactiveState.volume.containsAllVolumes || stream != nil,
+              interactiveState.segmentationLut == nil,
+              interactiveState.windowBounds != nil,
+              sharedWindowTask == nil,
+              sharedWindowGeneration != interactiveStateGeneration else { return }
+        let generation = interactiveStateGeneration
+        let volume = interactiveState.volume
+        let options = interactiveState.options
+        let fileURL = url
+        let overNetwork = readsOverNetwork
+        sharedWindowTask = Task { [weak self] in
+            let bounds: MIQIntensityWindowBounds?
+            if let stream {
+                let pass: @Sendable () throws -> MIQIntensityWindowBounds? = {
+                    try MIQPreviewModel.streamedSharedWindow(
+                        stream: stream, volumeCount: volume.volumes, options: options, fileURL: fileURL
+                    )
+                }
+                if overNetwork {
+                    bounds = try? await NetworkReadLane.shared.run("shared-window", url: fileURL, navigating: false, claimsNewest: true) { readFinished in
+                        defer { readFinished() }
+                        return try pass()
+                    }
+                } else {
+                    bounds = try? await MIQPreviewModel.runCancelableDetached(priority: .userInitiated, pass)
+                }
+            } else {
+                bounds = try? await MIQPreviewModel.runCancelableDetached(priority: .userInitiated) {
+                    volume.sharedVolumeWindow(options: options)
+                }
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.sharedWindowTask = nil
+            guard generation == self.interactiveStateGeneration else {
+                // Swapped mid-computation (4D expansion): sample the new buffer.
+                self.ensureSharedWindowIfNeeded()
+                return
+            }
+            self.sharedWindowGeneration = generation
+            guard let bounds else { return }
+            self.sharedWindow = bounds
+            if self.windowAdjustment == nil { self.scheduleFullRender() }
         }
     }
 
@@ -818,15 +1297,62 @@ final class MIQPreviewModel {
         }
     }
 
+    /// The cold preview read for `load()`: `loadPreviewData` through `runRead`.
+    private static func readColdPreview(
+        overNetwork: Bool,
+        fileURL: URL,
+        navigating: Bool,
+        options: RenderingOptions,
+        maxDimension: Int,
+        windowFromHeadMask: Bool
+    ) async throws -> RawPreviewData {
+        try await runRead(overNetwork: overNetwork, url: fileURL, navigating: navigating, claimsNewest: false, label: "load") { parser in
+            try MIQPreviewModel.loadPreviewData(parser: parser, fileURL: fileURL, options: options, maxDimension: maxDimension, windowFromHeadMask: windowFromHeadMask)
+        }
+    }
+
+    /// Temporal summary of a streamed series, from one forward pass through a
+    /// sibling reader of `stream`. Blocking: call it from a detached task.
+    private nonisolated static func streamedTemporalSummary(
+        stream: NiftiVolumeReader,
+        header: MIQHeader,
+        fileURL: URL
+    ) throws -> TemporalSummary? {
+        try withSecurityScopedAccess(to: fileURL) {
+            let pass = try stream.makeSiblingReader()
+            return try TemporalStats.summary(
+                volumeCount: header.volumes,
+                grid: TemporalStats.Grid(width: header.width, height: header.height, depth: header.depth)
+            ) { t in try pass.volume(at: t) }
+        }
+    }
+
+    /// Shared intensity window of a streamed series, sampling volumes through a
+    /// sibling reader of `stream`. Blocking: call it off the MainActor.
+    private nonisolated static func streamedSharedWindow(
+        stream: NiftiVolumeReader,
+        volumeCount: Int,
+        options: RenderingOptions,
+        fileURL: URL
+    ) throws -> MIQIntensityWindowBounds? {
+        try withSecurityScopedAccess(to: fileURL) {
+            let sampler = try stream.makeSiblingReader()
+            return try MIQVolume.sharedVolumeWindow(volumeCount: volumeCount, options: options) { t in
+                try sampler.volume(at: t)
+            }
+        }
+    }
+
     /// Runs `work` off the MainActor on a detached task but propagates *this*
     /// task's cancellation into it. A bare `Task.detached(...).value` would keep
     /// running after the awaiting task is cancelled (detached tasks don't inherit
     /// cancellation), so a dismissed/replaced preview couldn't stop an in-flight
     /// parse — notably the full network read for non-boundable kinds (`.mif.gz`).
     private static func runCancelableDetached<T: Sendable>(
+        priority: TaskPriority = .userInitiated,
         _ work: @Sendable @escaping () throws -> T
     ) async throws -> T {
-        let task = Task.detached(priority: .userInitiated, operation: work)
+        let task = Task.detached(priority: priority, operation: work)
         return try await withTaskCancellationHandler {
             try await task.value
         } onCancel: {
@@ -847,21 +1373,50 @@ final class MIQPreviewModel {
         return size
     }
 
+    /// Deferral size for a dataless cloud placeholder: any kind over the network
+    /// threshold. Unlike a network mount, canonical NIfTI gets no exemption — the
+    /// File Provider materializes the whole file on first read, so the bounded
+    /// volume-0 prefix read saves nothing. Runs inside the detached probe task.
+    private nonisolated static func datalessDeferralSizeBytes(fileURL: URL) -> Int? {
+        guard let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size > MIQConfig.networkPreviewThresholdBytes else { return nil }
+        return size
+    }
+
     private nonisolated static func loadPreviewData(
         parser: MIQParser,
         fileURL: URL,
         options: RenderingOptions,
-        maxDimension: Int
+        maxDimension: Int,
+        windowFromHeadMask: Bool
     ) throws -> RawPreviewData {
         try withSecurityScopedAccess(to: fileURL) {
-            let image = try parser.parse(url: fileURL)
+            // Header-only memory gate; see `load()` for why it runs here, in the
+            // read lane. Unprobeable kinds (DICOM, Zarr) proceed unchanged.
+            if let refusal = MIQColdPreviewGate.refusalMessage(url: fileURL) {
+                throw ColdPreviewRefusal(message: refusal)
+            }
+            try Task.checkCancellation()
+            // DICOM: the same image `parse(url:)` returns, plus its technical
+            // rows. Everything else keeps `parse(url:)` (format dispatch,
+            // bounded network reads).
+            let image: MIQImage
+            var extraEntries: [MetadataEntry] = []
+            if MIQFileKind(url: fileURL) == .dicom {
+                let parsed = try parser.parseDICOM(url: fileURL)
+                image = parsed.image
+                extraEntries = parsed.info.displayEntries
+            } else {
+                image = try parser.parse(url: fileURL)
+            }
             let volume = MIQVolume(image: image)
             MIQLogger.make(category: "model").notice("cold parse: \(volume.containsAllVolumes ? "full payload" : "volume-0 capped", privacy: .public), volumes=\(volume.volumes, privacy: .public), payload=\(image.payloadCount / 1024, privacy: .public)KB")
             // Single decode of the center slices: the pooled buffer that derives the
             // window is the same buffer finalized into the first-frame images. The
             // previous makeInteractiveState + renderSlices(centerCursor) path decoded
             // them twice (once for the window, once for the render).
-            let preview = volume.centerPreview(volumeIndex: 0, maxDimension: maxDimension, options: options)
+            let headMask = try headMaskForWindow(volume: volume, enabled: windowFromHeadMask)
+            let preview = volume.centerPreview(volumeIndex: 0, maxDimension: maxDimension, options: options, headMask: headMask)
             let interactiveState = InteractivePreviewState(
                 volume: volume,
                 options: options,
@@ -870,17 +1425,30 @@ final class MIQPreviewModel {
                 segmentationLut: preview.segmentationLut,
                 centerCursor: volume.centerCursor()
             )
-            // Expand to RGBA here, inside the detached task — the MainActor
+            // Build the bitmaps here, inside the detached task (8-bit grey for
+            // grayscale slices, RGBA for colour / LUT output) — the MainActor
             // then only wraps the buffers in CGImage/NSImage.
-            let slices = preview.slices.compactMapValues { $0.rgbaBitmap() }
+            let slices = preview.slices.compactMapValues { $0.previewBitmap() }
 
             var orientations: [SlicePlane: SliceOrientationLabels] = [:]
             for plane in SlicePlane.allCases {
                 orientations[plane] = volume.displayOrientation(for: plane, options: options)
             }
 
-            var metadata = MIQMetadata(header: image.header, orientation: volume.storageOrientationLabel()).asDisplayLines()
+            // BIDS `<stem>.json` / `.bval` beside the image. `nil` when absent or
+            // when the sandbox refuses the sibling read — silently, by design.
+            let sidecar = SidecarMetadata.load(forImageAt: fileURL)
+            if sidecar != nil {
+                MIQLogger.make(category: "model").notice("sidecar found: file=\(MIQLogRedaction.fileTag(fileURL), privacy: .public)")
+            }
+            var metadata = MIQMetadata(
+                header: image.header,
+                orientation: image.header.orientationDiagnostics.displaySummary,
+                sidecar: sidecar,
+                sidecarWarningsInRow: false
+            ).asDisplayLines()
             metadata.insert(metadataFormatEntry(for: fileURL, header: image.header), at: 0)
+            let warnings = MIQMetadata.panelWarnings(header: image.header, sidecar: sidecar)
             #if DEBUG
             if let built = buildDateEntry() { metadata.append(built) }
             #endif
@@ -889,6 +1457,8 @@ final class MIQPreviewModel {
                 slices: slices,
                 orientations: orientations,
                 metadataEntries: metadata,
+                panelWarnings: warnings,
+                extraEntries: extraEntries,
                 interactiveState: interactiveState
             )
         }
@@ -898,24 +1468,38 @@ final class MIQPreviewModel {
         parser: MIQParser,
         fileURL: URL,
         options: RenderingOptions,
-        maxDimension: Int
+        maxDimension: Int,
+        windowFromHeadMask: Bool
     ) throws -> InteractivePreviewState {
         try withSecurityScopedAccess(to: fileURL) {
             let image = try parser.parse(url: fileURL)
             let volume = MIQVolume(image: image)
-            return makeInteractiveState(volume: volume, options: options, maxDimension: maxDimension)
+            let headMask = try headMaskForWindow(volume: volume, enabled: windowFromHeadMask)
+            return makeInteractiveState(volume: volume, options: options, maxDimension: maxDimension, headMask: headMask)
         }
+    }
+
+    /// The `QCHeadMask` the auto window is restricted to when
+    /// `MIQConfig.windowFromHeadMask` is on, computed once per loaded volume
+    /// inside the detached load (never on the MainActor). `nil` when the
+    /// setting is off or the volume isn't an anatomical scalar 3D image
+    /// (`MIQVolume.windowingHeadMask()`), which keeps the ordinary window.
+    /// Rethrows only `CancellationError`.
+    private nonisolated static func headMaskForWindow(volume: MIQVolume, enabled: Bool) throws -> QCHeadMask? {
+        guard enabled, volume.isHeadMaskWindowCandidate else { return nil }
+        return try volume.windowingHeadMask()
     }
 
     private nonisolated static func makeInteractiveState(
         volume: MIQVolume,
         options: RenderingOptions,
-        maxDimension: Int
+        maxDimension: Int,
+        headMask: QCHeadMask? = nil
     ) -> InteractivePreviewState {
         // Single decode of the 3 center slices yields both the LUT and the
         // window, instead of `buildSegmentationLut` + `fixedCenterWindow` each
         // decoding them. Shaves time-to-first-scroll on the cache-hit path.
-        let center = volume.centerInteractiveState(options: options)
+        let center = volume.centerInteractiveState(options: options, headMask: headMask)
         return InteractivePreviewState(
             volume: volume,
             options: options,
@@ -963,13 +1547,44 @@ final class MIQPreviewModel {
         interactiveState: InteractivePreviewState,
         manual: MIQIntensityWindowBounds?,
         perVolume: Bool,
+        shared: MIQIntensityWindowBounds?,
         cached: MIQIntensityWindowBounds?
-    ) -> (bounds: MIQIntensityWindowBounds?, bitmaps: [SlicePlane: RGBABitmap]) {
-        let bounds = resolveWindowBounds(cursor: cursor, interactiveState: interactiveState, manual: manual, perVolume: perVolume, cached: cached)
-        let slices = renderSlices(for: cursor, planes: planes, interactiveState: interactiveState, windowBounds: bounds)
-        // RGBA expansion stays off the MainActor with the rest of the
-        // pixel work; only CGImage/NSImage wrapping happens in apply.
-        return (bounds, slices.compactMapValues { $0.rgbaBitmap() })
+    ) -> (bounds: MIQIntensityWindowBounds?, bitmaps: [SlicePlane: PreviewSliceBitmap])? {
+        let bounds = resolveWindowBounds(cursor: cursor, interactiveState: interactiveState, manual: manual, perVolume: perVolume, shared: shared, cached: cached)
+        guard let slices = renderSlices(for: cursor, planes: planes, interactiveState: interactiveState, windowBounds: bounds) else {
+            return nil
+        }
+        // Bitmap building stays off the MainActor with the rest of the pixel
+        // work (8-bit grey for grayscale slices, RGBA for colour / LUT output);
+        // only CGImage/NSImage wrapping happens in apply.
+        var bitmaps: [SlicePlane: PreviewSliceBitmap] = [:]
+        for (plane, slice) in slices {
+            guard !Task.isCancelled else { return nil }
+            if let bitmap = slice.previewBitmap() { bitmaps[plane] = bitmap }
+        }
+        return (bounds, bitmaps)
+    }
+
+    /// Volume `t` of a 4D NIfTI over the decompression budget, decoded by
+    /// `reader` off the MainActor (cancellable: the gzip path polls between
+    /// output windows). On a network volume an uncached read goes through
+    /// `NetworkReadLane` like every other read of the file; a cached one, or a
+    /// local file (memory-mapped `.nii` / local `.nii.gz`), runs straight away.
+    private static func readStreamedVolume(
+        _ reader: NiftiVolumeReader,
+        t: Int,
+        fileURL: URL,
+        overNetwork: Bool
+    ) async throws -> MIQVolume {
+        if !overNetwork || reader.isCached(t) {
+            return try await runCancelableDetached {
+                try withSecurityScopedAccess(to: fileURL) { try reader.volume(at: t) }
+            }
+        }
+        return try await NetworkReadLane.shared.run("volume", url: fileURL, navigating: false, claimsNewest: true) { readFinished in
+            defer { readFinished() }
+            return try withSecurityScopedAccess(to: fileURL) { try reader.volume(at: t) }
+        }
     }
 
     private nonisolated static func resolveWindowBounds(
@@ -977,11 +1592,19 @@ final class MIQPreviewModel {
         interactiveState: InteractivePreviewState,
         manual: MIQIntensityWindowBounds?,
         perVolume: Bool,
+        shared: MIQIntensityWindowBounds?,
         cached: MIQIntensityWindowBounds?
     ) -> MIQIntensityWindowBounds? {
         if let manual { return manual }
-        guard perVolume, interactiveState.volume.volumes > 1 else {
+        guard interactiveState.volume.volumes > 1 else {
             return interactiveState.windowBounds
+        }
+        // Shared mode: one window over sampled volumes once it is computed;
+        // volume 0's until then (and for a LUT-rendered label map, which has
+        // no window to share).
+        guard perVolume else {
+            guard interactiveState.windowBounds != nil else { return nil }
+            return shared ?? interactiveState.windowBounds
         }
         // Before 4D expansion, volumes > 0 read the zero backstop; a window
         // derived from zeros is degenerate, so keep volume 0's.
@@ -999,9 +1622,11 @@ final class MIQPreviewModel {
         planes: [SlicePlane],
         interactiveState: InteractivePreviewState,
         windowBounds: MIQIntensityWindowBounds?
-    ) -> [SlicePlane: SliceImage] {
+    ) -> [SlicePlane: SliceImage]? {
         var slices: [SlicePlane: SliceImage] = [:]
         for plane in planes {
+            // `nil` once the render is superseded: the caller discards it anyway.
+            guard !Task.isCancelled else { return nil }
             let index = interactiveState.volume.sliceIndex(for: plane, cursor: cursor, options: interactiveState.options)
             slices[plane] = interactiveState.volume.slice(
                 plane: plane,
@@ -1055,4 +1680,106 @@ final class MIQPreviewModel {
         return MetadataEntry(field: nil, label: "DEBUG BUILD", value: formatted)
     }
     #endif
+}
+
+// MARK: - Interaction (ui-interaction)
+//
+// Read-only accessors and two small window entry points for the view-feature
+// layer (MIQPreviewInteraction.swift and friends). Kept in this file only
+// because they read the model's private interactive state; nothing here takes
+// part in the load path.
+
+/// Everything the view features (colour maps, overlays, projections, 3D) need
+/// from the interactive state, as one Sendable value they can hand to detached
+/// work.
+struct MIQInteractionSnapshot: Sendable {
+    let volume: MIQVolume
+    let options: RenderingOptions
+    let maxDimension: Int
+    /// The window on screen: the manual/preset one if set, else the auto
+    /// window the last render applied. `nil` for RGB / constant data.
+    let windowBounds: MIQIntensityWindowBounds?
+    let segmentationLut: SegmentationLut?
+    /// Addresses `volume`: for a streamed series (4D over the decompression
+    /// budget) `volume` holds only the displayed timepoint, so `cursor.t` is 0
+    /// while the slices show a later volume — always read `volume` at `cursor.t`.
+    let cursor: MIQVolumeCursor
+    /// Changes whenever the backing volume is swapped (fresh parse, cache-hit
+    /// preparation, 4D expansion, and each streamed volume that lands);
+    /// derived caches key on it.
+    let generation: Int
+}
+
+extension MIQPreviewModel {
+    /// `nil` until the interactive state is ready (cold load done or cache-hit
+    /// preparation finished).
+    ///
+    /// For a streamed series the snapshot follows the volume *on screen*: the
+    /// decoded single volume (addressed as `t = 0`) once its render has landed,
+    /// volume 0 of the capped buffer while that is displayed — never the
+    /// capped buffer's zero backstop for a later timepoint. While a newly
+    /// requested volume is still decoding, the snapshot keeps describing the
+    /// one displayed. `nil` in the one state with no decoded data for what is
+    /// shown (a later volume whose stream was just reset), so features wait
+    /// for the next render instead of drawing zeros.
+    var interactionSnapshot: MIQInteractionSnapshot? {
+        guard let interactiveState else { return nil }
+        let cursor = currentCursor ?? interactiveState.centerCursor
+        var volume = interactiveState.volume
+        var snapshotCursor = cursor
+        if expansionState == .streaming {
+            let shownT = displayedCursor?.t ?? 0
+            if shownT > 0 {
+                guard let streamed = streamedVolume, streamed.t == shownT else { return nil }
+                volume = streamed.volume
+            }
+            snapshotCursor = MIQVolumeCursor(x: cursor.x, y: cursor.y, z: cursor.z, t: 0)
+        }
+        return MIQInteractionSnapshot(
+            volume: volume,
+            options: interactiveState.options,
+            maxDimension: interactiveState.maxDimension,
+            windowBounds: displayedWindowBounds,
+            segmentationLut: interactiveState.segmentationLut,
+            cursor: snapshotCursor,
+            generation: snapshotGeneration
+        )
+    }
+
+    /// The previewed file (for sibling-overlay discovery; never logged).
+    var interactionFileURL: URL { url }
+
+    /// The window currently applied to the slices (manual wins over auto).
+    var displayedWindowBounds: MIQIntensityWindowBounds? {
+        windowAdjustment ?? lastAppliedAutoBounds ?? interactiveState?.windowBounds
+    }
+
+    /// True while a manual drag or a preset overrides the auto window.
+    var hasManualWindow: Bool { windowAdjustment != nil }
+
+    /// Sets (or with `nil`, clears back to auto) the manual window — the
+    /// preset entry point. Same render path as a W/L drag.
+    func setManualWindow(_ bounds: MIQIntensityWindowBounds?) {
+        guard interactiveStateForInteraction() != nil else { return }
+        guard bounds != windowAdjustment else { return }
+        windowAdjustment = bounds
+        onChange?()
+        scheduleFullRender()
+    }
+
+    /// Starts deferred interactive preparation, like any other first input.
+    func beginInteraction() {
+        _ = interactiveStateForInteraction()
+    }
+
+    /// 0-based slice index shown in `plane` and the plane's slice count, for
+    /// accessibility text. `nil` until the interactive state is ready.
+    func displayedSlice(for plane: SlicePlane) -> (index: Int, count: Int)? {
+        guard let interactiveState else { return nil }
+        let volume = interactiveState.volume
+        let cursor = currentCursor ?? interactiveState.centerCursor
+        let geometry = volume.sliceGeometry(for: plane, options: interactiveState.options)
+        let dims = [volume.width, volume.height, volume.depth]
+        return (cursor.coordinate(forAxis: geometry.sliceAxis), dims[geometry.sliceAxis])
+    }
 }

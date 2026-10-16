@@ -73,3 +73,43 @@ extension SliceImage {
         return data
     }
 }
+
+/// Single-channel 8-bit grayscale pixel buffer — a quarter of the memory of the
+/// equivalent `RGBABitmap`, for a grayscale slice wrapped in a
+/// `CGColorSpaceCreateDeviceGray()` / 8 bpc / 8 bpp / `CGImageAlphaInfo.none`
+/// CGImage instead of an RGBA one. Rows are tightly packed
+/// (`bytesPerRow == width`).
+public struct Gray8Bitmap: Sendable {
+    public let width: Int
+    public let height: Int
+    /// Grey levels, row-major — length == width * height.
+    public let pixels: Data
+
+    public init(width: Int, height: Int, pixels: Data) {
+        self.width = width
+        self.height = height
+        self.pixels = pixels
+    }
+}
+
+extension GrayscaleImage {
+    /// This image as a `Gray8Bitmap` (the pixels copied once into `Data`, which a
+    /// `CGDataProvider` can then share without another copy), or `nil` when the
+    /// buffer doesn't match the declared dimensions — the same guard as
+    /// `SliceImage.rgbaBitmap()`. Each byte equals the R (= G = B) byte of the
+    /// corresponding `rgbaBitmap()` pixel.
+    public func makeGray8() -> Gray8Bitmap? {
+        guard width > 0, height > 0, pixels.count == width * height else { return nil }
+        return Gray8Bitmap(width: width, height: height, pixels: Data(pixels))
+    }
+}
+
+extension SliceImage {
+    /// Single-channel output for grayscale slices (`GrayscaleImage.makeGray8()`);
+    /// `nil` for RGB slices (colour data, segmentation LUTs), which need
+    /// `rgbaBitmap()`, and for a mismatched buffer.
+    public func makeGray8() -> Gray8Bitmap? {
+        guard case .grayscale(let img) = self else { return nil }
+        return img.makeGray8()
+    }
+}

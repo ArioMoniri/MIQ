@@ -176,6 +176,16 @@
   }
   .note { text-align: center; color: var(--fg-faint); font-size: .9rem; margin-top: 22px; }
 
+  /* ---- animations (SVG first; lottie-web takes over when it loads) ---- */
+  #how { padding-bottom: 0; }
+  .anims { grid-template-columns: 1fr 1fr; align-items: start; }
+  @media (max-width: 760px) { .anims { grid-template-columns: 1fr; } }
+  .anims figure { margin: 0; }
+  .anims figcaption { text-align: center; color: var(--fg-soft); font-size: .92rem; margin-top: 10px; }
+  .anim { position: relative; }
+  .anim img, .anim svg { display: block; width: 100%; height: auto; }
+  .anim-strip { max-width: 720px; margin: 0 auto 24px; }
+
   /* ---- install ---- */
   .tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 26px; }
   .tab {
@@ -315,6 +325,31 @@
   </div>
 </section>
 
+<section id="how">
+  <div class="wrap">
+    <div class="grid anims">
+      <figure>
+        <div class="anim" data-lottie="lottie/quicklook">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="lottie/quicklook_dark.svg">
+            <img src="lottie/quicklook.svg" width="720" height="340" alt="A NIfTI file is selected in Finder, Space is pressed, and a Quick Look window opens with coronal, sagittal and axial slices and a metadata panel." loading="lazy">
+          </picture>
+        </div>
+        <figcaption>Select a file, press <kbd>Space</kbd>.</figcaption>
+      </figure>
+      <figure>
+        <div class="anim" data-lottie="lottie/crosshair">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="lottie/crosshair_dark.svg">
+            <img src="lottie/crosshair.svg" width="720" height="300" alt="A red crosshair moves through coronal, sagittal and axial views; each view shows the slice through the crosshair." loading="lazy">
+          </picture>
+        </div>
+        <figcaption>Click or drag to move the linked crosshair; scroll to step through slices.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
 <section id="features">
   <div class="wrap">
     <div class="section-head">
@@ -362,7 +397,13 @@
     <div class="section-head">
       <span class="eyebrow">Research Companion</span>
       <h2>The formats you actually use</h2>
-      <p>All file formats are supported uncompressed and gzip-compressed.</p>
+      <p>NIfTI, FreeSurfer and MRtrix files are supported uncompressed and gzip-compressed.</p>
+    </div>
+    <div class="anim anim-strip" data-lottie="lottie/formats">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="lottie/formats_dark.svg">
+        <img src="lottie/formats.svg" width="720" height="250" alt="Supported formats slide past a highlight, with a table showing each format's extensions and notes: NIfTI, FreeSurfer, MRtrix, NRRD, ITK MHA/MHD, DICOM and Zarr." loading="lazy">
+      </picture>
     </div>
     <div class="grid formats">
       <div class="fmt">
@@ -375,14 +416,26 @@
       </div>
       <div class="fmt">
         <span class="badge">✅</span>
-        <div><div class="name">MRtrix</div><div class="ext"><code>.mif</code> <code>.mif.gz</code></div></div>
+        <div><div class="name">MRtrix</div><div class="ext"><code>.mif</code> <code>.mif.gz</code> <code>.mih</code></div></div>
+      </div>
+      <div class="fmt">
+        <span class="badge">✅</span>
+        <div><div class="name">NRRD</div><div class="ext"><code>.nrrd</code> <code>.nhdr</code></div></div>
+      </div>
+      <div class="fmt">
+        <span class="badge">✅</span>
+        <div><div class="name">MetaImage (ITK)</div><div class="ext"><code>.mha</code> <code>.mhd</code></div></div>
       </div>
       <div class="fmt">
         <span class="badge">✳️</span>
-        <div><div class="name">NRRD</div><div class="ext"><code>.nrrd</code></div></div>
+        <div><div class="name">DICOM</div><div class="ext"><code>.dcm</code> <code>.dicom</code> · uncompressed only</div></div>
+      </div>
+      <div class="fmt">
+        <span class="badge">✳️</span>
+        <div><div class="name">OME-Zarr &amp; NIfTI-Zarr</div><div class="ext"><code>.zarr</code> · lowest-resolution level</div></div>
       </div>
     </div>
-    <p class="note">MIQ only supports volume files in research formats, DICOM is currently not supported.<br />MIQ relies on the file extension to determine the format, so it’s important that files have the correct extension.</p>
+    <p class="note">DICOM: one uncompressed Part-10 file (single- or multi-frame); compressed transfer syntaxes are not supported yet.<br />MIQ relies on the file extension to determine the format, so it’s important that files have the correct extension.</p>
   </div>
 </section>
 
@@ -515,6 +568,68 @@ brew install --cask miq</pre>
     });
   });
   lb.addEventListener('click', function () { lb.close(); });
+</script>
+
+<!-- Lottie: the animated SVGs above work on their own; when lottie-web loads it
+     replaces them so that animations pause off-screen, follow live theme changes
+     and stop on their poster frame under reduced motion. Sources and the SVG
+     renderer: docs/lottie/, scripts/dev/render_lottie.py. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"
+        integrity="sha512-jEnuDt6jfecCjthQAJ+ed0MTVA++5ZKmlUcmDGBv2vUI/REn6FuIdixLNnQT+vKusE2hhTk2is3cFvv5wA+Sgg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+<script>
+  window.addEventListener('load', function () {
+    if (!window.lottie || !window.fetch) return;   // keep the SVGs
+    var dark = window.matchMedia('(prefers-color-scheme: dark)');
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+    var players = [];
+
+    function mount(el) {
+      // The description lives on the fallback image; keep it for the player.
+      if (el._label === undefined) { el._label = (el.querySelector('img') || {}).alt || ''; }
+      var url = el.dataset.lottie + (dark.matches ? '_dark' : '') + '.json';
+      fetch(url).then(function (r) { if (!r.ok) { throw r; } return r.json(); }).then(function (data) {
+        var poster = ((data.markers || []).find(function (m) { return m.cm === 'poster'; }) || { tm: 0 }).tm;
+        // lottie-web measures text while building, so the player must be in the
+        // document (hidden behind the current image) until it is ready.
+        var holder = document.createElement('div');
+        holder.style.cssText = 'position:absolute;inset:0;visibility:hidden';
+        el.appendChild(holder);
+        var anim = lottie.loadAnimation({ container: holder, renderer: 'svg', loop: true, autoplay: false, animationData: data });
+        anim.addEventListener('DOMLoaded', function () {
+          if (el._anim) el._anim.destroy();   // a theme change replaces the old player
+          holder.style.cssText = '';
+          var svg = holder.querySelector('svg');
+          if (svg && el._label) { svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', el._label); }
+          el.replaceChildren(holder);
+          el._anim = anim; el._poster = poster;
+          anim.goToAndStop(poster, true);       // a meaningful still until it scrolls into view
+          update(el);
+        });
+      }).catch(function () { /* keep the SVG fallback */ });
+    }
+
+    function update(el) {
+      if (!el._anim) return;
+      if (still.matches) el._anim.goToAndStop(el._poster, true);
+      else if (el._visible) el._anim.play();
+      else el._anim.pause();
+    }
+
+    var io = 'IntersectionObserver' in window ? new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { e.target._visible = e.isIntersecting; update(e.target); });
+    }) : null;
+
+    document.querySelectorAll('[data-lottie]').forEach(function (el) {
+      el._visible = !io;
+      if (io) io.observe(el);
+      players.push(el);
+      mount(el);
+    });
+    function remountAll() { players.forEach(mount); }
+    function updateAll() { players.forEach(update); }
+    if (dark.addEventListener) { dark.addEventListener('change', remountAll); still.addEventListener('change', updateAll); }
+  });
 </script>
 
 </body>

@@ -24,23 +24,92 @@ extension MIQParser {
         /// The voxel→scanner affine's three rows, when the (optional) `transform:` field
         /// is present and well-formed. `nil` means an identity affine, per the MIF spec.
         let transform: [[Float]]?
+        /// Display-only fields (`dw_scheme`, `command_history`), carried through
+        /// to `MIQHeader.acquisition`.
+        var acquisition = MIQAcquisitionInfo()
     }
 
-    func parseMif(_ data: Data) throws -> MIQImage {
+    /// - Parameter headerURL: The header's location, passed only for `.mih`. A
+    ///   `file: <name> <offset>` other than `.` then names a payload file resolved
+    ///   next to the header (see `resolveDetachedDataFile`), read from `<offset>`.
+    ///   With `nil` (`.mif`, single-file by definition) an external file is rejected.
+    func parseMif(_ data: Data, headerURL: URL? = nil) throws -> MIQImage {
         let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
         guard mifHeader.dataFile == "." else {
-            throw MIQError.malformedFile("MIF references an external data file; only embedded payloads are supported")
+            guard let headerURL else {
+                throw MIQError.malformedFile("MIF references an external data file; only embedded payloads are supported")
+            }
+            let url = try resolveDetachedDataFile(mifHeader.dataFile, relativeTo: headerURL)
+            let payload = try readDetachedDataFile(url, name: mifHeader.dataFile)
+            return try buildMifImage(data: payload, dataOffset: mifHeader.dataOffset, header: mifHeader)
         }
         let dataOffset = mifHeader.dataOffset > 0 ? mifHeader.dataOffset : embeddedDataOffset
         return try buildMifImage(data: data, dataOffset: dataOffset, header: mifHeader)
+    }
+
+    /// Header-only parse for `parseHeaderOnly(url:maxBytes:)`: no payload is read or validated, and
+    /// an external `file:` reference is not rejected (only the size estimate is
+    /// wanted).
+    func parseMifHeaderOnly(from data: Data) throws -> MIQHeader {
+        let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
+        let dataOffset = mifHeader.dataOffset > 0 || mifHeader.dataFile != "."
+            ? mifHeader.dataOffset
+            : embeddedDataOffset
+        return try buildMifMIQHeader(dataOffset: dataOffset, header: mifHeader).header
+    }
+
+    /// Where the payload lives, for `MIQColdPreviewGate` (header prefix only).
+    /// Slices the memory-mapped file in place, except `bit`, which is unpacked
+    /// to one byte per voxel in RAM (`unpackMifBits`).
+    func mifColdPayloadLayout(from data: Data) throws -> ColdPayloadLayout {
+        let (mifHeader, embeddedDataOffset) = try parseMifHeader(from: data)
+        guard !mifHeader.bitPacked else { return .materialized }
+        guard mifHeader.dataFile == "." else {
+            return .mapped(dataFile: mifHeader.dataFile, payloadOffset: mifHeader.dataOffset)
+        }
+        return .mapped(dataFile: nil, payloadOffset: mifHeader.dataOffset > 0 ? mifHeader.dataOffset : embeddedDataOffset)
     }
 
     // MARK: - Header lines
 
     private func parseMifHeader(from data: Data) throws -> (MifHeader, Int) {
         let (lines, embeddedDataOffset) = try parseMifHeaderLines(from: data)
-        let mifHeader = try parseMifHeaderFields(lines: lines)
+        var mifHeader = try parseMifHeaderFields(lines: lines)
+        mifHeader.acquisition = parseMifAcquisition(lines: lines)
         return (mifHeader, embeddedDataOffset)
+    }
+
+    // MARK: - Acquisition & provenance (dw_scheme, command_history)
+
+    /// Display-only fields from the header's key-value lines:
+    /// - `dw_scheme`: one `gx,gy,gz,b` line per volume (MRtrix writes the key
+    ///   repeatedly); the 4th column is the b-value. A row with fewer than four
+    ///   numbers invalidates the scheme rather than mis-assigning b-values.
+    /// - `command_history`: one entry per processing step; the last is kept.
+    func parseMifAcquisition(lines: [String]) -> MIQAcquisitionInfo {
+        var info = MIQAcquisitionInfo()
+        var bValues: [Double] = []
+        var schemeValid = true
+        for line in lines.dropFirst() {
+            guard let sep = line.firstIndex(of: ":") else { continue }
+            let key = line[..<sep].trimmingCharacters(in: .whitespaces).lowercased()
+            let value = line[line.index(after: sep)...].trimmingCharacters(in: .whitespaces)
+            switch key {
+            case "dw_scheme":
+                let numbers = value.split(whereSeparator: { $0 == "," || $0.isWhitespace }).map { Double($0) }
+                if numbers.count >= 4, let b = numbers[3], numbers.allSatisfy({ $0 != nil }) {
+                    bValues.append(b)
+                } else {
+                    schemeValid = false
+                }
+            case "command_history":
+                if !value.isEmpty { info.lastCommand = value }
+            default:
+                continue
+            }
+        }
+        if schemeValid, !bValues.isEmpty { info.bValues = bValues }
+        return info
     }
 
     private func parseMifHeaderLines(from data: Data) throws -> ([String], Int) {
@@ -184,8 +253,28 @@ extension MIQParser {
         let storageFrame = imageFrame.map {
             MIFAxisLayout.storageFrame(imageFrame: $0, spatialAxes: spatialAxes, layout: header.layout)
         }
+        // Obliquity reads the transform itself (layout only permutes/flips axes, which
+        // leaves it unchanged). An absent field is still labelled RAS, as MRtrix does,
+        // but reported as `.mifDefault` so the panel does not imply the file said so.
+        //
+        // MIQ's voxel grid walks the payload in storage order (`strides4` above), so
+        // `storageFrame` is what the "stored" view, the labels and `srow` describe —
+        // and it differs from what MRtrix reports whenever `layout` permutes or flips:
+        // MRtrix indexes voxels along the *image* axes (`imageFrame`), whatever the
+        // strides. The diagnostics carry both so the panel and `miq info` can say
+        // e.g. "LAS · MRtrix image axes RAS" instead of an unexplained LAS.
+        let orientationDiagnostics = OrientationDiagnostics.make(
+            frame: storageFrame,
+            source: header.transform == nil ? .mifDefault : .mifTransform,
+            rows: transform,
+            imageAxisCodes: imageFrame.map { $0.axes.map(\.letter).joined() }
+        )
 
-        let miqHeader = MIQHeader(
+        let worldRows = storageFrame == nil ? nil : Self.mifVoxelToWorldRows(
+            transform: transform, header: header, spatialAxes: spatialAxes
+        )
+
+        var miqHeader = MIQHeader(
             littleEndian: header.littleEndian,
             dimensions: [dim0, dim1, dim2, volumes],
             pixdim: [1.0, pixX, pixY, pixZ],
@@ -195,17 +284,56 @@ extension MIQParser {
             sclInter: header.offset,
             qformCode: 0,
             sformCode: 0,
-            srowX: [],
-            srowY: [],
-            srowZ: [],
+            srowX: worldRows?[0] ?? [],
+            srowY: worldRows?[1] ?? [],
+            srowZ: worldRows?[2] ?? [],
             datatypeLabel: header.bitPacked ? "bit" : nil,
-            orientationFrame: storageFrame
+            orientationFrame: storageFrame,
+            orientationDiagnostics: orientationDiagnostics
         )
+
+        miqHeader.acquisition = header.acquisition
 
         return MifImageDescriptor(
             header: miqHeader,
             strides4: strides4
         )
+    }
+
+    /// The voxel→scanner affine (three rows of four, mm) in MIQ's *logical* voxel
+    /// order — the storage order `buildMifMIQHeader` renders in — so `srowX/Y/Z`
+    /// mean the same as a NIfTI sform: `world = srow · (i, j, k, 1)`.
+    ///
+    /// MRtrix's `transform:` maps image-axis positions *in mm* to scanner space
+    /// (its 3×3 block is a pure rotation; voxel sizes come from `vox:`). Logical
+    /// axis `n` is image axis `spatialAxes[n]` walked in increasing element order,
+    /// which for a reversed (`-`) layout entry runs from the axis's last image index
+    /// down to its first. So column `n` is `R[:, a] · |vox[a]|`, negated when `a` is
+    /// reversed, and every reversed axis moves the origin to its far end,
+    /// `R[:, a] · |vox[a]| · (dim[a] − 1)`.
+    ///
+    /// Stored with `sformCode` 0 (MIF has no such code); `MIQVolume.voxelToWorld`
+    /// reads these rows for `.mifLayout` frames. Display orientation still comes
+    /// from `orientationFrame`, which this composition agrees with by construction.
+    private static func mifVoxelToWorldRows(
+        transform: [[Float]], header: MifHeader, spatialAxes: [Int]
+    ) -> [[Float]]? {
+        // `parseMifTransform` accepts rows of three (no translation): origin 0 then.
+        guard transform.count >= 3, transform.allSatisfy({ $0.count >= 3 }) else { return nil }
+        var rows = transform.prefix(3).map { [0, 0, 0, $0[safe: 3] ?? 0] as [Float] }
+        for (column, axis) in spatialAxes.enumerated() {
+            let spacing = sanitizedSpacing(header.vox[safe: axis] ?? 1)
+            let reversed = header.layout[axis].reversed
+            for r in 0..<3 {
+                let step = transform[r][axis] * spacing
+                rows[r][column] = reversed ? -step : step
+                if reversed {
+                    rows[r][3] += step * Float(header.dim[axis] - 1)
+                }
+            }
+        }
+        guard rows.allSatisfy({ $0.allSatisfy(\.isFinite) }) else { return nil }
+        return rows
     }
 
     private func buildMifImage(data: Data, dataOffset: Int, header: MifHeader) throws -> MIQImage {

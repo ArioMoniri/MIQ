@@ -185,13 +185,17 @@ public struct MIQVolume: Sendable {
     /// Used by the cache-hit interactive path, which only needs the window + cursor
     /// to render subsequently scrolled slices — decoding the center slices here and
     /// rendering them would be wasted work on that path.
+    ///
+    /// - Parameter headMask: when non-`nil`, the percentiles are taken only over
+    ///   center-slice voxels inside the mask (see `windowingHeadMask()`).
     public func fixedCenterWindow(
         planes: [SlicePlane] = SlicePlane.allCases,
         volumeIndex: Int = 0,
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> MIQIntensityWindowBounds? {
         let prepared = prepareCenterSlices(planes: planes, volumeIndex: volumeIndex, options: options)
-        let bounds = pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options)
+        let bounds = pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options, headMask: headMask)
         return bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }
     }
 
@@ -201,14 +205,16 @@ public struct MIQVolume: Sendable {
     /// `fixedCenterWindow(volumeIndex: 0, options:)`, but without the second
     /// decode those two would each perform. When a LUT is active, windowing is
     /// replaced, so `windowBounds` is `nil` (matching `centerPreview`).
+    /// `headMask` restricts the window like `fixedCenterWindow(headMask:)`.
     public func centerInteractiveState(
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> (windowBounds: MIQIntensityWindowBounds?, segmentationLut: SegmentationLut?) {
         let prepared = prepareCenterSlices(planes: SlicePlane.allCases, volumeIndex: 0, options: options)
         if let lut = buildSegmentationLut(options: options, preparedCenterSlices: prepared) {
             return (nil, lut)
         }
-        let bounds = pooledBounds(from: prepared, volumeIndex: 0, options: options)
+        let bounds = pooledBounds(from: prepared, volumeIndex: 0, options: options, headMask: headMask)
         return (bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }, nil)
     }
 
@@ -264,11 +270,15 @@ public struct MIQVolume: Sendable {
     ///
     /// This decodes each center slice exactly once: the pooled buffer used to derive
     /// the window is the same buffer that gets finalized into the returned images.
+    ///
+    /// `headMask` restricts the shared window to voxels inside the mask, like
+    /// `fixedCenterWindow(headMask:)`; the slices themselves are unchanged.
     public func centerPreview(
         planes: [SlicePlane] = SlicePlane.allCases,
         volumeIndex: Int = 0,
         maxDimension: Int = 512,
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> MIQCenterPreview {
         // Decode the center slices once, then detect segmentation from the very
         // same decoded buffers instead of decoding a second time. Detection is
@@ -282,7 +292,7 @@ public struct MIQVolume: Sendable {
         let lut = (volumeIndex == 0 && planes == SlicePlane.allCases)
             ? buildSegmentationLut(options: options, preparedCenterSlices: prepared)
             : buildSegmentationLut(options: options)
-        let bounds = lut == nil ? pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options) : nil
+        let bounds = lut == nil ? pooledBounds(from: prepared, volumeIndex: volumeIndex, options: options, headMask: headMask) : nil
         var slices: [SlicePlane: SliceImage] = [:]
         slices.reserveCapacity(prepared.count)
         for entry in prepared {
@@ -296,7 +306,7 @@ public struct MIQVolume: Sendable {
     }
 
     /// Renders the center slice for each requested plane using a shared intensity window.
-    public func centerSlices(
+    func centerSlices(
         planes: [SlicePlane] = SlicePlane.allCases,
         volumeIndex: Int = 0,
         maxDimension: Int = 512,
@@ -335,10 +345,17 @@ public struct MIQVolume: Sendable {
     /// whose foreground misses all three planes), that window is missing or
     /// zero-width and would render every slice black; `volumeBounds` then derives
     /// one from the whole of `volumeIndex` instead. Ordinary images never reach it.
+    ///
+    /// With a `headMask`, every pooled value is tagged with whether its storage
+    /// voxel lies in a foreground cell, and the percentiles use only those
+    /// (`IntensityWindow.bounds(for:…including:)`, which ignores a mask that
+    /// leaves too few values). `prepared` must be center slices — every caller
+    /// passes `prepareCenterSlices` output — since the tag recomputes their index.
     private func pooledBounds(
         from prepared: [(plane: SlicePlane, slice: PreparedSlice)],
         volumeIndex: Int,
-        options: RenderingOptions
+        options: RenderingOptions,
+        headMask: QCHeadMask? = nil
     ) -> IntensityWindow.Bounds? {
         var pooledFloatCount = 0
         for entry in prepared {
@@ -356,14 +373,47 @@ public struct MIQVolume: Sendable {
                 pooled.append(contentsOf: values)
             }
         }
+        var inMask: [Bool]?
+        if let headMask {
+            var tags = [Bool]()
+            tags.reserveCapacity(pooledFloatCount)
+            for entry in prepared {
+                if case .grayscale(_, let config, _) = entry.slice {
+                    appendCenterMaskTags(&tags, plane: entry.plane, config: config, options: options, mask: headMask)
+                }
+            }
+            inMask = tags
+        }
         let bounds = IntensityWindow.bounds(
             for: pooled,
             lowerPercentile: options.lowerPercentile,
-            upperPercentile: options.upperPercentile
+            upperPercentile: options.upperPercentile,
+            including: inMask.map { tags in { tags[$0] } }
         )
         if let bounds, bounds.high > bounds.low { return bounds }
         // A zero-width window here means every finite center voxel had this value.
         return volumeBounds(volumeIndex: volumeIndex, excluding: bounds?.low, options: options) ?? bounds
+    }
+
+    /// Appends, in `prepareSlice`'s row-major order, whether each voxel of
+    /// `plane`'s center slice falls inside `mask` (storage voxel → downsampled
+    /// mask cell via `QCHeadMask.containsSourceVoxel`).
+    private func appendCenterMaskTags(
+        _ tags: inout [Bool],
+        plane: SlicePlane,
+        config: SliceConfig,
+        options: RenderingOptions,
+        mask: QCHeadMask
+    ) {
+        let plan = orientation.plan(for: plane, mode: options.orientation)
+        let dims = [width, height, depth]
+        let center = max(0, dims[plan.sliceAxis] / 2)
+        for row in 0..<config.outerCount {
+            for col in 0..<config.innerCount {
+                let c = config.coordinate(slice: center, row: row, col: col)
+                tags.append(mask.containsSourceVoxel(x: c.x, y: c.y, z: c.z))
+            }
+        }
     }
 
     /// Upper bound on the voxels `volumeBounds` hands to the percentile selection;
@@ -506,13 +556,21 @@ public struct MIQVolume: Sendable {
         case rgb(pixels: [UInt8], config: SliceConfig, maxPhysicalExtent: Float)
     }
 
-    private func prepareSlice(plan: SliceAxisPlan, index: Int, volumeIndex: Int) -> PreparedSlice {
+    /// Iteration shape + physical extent for `plan`. Shared by `prepareSlice` and
+    /// the projection path so a projection's pixel grid, spacing and resampling are
+    /// exactly those of a regular slice of the same plane.
+    private func sliceConfig(plan: SliceAxisPlan) -> (config: SliceConfig, maxPhysicalExtent: Float) {
         let dx = sanitizedSpacing(image.header.pixdim[safe: 1] ?? 1.0)
         let dy = sanitizedSpacing(image.header.pixdim[safe: 2] ?? 1.0)
         let dz = sanitizedSpacing(image.header.pixdim[safe: 3] ?? 1.0)
 
         let config = SliceConfig(plan: plan, width: width, height: height, depth: depth, dx: dx, dy: dy, dz: dz)
         let maxPhysicalExtent = max(Float(width) * dx, Float(height) * dy, Float(depth) * dz)
+        return (config, maxPhysicalExtent)
+    }
+
+    private func prepareSlice(plan: SliceAxisPlan, index: Int, volumeIndex: Int) -> PreparedSlice {
+        let (config, maxPhysicalExtent) = sliceConfig(plan: plan)
 
         // Hot path. This is intentionally a faster re-expression of the public
         // `voxel()` accessor (and the analogous RGB byte read): the per-voxel
@@ -675,7 +733,11 @@ public struct MIQVolume: Sendable {
             }
             let normalized: [UInt8]
             if let bounds {
-                normalized = IntensityWindow.apply(values, bounds: bounds)
+                var windowed = IntensityWindow.apply(values, bounds: bounds)
+                if image.header.invertsDisplay {
+                    for i in windowed.indices { windowed[i] = 255 &- windowed[i] }
+                }
+                normalized = windowed
             } else {
                 normalized = Array(repeating: 0, count: values.count)
             }
@@ -919,6 +981,13 @@ public struct MIQVolume: Sendable {
             }
         }
 
+        // A label table stored in the file (TotalSegmentator & co.) names its own
+        // labels, so it outranks the FreeSurfer guess. Only in `.auto`: `.random`
+        // promises the random palette.
+        let embeddedLabels = image.header.acquisition.embeddedLabels
+        if options.segmentationColoring == .auto, !embeddedLabels.isEmpty {
+            return .embedded(embeddedLabels, labels: labelSet)
+        }
         let useFreeSurfer = options.segmentationColoring == .auto
             && SegmentationLut.looksLikeFreeSurfer(labelSet)
         return useFreeSurfer ? .freeSurfer : .random(labels: labelSet)
@@ -1135,6 +1204,274 @@ public struct MIQVolume: Sendable {
             }
         }
         return .binary
+    }
+
+    // MARK: - Shared 4D window
+
+    /// Up to `maxSamples` volume indices spread evenly over `0..<volumeCount`,
+    /// ascending, always including the first and (when `maxSamples ≥ 2`) the last.
+    /// Every index when `volumeCount ≤ maxSamples`; `[]` when either is ≤ 0.
+    public static func sharedWindowSampleIndices(volumeCount: Int, maxSamples: Int = 8) -> [Int] {
+        guard volumeCount > 0, maxSamples > 0 else { return [] }
+        guard volumeCount > maxSamples else { return Array(0..<volumeCount) }
+        guard maxSamples > 1 else { return [0] }
+        // i·(n-1)/(m-1), rounded to nearest. Strictly increasing: the step
+        // (n-1)/(m-1) is ≥ 1 whenever n > m.
+        let span = volumeCount - 1
+        let steps = maxSamples - 1
+        return (0..<maxSamples).map { i in (i * span * 2 + steps) / (steps * 2) }
+    }
+
+    /// Timepoints actually present in the backing payload: `volumes` normally,
+    /// fewer for a buffer loaded with the volume-0 cap (see `containsAllVolumes`),
+    /// never less than 1.
+    public var loadedVolumeCount: Int {
+        guard image.payloadElementStrides == nil else { return volumes }
+        let bytesPerVolume = width * height * depth * image.header.datatype.bytesPerVoxel
+        guard bytesPerVolume > 0 else { return volumes }
+        return max(1, min(volumes, image.payloadCount / bytesPerVolume))
+    }
+
+    /// One percentile window shared by a whole 4D series — the "shared window"
+    /// alternative to `MIQConfig.perVolumeIntensityWindow`'s per-volume windows.
+    ///
+    /// Pools the three center slices of up to `maxSampledVolumes` evenly spaced
+    /// timepoints (`sharedWindowSampleIndices` over `loadedVolumeCount`, so volumes
+    /// a capped load never read are not sampled as zeros) and takes the same
+    /// percentile window `fixedCenterWindow` would over that pool — including its
+    /// whole-volume fallback (over the first sampled volume) when the pool is
+    /// empty or constant. For a 3D volume this equals `fixedCenterWindow(volumeIndex: 0)`.
+    /// `nil` for RGB data or when nothing finite is present.
+    ///
+    /// Cost: one center-slice decode per sampled volume (≤ 8 × 3 slices by
+    /// default), so call it once per series and reuse the result.
+    public func sharedVolumeWindow(
+        maxSampledVolumes: Int = 8,
+        options: RenderingOptions
+    ) -> MIQIntensityWindowBounds? {
+        let indices = Self.sharedWindowSampleIndices(volumeCount: loadedVolumeCount, maxSamples: max(1, maxSampledVolumes))
+        guard let first = indices.first else { return nil }
+        var pooled: [(plane: SlicePlane, slice: PreparedSlice)] = []
+        pooled.reserveCapacity(indices.count * SlicePlane.allCases.count)
+        for t in indices {
+            pooled.append(contentsOf: prepareCenterSlices(planes: SlicePlane.allCases, volumeIndex: t, options: options))
+        }
+        let bounds = pooledBounds(from: pooled, volumeIndex: first, options: options)
+        return bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }
+    }
+
+    /// `sharedVolumeWindow(maxSampledVolumes:options:)` for a series that is not
+    /// in memory: `volumeAt(t)` supplies timepoint `t` as a *single-volume*
+    /// `MIQVolume` addressed at `volumeIndex: 0` (e.g. `NiftiVolumeReader.volume(at:)`).
+    /// Samples the same indices over `volumeCount`, asks for them in ascending
+    /// order (so a forward gzip stream never rewinds) and keeps only their
+    /// decoded center slices, so memory stays at one volume plus the pool. The
+    /// result is identical to the in-memory call on the same data.
+    /// Rethrows `volumeAt`'s errors; checks cancellation per volume.
+    public static func sharedVolumeWindow(
+        volumeCount: Int,
+        maxSampledVolumes: Int = 8,
+        options: RenderingOptions,
+        volumeAt: (Int) throws -> MIQVolume
+    ) throws -> MIQIntensityWindowBounds? {
+        let indices = sharedWindowSampleIndices(volumeCount: volumeCount, maxSamples: max(1, maxSampledVolumes))
+        guard !indices.isEmpty else { return nil }
+        var firstVolume: MIQVolume?
+        var pooled: [(plane: SlicePlane, slice: PreparedSlice)] = []
+        pooled.reserveCapacity(indices.count * SlicePlane.allCases.count)
+        for t in indices {
+            try Task.checkCancellation()
+            let volume = try volumeAt(t)
+            if firstVolume == nil { firstVolume = volume }
+            pooled.append(contentsOf: volume.prepareCenterSlices(planes: SlicePlane.allCases, volumeIndex: 0, options: options))
+        }
+        guard let firstVolume else { return nil }
+        let bounds = firstVolume.pooledBounds(from: pooled, volumeIndex: 0, options: options)
+        return bounds.map { MIQIntensityWindowBounds(low: $0.low, high: $0.high) }
+    }
+
+    // MARK: - Intensity projection (MIP / MinIP)
+
+    /// Renders an intensity projection through the whole volume perpendicular to
+    /// `plane` — see `MIQVolume.projection(plane:mode:…)` (Projection.swift) for
+    /// the public contract. `nil` for RGB datatypes.
+    func renderProjection(
+        plane: SlicePlane,
+        mode: ProjectionMode,
+        volumeIndex: Int,
+        maxDimension: Int,
+        options: RenderingOptions,
+        windowBounds: MIQIntensityWindowBounds?,
+        maxSamplesAlongAxis: Int?
+    ) -> SliceImage? {
+        let plan = orientation.plan(for: plane, mode: options.orientation)
+        let floor = mode == .minip ? minIPBackgroundFloor(volumeIndex: volumeIndex) : nil
+        guard let values = projectedValues(
+            plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis,
+            excludingAtOrBelow: floor
+        ) else {
+            return nil
+        }
+        let (config, maxPhysicalExtent) = sliceConfig(plan: plan)
+        let bounds: IntensityWindow.Bounds?
+        if let windowBounds {
+            bounds = IntensityWindow.Bounds(low: windowBounds.low, high: windowBounds.high)
+        } else {
+            bounds = IntensityWindow.bounds(
+                for: values,
+                lowerPercentile: options.lowerPercentile,
+                upperPercentile: options.upperPercentile
+            )
+        }
+        return finalize(
+            prepared: .grayscale(values: values, config: config, maxPhysicalExtent: maxPhysicalExtent),
+            bounds: bounds,
+            maxDimension: maxDimension
+        )
+    }
+
+    /// The raw projected buffer, laid out exactly like `sliceValues` for the same
+    /// plane and options (row-major, `sliceGeometry` width × height); `nil` for
+    /// RGB datatypes. Internal so tests can compare it against regular slices.
+    func projectedValues(
+        plane: SlicePlane,
+        mode: ProjectionMode,
+        volumeIndex: Int = 0,
+        options: RenderingOptions,
+        maxSamplesAlongAxis: Int? = nil
+    ) -> [Float]? {
+        let plan = orientation.plan(for: plane, mode: options.orientation)
+        let floor = mode == .minip ? minIPBackgroundFloor(volumeIndex: volumeIndex) : nil
+        return projectedValues(
+            plan: plan, mode: mode, volumeIndex: volumeIndex, maxSamplesAlongAxis: maxSamplesAlongAxis,
+            excludingAtOrBelow: floor
+        )
+    }
+
+    /// Reduces every voxel of timepoint `volumeIndex` into the display pixel it
+    /// projects onto.
+    ///
+    /// The volume is walked in canonical x-fastest order (sequential for the
+    /// common layouts, whatever the projection axis) and each voxel is scattered
+    /// to its output pixel via three per-axis offset tables — the inverse of the
+    /// (row, col) → (x, y, z) mapping `SliceConfig.coordinate` applies, so
+    /// orientation, flips and reorientation modes match a regular slice exactly.
+    /// Decoding slice by slice through `prepareSlice` would instead touch the
+    /// whole payload once per sagittal slice on an x-fastest layout.
+    ///
+    /// Values are scaled exactly as `voxel()` scales them. Non-finite voxels are
+    /// ignored; a ray with no finite voxel yields NaN, which windowing renders
+    /// black just as it does a NaN voxel in a slice. A voxel beyond the payload
+    /// (a timepoint a capped load never read) reads as 0, as in `prepareSlice`.
+    /// `excludingAtOrBelow` (MinIP's background floor, `MinIPBackground`) drops
+    /// the leading and trailing runs of voxels at or below it along each ray;
+    /// such voxels between foreground voxels still count. This relies on every
+    /// output pixel's voxels being visited in ascending slice-axis order, which
+    /// the ascending z/y/x loops below guarantee.
+    private func projectedValues(
+        plan: SliceAxisPlan,
+        mode: ProjectionMode,
+        volumeIndex: Int,
+        maxSamplesAlongAxis: Int?,
+        excludingAtOrBelow floor: Float? = nil
+    ) -> [Float]? {
+        let datatype = image.header.datatype
+        guard datatype != .rgb24, datatype != .rgba32 else { return nil }
+        let dims = [width, height, depth]
+        let hDim = dims[plan.hAxis]
+        let vDim = dims[plan.vAxis]
+        let outCount = hDim * vDim
+        guard outCount > 0, dims[plan.sliceAxis] > 0 else { return [] }
+        guard volumeIndex >= 0, volumeIndex < volumes else {
+            // Same as `prepareSlice`: an out-of-range timepoint is all zeros.
+            return [Float](repeating: 0, count: outCount)
+        }
+
+        // Output offset contributed by each storage axis' coordinate. The slice
+        // axis contributes 0, one axis picks the column, the other the row.
+        func offsets(axis: Int) -> [Int] {
+            let n = dims[axis]
+            if axis == plan.hAxis {
+                return (0..<n).map { plan.hReversed ? (hDim - 1 - $0) : $0 }
+            }
+            if axis == plan.vAxis {
+                return (0..<n).map { (plan.vReversed ? (vDim - 1 - $0) : $0) * hDim }
+            }
+            return [Int](repeating: 0, count: n)
+        }
+        let xOffsets = offsets(axis: 0)
+        let yOffsets = offsets(axis: 1)
+        let zOffsets = offsets(axis: 2)
+
+        // Coordinates walked per axis: all of them, except along the projection
+        // axis when a sample cap applies (evenly spaced, ends included).
+        func coordinates(axis: Int) -> [Int] {
+            if axis == plan.sliceAxis, let cap = maxSamplesAlongAxis {
+                return Self.sharedWindowSampleIndices(volumeCount: dims[axis], maxSamples: max(1, cap))
+            }
+            return Array(0..<dims[axis])
+        }
+        let xs = coordinates(axis: 0)
+        let ys = coordinates(axis: 1)
+        let zs = coordinates(axis: 2)
+
+        let bpv = datatype.bytesPerVoxel
+        let read = Self.scalarReader(datatype: datatype, littleEndian: image.header.littleEndian)
+        let slope = image.header.sclSlope
+        let intercept = image.header.sclInter
+        let applyScale = slope != 0
+        let payloadCount = image.payloadCount
+        let payloadBase = image.payloadOffset
+        let isMax = mode == .mip
+        // Per output pixel, MinIP background bookkeeping: whether a foreground
+        // voxel was seen, and the minimum of the floor run since the last one
+        // (NaN = none) — committed only if more foreground follows.
+        let background = isMax ? nil : floor
+        var seenForeground = [Bool](repeating: false, count: background == nil ? 0 : outCount)
+        var pendingFloor = [Float](repeating: .nan, count: background == nil ? 0 : outCount)
+
+        var result = [Float](repeating: .nan, count: outCount)
+        result.withUnsafeMutableBufferPointer { acc in
+            image.storage.withUnsafeBytes { (rawBuf: UnsafeRawBufferPointer) in
+                for z in zs {
+                    let zOff = zOffsets[z]
+                    for y in ys {
+                        let yzOff = zOff + yOffsets[y]
+                        for x in xs {
+                            let byteOffset = image.voxelElementIndex(x: x, y: y, z: z, t: volumeIndex) * bpv
+                            let v: Float
+                            if byteOffset < 0 || byteOffset + bpv > payloadCount {
+                                v = 0
+                            } else {
+                                let raw = read(rawBuf, payloadBase + byteOffset)
+                                v = applyScale ? raw * slope + intercept : raw
+                            }
+                            guard v.isFinite else { continue }
+                            let o = yzOff + xOffsets[x]
+                            if let background {
+                                if v <= background {
+                                    if seenForeground[o], pendingFloor[o].isNaN || pendingFloor[o] > v { pendingFloor[o] = v }
+                                    continue
+                                }
+                                let pending = pendingFloor[o]
+                                if !pending.isNaN {
+                                    if acc[o].isNaN || acc[o] > pending { acc[o] = pending }
+                                    pendingFloor[o] = .nan
+                                }
+                                seenForeground[o] = true
+                            }
+                            let current = acc[o]
+                            // NaN-safe: an untouched (NaN) pixel is replaced
+                            // explicitly, so the first finite voxel always lands.
+                            if current.isNaN || (isMax ? current < v : current > v) {
+                                acc[o] = v
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result
     }
 
     private func rawVoxelValue(byteOffset: Int) -> Float {

@@ -2,15 +2,42 @@ import Foundation
 import os.log
 
 public enum MIQConfig {
-    private static let configLogger = Logger(subsystem: "miq.core", category: "config")
-    nonisolated(unsafe) private static var loggedMissingAppGroupID = false
+    /// `os.Logger` subsystem for every MIQ target: the running bundle's identifier
+    /// (the app, the Quick Look / thumbnail extensions and the Spotlight importer
+    /// each log under their own bundle id, so `log stream --predicate` can tell
+    /// them apart), or `"miq"` for unbundled processes — the `miq` CLI and tests.
+    /// The single source of truth; targets must not hardcode a subsystem.
+    public static let logSubsystem = Bundle.main.bundleIdentifier ?? "miq"
+
+    private static let configLogger = Logger(subsystem: logSubsystem, category: "config")
+    /// One-shot guard for the missing-App-Group notice. `appGroupID` is read from
+    /// any thread (extension tasks, the app's main actor), so the flag sits behind
+    /// a lock rather than in a `nonisolated(unsafe)` static.
+    private static let loggedMissingAppGroupID = OnceFlag()
+
+    /// Lock-protected "has this happened yet" flag. `NSLock` (not
+    /// `OSAllocatedUnfairLock`, Apple-only, or `Mutex`, macOS 15+) keeps MIQCore
+    /// portable at the macOS 14 deployment target. `@unchecked Sendable` is sound:
+    /// the only stored state is mutated while holding `lock`.
+    private final class OnceFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var fired = false
+
+        /// `true` exactly once: on the first call, from whichever thread wins.
+        func claim() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !fired else { return false }
+            fired = true
+            return true
+        }
+    }
 
     public static var appGroupID: String {
         if let value = Bundle.main.object(forInfoDictionaryKey: "MIQAppGroupID") as? String, !value.isEmpty {
             return value
         }
-        if !loggedMissingAppGroupID {
-            loggedMissingAppGroupID = true
+        if loggedMissingAppGroupID.claim() {
             configLogger.notice("MIQAppGroupID missing from Info.plist — falling back to UserDefaults.standard; settings won't propagate between app and extension")
         }
         return ""
@@ -31,6 +58,13 @@ public enum MIQConfig {
         public static let showMetadataVolumes     = "showMetadataVolumes"
         public static let showMetadataScaling     = "showMetadataScaling"
         public static let showMetadataValue       = "showMetadataValue"
+        public static let showMetadataRepetitionTime = "showMetadataRepetitionTime"
+        public static let showMetadataIntent         = "showMetadataIntent"
+        public static let showMetadataDiffusion      = "showMetadataDiffusion"
+        public static let showMetadataSidecar        = "showMetadataSidecar"
+        public static let showMetadataVoxelPosition  = "showMetadataVoxelPosition"
+        public static let showMetadataDescription    = "showMetadataDescription"
+        public static let showMetadataProvenance     = "showMetadataProvenance"
         public static let metadataOrder           = "metadataOrder"
         public static let segmentationColoring           = "segmentationColoring"
         public static let hideDisclaimerInPreview = "hideDisclaimerInPreview"
@@ -42,6 +76,17 @@ public enum MIQConfig {
         public static let thumbnailSegmentationColoring  = "thumbnailSegmentationColoring"
         public static let thumbnailWindowLowerPercentile = "thumbnailWindowLowerPercentile"
         public static let thumbnailWindowUpperPercentile = "thumbnailWindowUpperPercentile"
+        // MARK: Rendering workstream (CT presets, shared 4D window)
+        public static let ctWindowPreset          = "ctWindowPreset"
+        public static let ctPresetAutoDetect      = "ctPresetAutoDetect"
+        // MARK: UI settings workstream (feature availability, colormap)
+        public static let defaultColormap         = "defaultColormap"
+        public static let volumeRenderingEnabled  = "volumeRenderingEnabled"
+        public static let overlayAutoDiscovery    = "overlayAutoDiscovery"
+        public static let qcPanelEnabled          = "qcPanelEnabled"
+        public static let temporalSummaryEnabled  = "temporalSummaryEnabled"
+        // MARK: Final pipeline workstream (head-mask windowing)
+        public static let windowFromHeadMask      = "windowFromHeadMask"
         #if DEBUG
         public static let debugShowLayoutBorders  = "debugShowLayoutBorders"
         #endif
@@ -62,7 +107,20 @@ public enum MIQConfig {
         public static let showMetadataVolumes     = true
         public static let showMetadataScaling     = true
         public static let showMetadataValue       = true
-        public static let metadataOrder           = "format,dimensions,spacing,orientation,datatype,volumes,scaling,value"
+        public static let showMetadataRepetitionTime = true
+        public static let showMetadataIntent         = true
+        public static let showMetadataDiffusion      = true
+        public static let showMetadataSidecar        = true
+        public static let showMetadataVoxelPosition  = true
+        /// Free-text header fields (NIfTI `descrip` / `intent_name`; MIF
+        /// `command_history`) can hold identifying details, so they are opt-in.
+        public static let showMetadataDescription    = false
+        public static let showMetadataProvenance     = false
+        /// Every `MetadataField` in `allCases` order. A saved order from before a
+        /// field existed decodes to the same list via `parseMetadataOrder`, which
+        /// appends missing fields in this same order — so upgrading users keep
+        /// their arrangement with the new rows at the end.
+        public static let metadataOrder           = "format,dimensions,spacing,orientation,datatype,volumes,scaling,value,repetitionTime,intent,diffusion,sidecar,voxelPosition,description,provenance"
         public static let segmentationColoring           = "auto"
         public static let hideDisclaimerInPreview = false
         public static let deferLargeNetworkPreviews = true
@@ -78,6 +136,37 @@ public enum MIQConfig {
         public static let thumbnailSegmentationColoring  = "auto"
         public static let thumbnailWindowLowerPercentile = 2.0
         public static let thumbnailWindowUpperPercentile = 98.0
+        // MARK: Rendering workstream (CT presets, shared 4D window)
+        /// `WindowPreset.rawValue` applied to volumes `WindowPreset.looksLikeCT`
+        /// accepts; `auto` keeps percentile windowing (today's behaviour).
+        public static let ctWindowPreset          = "auto"
+        /// Whether the preview runs `WindowPreset.looksLikeCT` at all (gates
+        /// offering/applying presets). Off by default: the heuristic is a guess,
+        /// and the default display must not change silently.
+        public static let ctPresetAutoDetect      = false
+        // MARK: UI settings workstream (feature availability, colormap)
+        /// `Colormap.rawValue` for scalar (non-label) volumes, or `auto` to let
+        /// `Colormap.suggested(intentCode:…)` choose (greyscale for anatomy).
+        public static let defaultColormap         = "auto"
+        /// Whether the preview offers its 3D / MIP / MinIP views. They render only
+        /// on request, so offering them changes nothing until the user asks.
+        public static let volumeRenderingEnabled  = true
+        /// Whether the preview looks beside the file for overlay candidates
+        /// (`SiblingFiles.overlayCandidates`). It only lists them; nothing is
+        /// overlaid until the user picks one. Silently empty where the sandbox
+        /// denies the directory listing.
+        public static let overlayAutoDiscovery    = true
+        /// Whether the preview shows the QC rows (`QCSummary.displayLines`).
+        public static let qcPanelEnabled          = true
+        /// Whether 4D previews show the temporal summary (tSNR, spike frames).
+        public static let temporalSummaryEnabled  = true
+        // MARK: Final pipeline workstream (head-mask windowing)
+        /// Whether the preview's auto window for an anatomical scalar 3D volume
+        /// is taken only over voxels inside the coarse `QCHeadMask`, so noisy
+        /// air around the head no longer drags the lower percentile down. Off
+        /// by default: it adds a mask pass to every eligible cold load and
+        /// changes the familiar window.
+        public static let windowFromHeadMask      = false
     }
 
     public struct MIQColor: Sendable {
@@ -92,8 +181,8 @@ public enum MIQConfig {
     /// during interaction (axis labels, overlay colour, metadata order/visibility),
     /// and `UserDefaults(suiteName:)` allocates on every call. The getters still
     /// read values live via `object(forKey:)`, so app-side writes remain visible.
-    /// `nonisolated(unsafe)` mirrors `MIQPreviewCache.cache`: `UserDefaults` is
-    /// thread-safe by Apple's contract, so concurrent reads are sound.
+    /// `nonisolated(unsafe)` is sound here: `UserDefaults` is thread-safe by
+    /// Apple's contract, so concurrent reads of this immutable reference are safe.
     ///
     /// The empty-`appGroupID` check is load-bearing, not defensive noise:
     /// `UserDefaults(suiteName: "")` returns a **non-nil** store (a nameless
@@ -111,18 +200,15 @@ public enum MIQConfig {
     }()
 
     public static var showAxisLabels: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.showAxisLabels) as? Bool ?? Defaults.showAxisLabels
+        return value(Keys.showAxisLabels, default: Defaults.showAxisLabels)
     }
 
     public static var windowLowerPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.windowLowerPercentile) as? Double ?? Defaults.windowLowerPercentile
+        return value(Keys.windowLowerPercentile, default: Defaults.windowLowerPercentile)
     }
 
     public static var windowUpperPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.windowUpperPercentile) as? Double ?? Defaults.windowUpperPercentile
+        return value(Keys.windowUpperPercentile, default: Defaults.windowUpperPercentile)
     }
 
     /// When `true`, 4D previews re-derive the percentile window from each
@@ -133,17 +219,16 @@ public enum MIQConfig {
     /// model-layer choice of *which* bounds to feed `MIQVolume.slice`, consumed
     /// only by the extension's interactive render path.
     public static var perVolumeIntensityWindow: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.perVolumeIntensityWindow) as? Bool ?? Defaults.perVolumeIntensityWindow
+        return value(Keys.perVolumeIntensityWindow, default: Defaults.perVolumeIntensityWindow)
     }
 
     public static var imageOrientation: ViewOrientation {
-        let raw = defaults.string(forKey: Keys.imageOrientation) ?? Defaults.imageOrientation
+        let raw = value(Keys.imageOrientation, default: Defaults.imageOrientation)
         return ViewOrientation(rawValue: raw) ?? .stored
     }
 
     public static var axisLabelColor: MIQColor {
-        let raw = defaults.string(forKey: Keys.axisLabelColor) ?? Defaults.axisLabelColor
+        let raw = value(Keys.axisLabelColor, default: Defaults.axisLabelColor)
         return parseColor(raw) ?? parseColor(Defaults.axisLabelColor)!
     }
 
@@ -151,7 +236,7 @@ public enum MIQConfig {
     /// dropped; any `MetadataField` not present in the stored value is appended
     /// in canonical order so the result always covers every case.
     public static var metadataOrder: [MetadataField] {
-        let raw = defaults.string(forKey: Keys.metadataOrder) ?? Defaults.metadataOrder
+        let raw = value(Keys.metadataOrder, default: Defaults.metadataOrder)
         return parseMetadataOrder(raw)
     }
 
@@ -170,13 +255,12 @@ public enum MIQConfig {
     }
 
     public static var segmentationColoring: SegmentationColoring {
-        let raw = defaults.string(forKey: Keys.segmentationColoring) ?? Defaults.segmentationColoring
+        let raw = value(Keys.segmentationColoring, default: Defaults.segmentationColoring)
         return SegmentationColoring(rawValue: raw) ?? .auto
     }
 
     public static var hideDisclaimerInPreview: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.hideDisclaimerInPreview) as? Bool ?? Defaults.hideDisclaimerInPreview
+        return value(Keys.hideDisclaimerInPreview, default: Defaults.hideDisclaimerInPreview)
     }
 
     /// When `true` (default), the preview extension defers the heavy full-file
@@ -187,8 +271,7 @@ public enum MIQConfig {
     /// canonical NIfTI (already bounded to volume 0) are unaffected. Read by the
     /// preview extension only.
     public static var deferLargeNetworkPreviews: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.deferLargeNetworkPreviews) as? Bool ?? Defaults.deferLargeNetworkPreviews
+        return value(Keys.deferLargeNetworkPreviews, default: Defaults.deferLargeNetworkPreviews)
     }
 
     /// Byte threshold derived from `Defaults.networkPreviewThresholdMB`. Also the
@@ -203,59 +286,158 @@ public enum MIQConfig {
     // thumbnail extension only.
 
     public static var showThumbnails: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.showThumbnails) as? Bool ?? Defaults.showThumbnails
+        return value(Keys.showThumbnails, default: Defaults.showThumbnails)
     }
 
     /// When `false` (default), the thumbnail extension declines files on network
     /// volumes, so browsing a remote share doesn't spawn a parse per file. Local
     /// thumbnails are unaffected. Read by the thumbnail extension only.
     public static var showThumbnailsOnNetworkVolumes: Bool {
-        let d = defaults
-        return d.object(forKey: Keys.showThumbnailsOnNetworkVolumes) as? Bool ?? Defaults.showThumbnailsOnNetworkVolumes
+        return value(Keys.showThumbnailsOnNetworkVolumes, default: Defaults.showThumbnailsOnNetworkVolumes)
     }
 
     public static var thumbnailImageOrientation: ViewOrientation {
-        let raw = defaults.string(forKey: Keys.thumbnailImageOrientation) ?? Defaults.thumbnailImageOrientation
+        let raw = value(Keys.thumbnailImageOrientation, default: Defaults.thumbnailImageOrientation)
         return ViewOrientation(rawValue: raw) ?? .stored
     }
 
     public static var thumbnailSegmentationColoring: SegmentationColoring {
-        let raw = defaults.string(forKey: Keys.thumbnailSegmentationColoring) ?? Defaults.thumbnailSegmentationColoring
+        let raw = value(Keys.thumbnailSegmentationColoring, default: Defaults.thumbnailSegmentationColoring)
         return SegmentationColoring(rawValue: raw) ?? .auto
     }
 
     public static var thumbnailWindowLowerPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.thumbnailWindowLowerPercentile) as? Double ?? Defaults.thumbnailWindowLowerPercentile
+        return value(Keys.thumbnailWindowLowerPercentile, default: Defaults.thumbnailWindowLowerPercentile)
     }
 
     public static var thumbnailWindowUpperPercentile: Double {
-        let d = defaults
-        return d.object(forKey: Keys.thumbnailWindowUpperPercentile) as? Double ?? Defaults.thumbnailWindowUpperPercentile
+        return value(Keys.thumbnailWindowUpperPercentile, default: Defaults.thumbnailWindowUpperPercentile)
     }
+
+    // MARK: - Rendering workstream (CT presets)
+
+    /// Preset applied to CT-looking volumes; unknown stored values read as `.auto`.
+    public static var ctWindowPreset: WindowPreset {
+        let raw = value(Keys.ctWindowPreset, default: Defaults.ctWindowPreset)
+        return WindowPreset(rawValue: raw) ?? .auto
+    }
+
+    public static var ctPresetAutoDetect: Bool {
+        return value(Keys.ctPresetAutoDetect, default: Defaults.ctPresetAutoDetect)
+    }
+
+    // MARK: - UI settings workstream (feature availability, colormap)
+
+    /// Colormap for scalar volumes; `nil` means "auto" (pick with
+    /// `Colormap.suggested`). Unknown stored values read as auto.
+    public static var defaultColormap: Colormap? {
+        Colormap(rawValue: value(Keys.defaultColormap, default: Defaults.defaultColormap))
+    }
+
+    public static var volumeRenderingEnabled: Bool {
+        value(Keys.volumeRenderingEnabled, default: Defaults.volumeRenderingEnabled)
+    }
+
+    public static var overlayAutoDiscovery: Bool {
+        value(Keys.overlayAutoDiscovery, default: Defaults.overlayAutoDiscovery)
+    }
+
+    public static var qcPanelEnabled: Bool {
+        value(Keys.qcPanelEnabled, default: Defaults.qcPanelEnabled)
+    }
+
+    public static var temporalSummaryEnabled: Bool {
+        value(Keys.temporalSummaryEnabled, default: Defaults.temporalSummaryEnabled)
+    }
+
+    // MARK: - Final pipeline workstream (head-mask windowing)
+
+    /// See `Defaults.windowFromHeadMask`. Read once per `load()`; it changes the
+    /// pixels of the cold preview, so it is part of the preview cache key.
+    public static var windowFromHeadMask: Bool {
+        value(Keys.windowFromHeadMask, default: Defaults.windowFromHeadMask)
+    }
+
+    // MARK: - Managed preferences (MDM)
+
+    /// Reads `key` from the App Group store through `ManagedPreferences`, so a
+    /// value an administrator forced for the App Group domain
+    /// (`group.…miq`, the one store both the app and the extensions read) wins,
+    /// and a forced value of the wrong type is ignored. Every getter above goes
+    /// through here.
+    static func value<Value>(_ key: String, default fallback: Value) -> Value {
+        ManagedPreferences.resolve(key, in: [defaults], default: fallback).value
+    }
+
+    /// Whether an administrator forced `key` in the App Group store. Settings
+    /// disables the matching control and says "Managed by your organisation".
+    public static func isManaged(_ key: String) -> Bool {
+        ManagedPreferences.isManaged(key, in: [defaults])
+    }
+
+    /// Whether `key` is forced in `store` — for app-only settings that live
+    /// outside the App Group (Sparkle's keys and the caption feature, both in
+    /// the app's own `UserDefaults.standard`).
+    public static func isManaged(_ key: String, in store: any PreferenceSource) -> Bool {
+        ManagedPreferences.isManaged(key, in: [store])
+    }
+
+    /// The store every `MIQConfig` getter reads: the App Group suite, or
+    /// `.standard` when the App Group ID is missing. The Settings window binds
+    /// its controls to this same instance, so it can never drift onto a
+    /// different (e.g. nameless) suite than the one the getters read.
+    public static var sharedStore: UserDefaults { defaults }
 
     #if DEBUG
     public static var debugShowLayoutBorders: Bool {
-        defaults.object(forKey: Keys.debugShowLayoutBorders) as? Bool ?? false
+        value(Keys.debugShowLayoutBorders, default: false)
     }
     #endif
 
     public static func showMetadataField(_ field: MetadataField) -> Bool {
-        let d = defaults
-        let (key, fallback): (String, Bool) = {
-            switch field {
-            case .format:      return (Keys.showMetadataFormat,      Defaults.showMetadataFormat)
-            case .dimensions:  return (Keys.showMetadataDimensions,  Defaults.showMetadataDimensions)
-            case .spacing:     return (Keys.showMetadataSpacing,     Defaults.showMetadataSpacing)
-            case .orientation: return (Keys.showMetadataOrientation, Defaults.showMetadataOrientation)
-            case .datatype:    return (Keys.showMetadataDatatype,    Defaults.showMetadataDatatype)
-            case .volumes:     return (Keys.showMetadataVolumes,     Defaults.showMetadataVolumes)
-            case .scaling:     return (Keys.showMetadataScaling,     Defaults.showMetadataScaling)
-            case .value:       return (Keys.showMetadataValue,       Defaults.showMetadataValue)
-            }
-        }()
-        return d.object(forKey: key) as? Bool ?? fallback
+        value(metadataVisibilityKey(field), default: defaultVisibility(field))
+    }
+
+    /// The `UserDefaults` key holding `field`'s visibility toggle.
+    public static func metadataVisibilityKey(_ field: MetadataField) -> String {
+        switch field {
+        case .format:         return Keys.showMetadataFormat
+        case .dimensions:     return Keys.showMetadataDimensions
+        case .spacing:        return Keys.showMetadataSpacing
+        case .orientation:    return Keys.showMetadataOrientation
+        case .datatype:       return Keys.showMetadataDatatype
+        case .volumes:        return Keys.showMetadataVolumes
+        case .scaling:        return Keys.showMetadataScaling
+        case .value:          return Keys.showMetadataValue
+        case .repetitionTime: return Keys.showMetadataRepetitionTime
+        case .intent:         return Keys.showMetadataIntent
+        case .diffusion:      return Keys.showMetadataDiffusion
+        case .sidecar:        return Keys.showMetadataSidecar
+        case .voxelPosition:  return Keys.showMetadataVoxelPosition
+        case .description:    return Keys.showMetadataDescription
+        case .provenance:     return Keys.showMetadataProvenance
+        }
+    }
+
+    /// `field`'s visibility when the user never toggled it.
+    public static func defaultVisibility(_ field: MetadataField) -> Bool {
+        switch field {
+        case .format:         return Defaults.showMetadataFormat
+        case .dimensions:     return Defaults.showMetadataDimensions
+        case .spacing:        return Defaults.showMetadataSpacing
+        case .orientation:    return Defaults.showMetadataOrientation
+        case .datatype:       return Defaults.showMetadataDatatype
+        case .volumes:        return Defaults.showMetadataVolumes
+        case .scaling:        return Defaults.showMetadataScaling
+        case .value:          return Defaults.showMetadataValue
+        case .repetitionTime: return Defaults.showMetadataRepetitionTime
+        case .intent:         return Defaults.showMetadataIntent
+        case .diffusion:      return Defaults.showMetadataDiffusion
+        case .sidecar:        return Defaults.showMetadataSidecar
+        case .voxelPosition:  return Defaults.showMetadataVoxelPosition
+        case .description:    return Defaults.showMetadataDescription
+        case .provenance:     return Defaults.showMetadataProvenance
+        }
     }
 
     private static func parseColor(_ str: String) -> MIQColor? {

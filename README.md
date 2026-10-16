@@ -1,124 +1,118 @@
 # MIQ: Medical Image Quick Look
 
-MIQ is a lightweight **macOS QuickLook extension** for medical volume images. Press **Space** on a supported file in Finder to instantly get an **interactive orthogonal slice view** alongside a metadata panel. A Windows counterpart, [**MIQ-Win**](https://github.com/marcoduering/MIQ-Win), is also available.
+MIQ lets you look inside medical image files straight from Finder. Select a file, press **Space**, and you get coronal, sagittal and axial slices next to the key header information. A Windows version, [**MIQ-Win**](https://github.com/marcoduering/MIQ-Win), is also available.
+
+<p align="center">
+  <a href="https://github.com/marcoduering/MIQ/releases/latest/download/MIQ.app.zip"><img src="docs/download-macos.svg" height="56" alt="Download for macOS"></a>
+</p>
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/3058f94e-4ffa-4c0a-a1b8-d1578de0f651" width="640"></video>
+</div>
+
+MIQ is meant for a quick look, not for analysis. For anything more, open the file in a full viewer (MIQ can hand it over, see below).
+
+## What it does
 
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_Bento_dark.webp">
-    <img src="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_Bento.webp" width="90%" alt="Bento-style feature grid for MIQ: press Space in Finder for an interactive Quick Look preview; supports NIfTI, FreeSurfer, MRtrix and NRRD formats; the center tile shows a brain MRI in a coronal/sagittal/axial 2x2 grid with a metadata panel listing format NIfTI-1, dimensions 211 x 215 x 175, spacing 1.00 mm isotropic, orientation RAS, datatype int16 and 1 volume; other tiles show FreeSurfer LUT segmentation coloring, color label files, Finder thumbnails, 4D file support, full configurability, and availability on macOS and Windows.">
+    <img src="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_Bento.webp" width="90%" alt="MIQ overview: press Space in Finder for a 2x2 preview of a brain MRI (coronal, sagittal, axial) with a metadata panel; also segmentation colours, Finder thumbnails, 4D support and settings.">
   </picture>
 </div>
 
-**See it in action** in the short video at the bottom of this page.
+- **Preview:** three orthogonal slices with a linked crosshair and the voxel value under it. Scroll through slices, step through 4D volumes, zoom, and adjust brightness and contrast.
+- **Header info:** dimensions, voxel size, orientation, datatype and more. MIQ warns if a file's orientation is ambiguous (for example when qform and sform disagree).
+- **Segmentations:** FreeSurfer-style label maps get their usual colours, and hovering shows the label name (e.g. `17 Left-Hippocampus`).
+- **Extras when you need them:** CT window presets, MIP/MinIP, a simple 3D view, colour maps, overlays from the same folder, and a few data-quality hints (likely sequence, head mask, defaced or not).
+- **Finder thumbnails** (optional).
 
-## Main Features and Supported Formats
+In the MIQ app you can change all settings, open a file in another viewer, and make a brain mask with **Tools → Brain Mask…** (a small model that runs on your Mac). A `miq` command-line tool covers the same formats.
 
-- **Instant, interactive preview** — press Space for the 2×2 orthogonal slice and metadata view
-- **Built for speed** — memory-mapping, partial decompression, and network volumes read only what's needed for the first preview
-- **4D support** — scrub through timepoints/volumes interactively
-- **Segmentation coloring** — including automatic label-color detection for FreeSurfer-style parcellations
-- **Finder thumbnails** — optional file-icon slice previews while browsing
-- **Fully configurable** — orientation display, intensity windowing, label colors, and metadata panel content/order, all from the main app
-
-Supported formats:
-
-- :white_check_mark: **NIfTI-1 & NIfTI-2** — `.nii`, `.nii.gz`
-- :white_check_mark: **FreeSurfer** — `.mgh`, `.mgz`, `.mgh.gz`
-- :white_check_mark: **MRtrix** — `.mif`, `.mif.gz`
-- :white_check_mark: **NRRD** — `.nrrd` *(only single-file variant with attached header)*
-
-All formats are supported uncompressed and gzip-compressed.
-
-## Installation & Updates
-
-The app and extension can be installed manually or via the package manager [Homebrew](https://brew.sh).
-
-> The app is a universal binary for Apple Silicon (arm64) and Intel (x86_64) Macs and has been tested on macOS 14 (Sonoma), 15 (Sequoia), 26 (Tahoe) and 27 (Golden Gate).
-
-### Manual installation
-
-1. 👉 **[Download the latest release (MIQ.app.zip)](https://github.com/marcoduering/MIQ/releases/latest/download/MIQ.app.zip)**
-[![Latest Release](https://img.shields.io/github/v/release/marcoduering/MIQ)](https://github.com/marcoduering/MIQ/releases/latest/download/MIQ.app.zip)
-2. Unzip and move **`MIQ.app`** to your **`/Applications`** folder.
-3. **Open `MIQ.app`** at least once to register the Quick Look extension.
-4. Press **Space** on any supported file in Finder.
-5. Optional: **Customize the preview** in the MIQ app.
-
-#### Updating
-
-MIQ updates itself. Open the MIQ app and choose MIQ → Check for Updates…, or leave **Check for updates automatically** enabled in the app's **General** pane (on by default).
-
-Automatic checks and updates happen when you open the main app, so make sure to do this from time to time.
-
-### Installation via Homebrew
-
-1. Install on the command line:
-
-   ```bash
-   brew tap marcoduering/miq
-   brew trust --cask marcoduering/miq/miq
-   brew install --cask miq
-   ```
-
-2. **Open `MIQ.app`** (in `/Applications`) at least once to register the Quick Look extension.
-3. Press **Space** on any supported file in Finder.
-4. Optional: **Customize the preview** in the MIQ app.
-
-#### Updating via Homebrew
-
-The cask is marked `auto_updates`, so the app updates itself (see above). To update through Homebrew instead:
-
-```bash
-brew update
-brew upgrade --cask miq --greedy
-```
-
-## Usage
-
-MIQ is a lightweight convenience tool for quickly inspecting medical image files directly from the Finder. It prioritizes speed and ease of use over advanced visualization, and is not meant to replace dedicated medical image viewers.
-
-### Customization
-
-Use the MIQ app to tailor the preview, metadata panel and thumbnails. Live examples show the effect of each setting as you change it. The **Controls** pane lists all gestures for the interactive preview.
+## Supported formats
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_settings1_dark.webp">
-    <img src="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_settings1.webp" width="32%" alt="MIQ settings, Preview pane: orientation, segmentation colours, axis label and crosshair colour, and intensity window controls beside a live example of the rendered preview.">
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_settings2_dark.webp">
-    <img src="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_settings2.webp" width="32%" alt="MIQ settings, Metadata pane: a reorderable list of metadata fields, each with an on/off toggle, beside a live example of the metadata panel.">
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_settings3_dark.webp">
-    <img src="https://raw.githubusercontent.com/marcoduering/MIQ/main/docs/MIQ_settings3.webp" width="32%" alt="MIQ settings, Thumbnails pane: a toggle for Finder slice thumbnails with orientation, segmentation colour and intensity window controls, beside a live example of the Finder icons.">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/lottie/formats_dark.svg">
+    <img src="docs/lottie/formats.svg" width="90%" alt="Animation: supported formats slide past a highlight, and the table below shows the highlighted format's extensions and notes.">
   </picture>
 </div>
 
-### Orientation
+| Format | Extensions |
+|---|---|
+| NIfTI-1 / NIfTI-2 | `.nii`, `.nii.gz` |
+| FreeSurfer | `.mgh`, `.mgz` |
+| MRtrix | `.mif`, `.mif.gz`, `.mih` |
+| NRRD | `.nrrd`, `.nhdr` |
+| MetaImage (ITK) | `.mha`, `.mhd` |
+| DICOM | `.dcm` (uncompressed only) |
+| OME-Zarr / NIfTI-Zarr | `.zarr` (shows the lowest-resolution level) |
 
-By default, MIQ displays data **as stored on disk**, without reorienting. Images may appear upside down, mirrored, or rotated depending on acquisition. This is by design, so you can inspect the raw data "as is". Optional settings reorient to **Neurological** or **Radiological view**.
+## Install
+
+> Universal app for Apple Silicon and Intel. Tested on macOS 14, 15, 26 and 27.
+
+**Download:** get [MIQ.app.zip](https://github.com/marcoduering/MIQ/releases/latest/download/MIQ.app.zip) [![Latest Release](https://img.shields.io/github/v/release/marcoduering/MIQ)](https://github.com/marcoduering/MIQ/releases/latest/download/MIQ.app.zip), unzip it, move `MIQ.app` to `/Applications` and open it once. That registers the Quick Look extension.
+
+**Homebrew:**
+
+```bash
+brew tap marcoduering/miq
+brew trust --cask marcoduering/miq/miq
+brew install --cask miq
+```
+
+Then open `MIQ.app` once.
+
+**Updates:** MIQ checks for updates when you open the app (MIQ → Check for Updates…). Homebrew users can also run `brew upgrade --cask miq --greedy`.
+
+## Using it
+
+Click a slice first so the preview gets keyboard input. The app's **Controls** pane has the full list.
+
+| Do this | To |
+|---|---|
+| Click or drag | Move the crosshair |
+| Scroll | Go through slices |
+| ⌥ + scroll | Go through volumes (4D) |
+| Right-click + drag | Brightness / contrast |
+| Pinch or ⌘ + scroll | Zoom |
+| Double-click | Enlarge one panel |
+| Right-click | Presets, colour maps, overlays, copy image |
+| `P` | Switch the fourth panel: info → MIP → MinIP → 3D |
+| `1`–`6`, `A` | CT presets, automatic window |
+| `⌘C` | Copy the view as an image |
+
+**Orientation:** by default MIQ shows the data the way it is stored in the file, so images can look flipped or rotated. The letters at the edges (R/L, A/P, S/I) tell you the real directions. You can switch to neurological or radiological view in the app.
+
+### Command line
+
+```bash
+swift build -c release --product miq
+miq info scan.nii.gz
+miq render scan.nii.gz --plane coronal -o coronal.png
+miq mosaic aseg.mgz -o overview.png
+```
+
+`miq help` lists all options.
+
+## Privacy
+
+Everything runs on your Mac. There is no telemetry, and file names never appear in the system log. Header fields that may contain names or IDs (like NIfTI `descrip`) are hidden unless you turn them on. The only network access is the update check, plus a local server if you turn on the optional *Describe file* feature. More in the [privacy policy](https://miq.marco-duering.net/privacy.html); IT admins see [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 ## Troubleshooting
 
-### `.gz` File Handling
+**A `.nii.gz` file opens in another app's preview.** Several Quick Look extensions claim `.gz`. Turning off the other ones usually fixes it.
 
-macOS Quick Look routes files to extensions by file name suffix. Several kinds of tools, including archive utilities, source-code viewers, and format-specific extensions like MIQ, need to claim the broad `.gz` suffix to support compound extensions such as `.nii.gz`/`.mif.gz`. When more than one installed extension claims `.gz`, which one macOS shows isn't always consistent; this is general Quick Look behavior, not specific to MIQ. If a gzip-compressed file isn't opening with MIQ's preview, try deactivating other `.gz`-handling extensions.
+**"Detached data file couldn't be read".** For `.nhdr`, `.mih` and `.mhd`, the image data sits in a second file, and macOS only lets Quick Look read the file you selected. Convert to the single-file version (`.nrrd`, `.mif` or `.mha`) to preview it.
 
-## Active Development
+## Contributing
 
-MIQ is free and open source, in active development, and was created with the support of AI coding agents. Report issues or feature suggestions via [**GitHub Issues**](https://github.com/marcoduering/MIQ/issues), or see [CONTRIBUTING.md](./CONTRIBUTING.md) to contribute. If MIQ is useful to you, consider [**sponsoring the project**](https://github.com/sponsors/marcoduering) (entirely optional, always appreciated).
+Bug reports and ideas are welcome in [Issues](https://github.com/marcoduering/MIQ/issues); see [CONTRIBUTING.md](./CONTRIBUTING.md) for code. MIQ was built with help from AI coding agents. If it is useful to you, you can [sponsor the project](https://github.com/sponsors/marcoduering).
 
-## Disclaimer & License
+## License and disclaimer
 
-MIQ is provided "as is" under [MIT License](./LICENSE), without warranty of any kind, express or implied. The authors and contributors accept no liability whatsoever for any direct, indirect, incidental, special, or consequential damages arising from the use or inability to use this software, including but not limited to data loss, incorrect image rendering, or any decisions made on the basis of previews generated by this tool.
+MIT License, provided "as is" without warranty. See [LICENSE](./LICENSE).
 
 > [!CAUTION]
-> This software is **<ins>not</ins> a medical device and is <ins>not</ins> intended for diagnostic use**. It is a developer and researcher convenience tool only. Do not use it to make clinical decisions.
-
-## See it in action
-
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/3058f94e-4ffa-4c0a-a1b8-d1578de0f651" width="600"></video>
-</div>
+> MIQ is **not a medical device** and is **not for diagnosis**. It is a convenience tool for researchers and developers. Do not use it to make clinical decisions.

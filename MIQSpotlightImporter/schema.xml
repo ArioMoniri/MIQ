@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Custom Spotlight attributes written by MIQSpotlightImporter.
+  Names use the reverse-DNS-with-underscores convention Spotlight requires for
+  custom attributes. Display names live in en.lproj/schema.strings.
+  Every value comes from header fields only; no free-text header field (which
+  could carry patient identifiers) is ever indexed.
+-->
+<schema version="1.0" xmlns="http://www.apple.com/metadata"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.apple.com/metadata file:///System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Resources/MetadataSchema.xsd">
+    <attributes>
+        <attribute name="org_miq_dimensions" multivalued="true" type="CFNumber"/>
+        <attribute name="org_miq_voxelSpacing" multivalued="true" type="CFNumber"/>
+        <attribute name="org_miq_spacingUnit" multivalued="false" type="CFString"/>
+        <attribute name="org_miq_datatype" multivalued="false" type="CFString"/>
+        <attribute name="org_miq_volumes" multivalued="false" type="CFNumber"/>
+        <attribute name="org_miq_orientation" multivalued="false" type="CFString"/>
+    </attributes>
+
+    <types>
+        <type name="org.nifti.nii">
+            <note>NIfTI-1 / NIfTI-2 volume</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+        <type name="gov.nih.nifti-1">
+            <note>NIfTI-1 volume (identifier declared by other neuroimaging apps)</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+        <type name="org.nifti.nii-gz">
+            <note>Gzipped NIfTI volume</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+        <type name="org.freesurfer.mgh">
+            <note>FreeSurfer MGH volume</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+        <type name="org.freesurfer.mgz">
+            <note>FreeSurfer MGZ volume</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+        <type name="org.mrtrix.mif">
+            <note>MRtrix MIF volume</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+        <type name="org.mrtrix.mif-gz">
+            <note>Compressed MRtrix MIF volume</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+        <type name="org.teem.nrrd">
+            <note>NRRD volume</note>
+            <allattrs>
+                kMDItemPixelWidth
+                kMDItemPixelHeight
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_spacingUnit
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </allattrs>
+            <displayattrs>
+                org_miq_dimensions
+                org_miq_voxelSpacing
+                org_miq_datatype
+                org_miq_volumes
+                org_miq_orientation
+            </displayattrs>
+        </type>
+    </types>
+</schema>
