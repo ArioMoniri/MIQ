@@ -46,7 +46,8 @@ public struct NeuralAffine: Sendable, Hashable {
 
     /// `self ∘ other`: first applies `other`, then `self`.
     public func concatenating(_ other: NeuralAffine) -> NeuralAffine {
-        let a = entries, b = other.entries
+        let a = entries
+        let b = other.entries
         var out = [Double](repeating: 0, count: 12)
         for r in 0..<3 {
             for c in 0..<4 {
@@ -62,9 +63,15 @@ public struct NeuralAffine: Sendable, Hashable {
     /// Inverse transform, or nil when the linear part is singular or non-finite.
     public func inverted() -> NeuralAffine? {
         let m = entries
-        let a = m[0], b = m[1], c = m[2]
-        let d = m[4], e = m[5], f = m[6]
-        let g = m[8], h = m[9], i = m[10]
+        let a = m[0]
+        let b = m[1]
+        let c = m[2]
+        let d = m[4]
+        let e = m[5]
+        let f = m[6]
+        let g = m[8]
+        let h = m[9]
+        let i = m[10]
         let det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
         guard det.isFinite, abs(det) > 1e-12 else { return nil }
         let inv = 1 / det
@@ -73,7 +80,9 @@ public struct NeuralAffine: Sendable, Hashable {
             (f * g - d * i) * inv, (a * i - c * g) * inv, (c * d - a * f) * inv,
             (d * h - e * g) * inv, (b * g - a * h) * inv, (a * e - b * d) * inv,
         ]
-        let tx = m[3], ty = m[7], tz = m[11]
+        let tx = m[3]
+        let ty = m[7]
+        let tz = m[11]
         return NeuralAffine(entries: [
             r[0], r[1], r[2], -(r[0] * tx + r[1] * ty + r[2] * tz),
             r[3], r[4], r[5], -(r[3] * tx + r[4] * ty + r[5] * tz),

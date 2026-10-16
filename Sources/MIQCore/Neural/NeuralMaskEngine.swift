@@ -202,12 +202,10 @@ public struct NeuralMaskEngine: Sendable {
         timings.inference = lap()
 
         // 3. Post-process and map back to the source grid.
-        if isBinary, var fg = head.foreground {
-            if profile.keepLargestComponent {
-                let keep = NeuralConform.largestComponent(fg.map { $0 >= 0.5 }, dims: box.extent)
-                for i in fg.indices where !keep[i] { fg[i] = min(fg[i], 0.49) }
-                head.foreground = fg
-            }
+        if isBinary, profile.keepLargestComponent, var fg = head.foreground {
+            let keep = NeuralConform.largestComponent(fg.map { $0 >= 0.5 }, dims: box.extent)
+            for i in fg.indices where !keep[i] { fg[i] = min(fg[i], 0.49) }
+            head.foreground = fg
         }
         let labels = try mapToSource(head, box: box, grid: grid, volume: volume, binary: isBinary, maxThreads: threads, cancel: cancellation)
         timings.postprocess = lap()
@@ -304,7 +302,8 @@ public struct NeuralMaskEngine: Sendable {
     }
 
     private func pointwiseHead(_ conv: NeuralConv3D, input: NeuralTensor, maxThreads: Int, cancel: NeuralCancellationToken?) throws -> NeuralPrediction {
-        let cin = conv.inChannels, cout = conv.outChannels
+        let cin = conv.inChannels
+        let cout = conv.outChannels
         guard input.channels == cin else {
             throw NeuralModelError.channelMismatch(layer: conv.name, expected: cin, actual: input.channels)
         }
@@ -320,25 +319,26 @@ public struct NeuralMaskEngine: Sendable {
             let end = min(voxels, start + chunk * max(1, maxThreads) * 16)
             let count = end - start
             var block = [Float](repeating: 0, count: count * cout)
-            try input.data.withUnsafeBufferPointer { inBuffer in
-                try conv.weights.withUnsafeBufferPointer { wBuffer in
-                    try block.withUnsafeMutableBufferPointer { bBuffer in
-                        let inBase = inBuffer.baseAddress! + start * cin
-                        let w = wBuffer.baseAddress!, out = bBuffer.baseAddress!
-                        let bias = conv.bias
-                        try NeuralParallel.forEachChunk(count: count, chunk: chunk, maxThreads: maxThreads, cancel: cancel) { range, _ in
-                            for v in range {
-                                let ip = inBase + v * cin
-                                let op = out + v * cout
-                                for oc in 0..<cout { op[oc] = bias?[oc] ?? 0 }
-                                for ic in 0..<cin {
-                                    let value = ip[ic]
-                                    let wr = w + ic * cout
-                                    for oc in 0..<cout { op[oc] += value * wr[oc] }
-                                }
+            try withNeuralBuffers(input.data, conv.weights) { inBuffer, wBuffer in
+                try block.withUnsafeMutableBufferPointer { bBuffer in
+                    let inBase = inBuffer.baseAddress! + start * cin
+                    let w = wBuffer.baseAddress!
+                    let out = bBuffer.baseAddress!
+                    let bias = conv.bias
+                    // One chunk of the parallel loop: class scores for voxels in `range`.
+                    func scoreVoxels(_ range: Range<Int>, _: Int) {
+                        for v in range {
+                            let ip = inBase + v * cin
+                            let op = out + v * cout
+                            for oc in 0..<cout { op[oc] = bias?[oc] ?? 0 }
+                            for ic in 0..<cin {
+                                let value = ip[ic]
+                                let wr = w + ic * cout
+                                for oc in 0..<cout { op[oc] += value * wr[oc] }
                             }
                         }
                     }
+                    try NeuralParallel.forEachChunk(count: count, chunk: chunk, maxThreads: maxThreads, cancel: cancel, scoreVoxels)
                 }
             }
             let scores = NeuralTensor(depth: 1, height: 1, width: count, channels: cout, data: block)
@@ -366,38 +366,44 @@ public struct NeuralMaskEngine: Sendable {
         let m = worldToGrid.concatenating(volume.voxelToWorld).entries
         let e = box.extent
         let lo = box.lower.map(Double.init)
-        let w = volume.width, h = volume.height, d = volume.depth
+        let w = volume.width
+        let h = volume.height
+        let d = volume.depth
         var out = [UInt8](repeating: 0, count: w * h * d)
         let fg = head.foreground ?? []
         try out.withUnsafeMutableBufferPointer { outBuffer in
-            try fg.withUnsafeBufferPointer { fgBuffer in
-                try head.labels.withUnsafeBufferPointer { lBuffer in
-                    let dst = outBuffer.baseAddress!
-                    let labels = lBuffer.baseAddress!
-                    try NeuralParallel.forEachChunk(count: h * d, chunk: 16, maxThreads: maxThreads, cancel: cancel) { range, _ in
-                        for row in range {
-                            let y = Double(row % h), z = Double(row / h)
-                            for xi in 0..<w {
-                                let x = Double(xi)
-                                let gi = m[0] * x + m[1] * y + m[2] * z + m[3] - lo[0]
-                                let gj = m[4] * x + m[5] * y + m[6] * z + m[7] - lo[1]
-                                let gk = m[8] * x + m[9] * y + m[10] * z + m[11] - lo[2]
-                                var value: UInt8 = 0
-                                if binary, let fgBase = fgBuffer.baseAddress {
-                                    // Tensor (d, h, w) = grid (i, j, k): k is the fastest axis.
-                                    let p = NeuralConform.trilinear(fgBase, e[2], e[1], e[0], gk, gj, gi, outside: 0)
-                                    value = p >= 0.5 ? 1 : 0
-                                } else {
-                                    let ii = Int(gi.rounded()), jj = Int(gj.rounded()), kk = Int(gk.rounded())
-                                    if ii >= 0, ii < e[0], jj >= 0, jj < e[1], kk >= 0, kk < e[2] {
-                                        value = labels[(ii * e[1] + jj) * e[2] + kk]
-                                    }
+            try withNeuralBuffers(fg, head.labels) { fgBuffer, lBuffer in
+                let dst = outBuffer.baseAddress!
+                let labels = lBuffer.baseAddress!
+                // One chunk of the parallel loop: source rows `(y, z)` in `range`.
+                func mapRows(_ range: Range<Int>, _: Int) {
+                    for row in range {
+                        let y = Double(row % h)
+                        let z = Double(row / h)
+                        for xi in 0..<w {
+                            let x = Double(xi)
+                            let gi = m[0] * x + m[1] * y + m[2] * z + m[3] - lo[0]
+                            let gj = m[4] * x + m[5] * y + m[6] * z + m[7] - lo[1]
+                            let gk = m[8] * x + m[9] * y + m[10] * z + m[11] - lo[2]
+                            var value: UInt8 = 0
+                            if binary, let fgBase = fgBuffer.baseAddress {
+                                // Tensor (d, h, w) = grid (i, j, k): k is the fastest axis.
+                                let field = NeuralSampleField(base: fgBase, width: e[2], height: e[1], depth: e[0])
+                                let p = NeuralConform.trilinear(field, gk, gj, gi, outside: 0)
+                                value = p >= 0.5 ? 1 : 0
+                            } else {
+                                let ii = Int(gi.rounded())
+                                let jj = Int(gj.rounded())
+                                let kk = Int(gk.rounded())
+                                if ii >= 0, ii < e[0], jj >= 0, jj < e[1], kk >= 0, kk < e[2] {
+                                    value = labels[(ii * e[1] + jj) * e[2] + kk]
                                 }
-                                dst[row * w + xi] = value
                             }
+                            dst[row * w + xi] = value
                         }
                     }
                 }
+                try NeuralParallel.forEachChunk(count: h * d, chunk: 16, maxThreads: maxThreads, cancel: cancel, mapRows)
             }
         }
         return out
