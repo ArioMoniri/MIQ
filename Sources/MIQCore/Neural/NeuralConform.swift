@@ -35,7 +35,9 @@ public struct NeuralInputVolume: Sendable {
     /// - otherwise identity directions (assumed RAS) × spacings.
     public init(volume: MIQVolume, volumeIndex: Int = 0) throws {
         let header = volume.image.header
-        let w = volume.width, h = volume.height, d = volume.depth
+        let w = volume.width
+        let h = volume.height
+        let d = volume.depth
         guard w > 0, h > 0, d > 0 else { throw NeuralModelError.invalidInput("empty volume") }
         guard volumeIndex >= 0, volumeIndex < volume.volumes else {
             throw NeuralModelError.invalidInput("volume index \(volumeIndex) out of range")
@@ -139,18 +141,40 @@ struct NeuralCropBox: Equatable {
     var isEmpty: Bool { extent.contains { $0 <= 0 } }
 }
 
+/// A borrowed scalar field for trilinear sampling: `base` points at
+/// `width × height × depth` floats in storage order (x fastest). Only valid inside
+/// the `withUnsafe…Pointer` scope that produced `base`.
+struct NeuralSampleField {
+    let base: UnsafePointer<Float>
+    let width: Int
+    let height: Int
+    let depth: Int
+}
+
 enum NeuralConform {
     /// Trilinear sample of the source at fractional voxel coordinates; `outside`
     /// beyond the volume (half-voxel tolerance at the borders, clamped).
     @inline(__always)
-    static func trilinear(_ src: UnsafePointer<Float>, _ w: Int, _ h: Int, _ d: Int, _ x: Double, _ y: Double, _ z: Double, outside: Float) -> Float {
+    static func trilinear(_ field: NeuralSampleField, _ x: Double, _ y: Double, _ z: Double, outside: Float) -> Float {
+        let src = field.base
+        let w = field.width
+        let h = field.height
+        let d = field.depth
         if x < -0.5 || y < -0.5 || z < -0.5 || x > Double(w) - 0.5 || y > Double(h) - 0.5 || z > Double(d) - 0.5 {
             return outside
         }
-        let cx = min(max(x, 0), Double(w - 1)), cy = min(max(y, 0), Double(h - 1)), cz = min(max(z, 0), Double(d - 1))
-        let x0 = min(Int(cx), max(0, w - 2)), y0 = min(Int(cy), max(0, h - 2)), z0 = min(Int(cz), max(0, d - 2))
-        let x1 = min(x0 + 1, w - 1), y1 = min(y0 + 1, h - 1), z1 = min(z0 + 1, d - 1)
-        let fx = Float(cx - Double(x0)), fy = Float(cy - Double(y0)), fz = Float(cz - Double(z0))
+        let cx = min(max(x, 0), Double(w - 1))
+        let cy = min(max(y, 0), Double(h - 1))
+        let cz = min(max(z, 0), Double(d - 1))
+        let x0 = min(Int(cx), max(0, w - 2))
+        let y0 = min(Int(cy), max(0, h - 2))
+        let z0 = min(Int(cz), max(0, d - 2))
+        let x1 = min(x0 + 1, w - 1)
+        let y1 = min(y0 + 1, h - 1)
+        let z1 = min(z0 + 1, d - 1)
+        let fx = Float(cx - Double(x0))
+        let fy = Float(cy - Double(y0))
+        let fz = Float(cz - Double(z0))
         let plane = w * h
         @inline(__always) func at(_ xi: Int, _ yi: Int, _ zi: Int) -> Float { src[zi * plane + yi * w + xi] }
         let c00 = at(x0, y0, z0) + (at(x1, y0, z0) - at(x0, y0, z0)) * fx
@@ -183,21 +207,27 @@ enum NeuralConform {
         let m = gridToSource.entries
         try source.voxels.withUnsafeBufferPointer { srcBuffer in
             try out.data.withUnsafeMutableBufferPointer { outBuffer in
-                let src = srcBuffer.baseAddress!, dst = outBuffer.baseAddress!
-                let w = source.width, h = source.height, d = source.depth
-                try NeuralParallel.forEachChunk(count: n * n, chunk: 16, maxThreads: maxThreads, cancel: cancel) { range, _ in
+                let field = NeuralSampleField(
+                    base: srcBuffer.baseAddress!, width: source.width, height: source.height, depth: source.depth
+                )
+                let dst = outBuffer.baseAddress!
+                // Resamples grid rows `(i, j)` in `range`; one chunk of the parallel loop.
+                func resampleRows(_ range: Range<Int>, _: Int) {
                     for row in range {
-                        let i = row / n, j = row % n
+                        let i = row / n
+                        let j = row % n
                         for k in 0..<n {
                             var acc: Float = 0
                             for oi in offsets {
                                 for oj in offsets {
                                     for ok in offsets {
-                                        let gi = Double(i) + oi, gj = Double(j) + oj, gk = Double(k) + ok
+                                        let gi = Double(i) + oi
+                                        let gj = Double(j) + oj
+                                        let gk = Double(k) + ok
                                         let x = m[0] * gi + m[1] * gj + m[2] * gk + m[3]
                                         let y = m[4] * gi + m[5] * gj + m[6] * gk + m[7]
                                         let z = m[8] * gi + m[9] * gj + m[10] * gk + m[11]
-                                        acc += trilinear(src, w, h, d, x, y, z, outside: outside)
+                                        acc += trilinear(field, x, y, z, outside: outside)
                                     }
                                 }
                             }
@@ -205,6 +235,7 @@ enum NeuralConform {
                         }
                     }
                 }
+                try NeuralParallel.forEachChunk(count: n * n, chunk: 16, maxThreads: maxThreads, cancel: cancel, resampleRows)
             }
         }
         return out
@@ -221,7 +252,8 @@ enum NeuralConform {
         sample.sort()
         return qs.map { q in
             let pos = Float(sample.count - 1) * min(max(q, 0), 1)
-            let lo = Int(pos.rounded(.down)), hi = min(sample.count - 1, lo + 1)
+            let lo = Int(pos.rounded(.down))
+            let hi = min(sample.count - 1, lo + 1)
             let f = pos - Float(lo)
             return sample[lo] + (sample[hi] - sample[lo]) * f
         }
@@ -232,7 +264,8 @@ enum NeuralConform {
     static func normalise(_ tensor: inout NeuralTensor, mode: NeuralNormalization) {
         guard let lo = tensor.data.min() else { return }
         var hi = quantiles(tensor.data, [0.999])[0]
-        if !(hi > lo) { hi = tensor.data.max() ?? lo }
+        // Also falls back when either bound is NaN (the original `!(hi > lo)` semantics).
+        if hi.isNaN || lo.isNaN || hi <= lo { hi = tensor.data.max() ?? lo }
         let range = hi - lo
         if range > 0 {
             let inv = 255 / range
@@ -244,7 +277,8 @@ enum NeuralConform {
         }
         switch mode {
         case .minMax:
-            let mn = tensor.data.min() ?? 0, mx = tensor.data.max() ?? 0
+            let mn = tensor.data.min() ?? 0
+            let mx = tensor.data.max() ?? 0
             let span = mx - mn
             for i in tensor.data.indices { tensor.data[i] = span > 0 ? (tensor.data[i] - mn) / span : 0 }
         case .quantile(let lower, let upper):
@@ -260,7 +294,8 @@ enum NeuralConform {
         let n = [tensor.depth, tensor.height, tensor.width]
         let maxValue = tensor.data.max() ?? 0
         let cut = threshold > 0 ? maxValue * threshold : 0
-        var lower = n, upper = [-1, -1, -1]
+        var lower = n
+        var upper = [-1, -1, -1]
         var idx = 0
         for d in 0..<n[0] {
             for h in 0..<n[1] {
@@ -299,7 +334,8 @@ enum NeuralConform {
     static func largestComponent(_ mask: [Bool], dims: [Int]) -> [Bool] {
         let (nd, nh, nw) = (dims[0], dims[1], dims[2])
         var componentID = [Int32](repeating: 0, count: mask.count)
-        var bestID: Int32 = 0, bestSize = 0
+        var bestID: Int32 = 0
+        var bestSize = 0
         var current: Int32 = 0
         var stack: [Int] = []
         for start in mask.indices where mask[start] && componentID[start] == 0 {
@@ -309,7 +345,9 @@ enum NeuralConform {
             var size = 0
             while let v = stack.popLast() {
                 size += 1
-                let w = v % nw, h = (v / nw) % nh, d = v / (nw * nh)
+                let w = v % nw
+                let h = (v / nw) % nh
+                let d = v / (nw * nh)
                 @inline(__always) func visit(_ u: Int) {
                     if mask[u] && componentID[u] == 0 { componentID[u] = current; stack.append(u) }
                 }

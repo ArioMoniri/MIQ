@@ -136,6 +136,46 @@ enum NeuralParallel {
     }
 }
 
+// MARK: - Buffer access
+
+/// Read-only pointer access to two arrays from a single closure, so kernels need not
+/// nest one `withUnsafeBufferPointer` closure per array.
+@inline(__always)
+func withNeuralBuffers<A, B, R>(
+    _ a: [A],
+    _ b: [B],
+    _ body: (UnsafeBufferPointer<A>, UnsafeBufferPointer<B>) throws -> R
+) rethrows -> R {
+    try a.withUnsafeBufferPointer { pa in
+        try b.withUnsafeBufferPointer { pb in try body(pa, pb) }
+    }
+}
+
+/// Three-array variant of `withNeuralBuffers(_:_:_:)`.
+@inline(__always)
+func withNeuralBuffers<A, B, C, R>(
+    _ a: [A],
+    _ b: [B],
+    _ c: [C],
+    _ body: (UnsafeBufferPointer<A>, UnsafeBufferPointer<B>, UnsafeBufferPointer<C>) throws -> R
+) rethrows -> R {
+    try a.withUnsafeBufferPointer { pa in
+        try withNeuralBuffers(b, c) { pb, pc in try body(pa, pb, pc) }
+    }
+}
+
+/// Mutable pointer access to two distinct arrays from a single closure.
+@inline(__always)
+func withNeuralMutableBuffers<A, B, R>(
+    _ a: inout [A],
+    _ b: inout [B],
+    _ body: (UnsafeMutableBufferPointer<A>, UnsafeMutableBufferPointer<B>) throws -> R
+) rethrows -> R {
+    try a.withUnsafeMutableBufferPointer { pa in
+        try b.withUnsafeMutableBufferPointer { pb in try body(pa, pb) }
+    }
+}
+
 // MARK: - Activations
 
 @inline(__always)
@@ -190,18 +230,19 @@ func applySoftmax(to tensor: inout NeuralTensor, maxThreads: Int, cancel: Neural
 func applyChannelAffine(scale: [Float], shift: [Float], to tensor: inout NeuralTensor, maxThreads: Int, cancel: NeuralCancellationToken?) throws {
     let channels = tensor.channels
     let voxels = tensor.voxelCount
-    try scale.withUnsafeBufferPointer { sp in
-        try shift.withUnsafeBufferPointer { tp in
-            try tensor.data.withUnsafeMutableBufferPointer { buffer in
-                let base = buffer.baseAddress!
-                let s = sp.baseAddress!, t = tp.baseAddress!
-                try NeuralParallel.forEachChunk(count: voxels, chunk: 8192, maxThreads: maxThreads, cancel: cancel) { range, _ in
-                    for v in range {
-                        let p = base + v * channels
-                        for c in 0..<channels { p[c] = p[c] * s[c] + t[c] }
-                    }
+    try withNeuralBuffers(scale, shift) { sp, tp in
+        try tensor.data.withUnsafeMutableBufferPointer { buffer in
+            let base = buffer.baseAddress!
+            let s = sp.baseAddress!
+            let t = tp.baseAddress!
+            // One chunk of the parallel loop: `x · scale + shift` per channel.
+            func scaleVoxels(_ range: Range<Int>, _: Int) {
+                for v in range {
+                    let p = base + v * channels
+                    for c in 0..<channels { p[c] = p[c] * s[c] + t[c] }
                 }
             }
+            try NeuralParallel.forEachChunk(count: voxels, chunk: 8192, maxThreads: maxThreads, cancel: cancel, scaleVoxels)
         }
     }
 }
@@ -248,18 +289,19 @@ func applyInstanceNorm(
             invStd[c] = Float(1 / (variance + Double(epsilon)).squareRoot())
         }
         let fused = activation == .softmax ? NeuralActivation.linear : activation
-        try mean.withUnsafeBufferPointer { mp in
-            try invStd.withUnsafeBufferPointer { ip in
-                let mBase = mp.baseAddress!, iBase = ip.baseAddress!
-                try NeuralParallel.forEachChunk(count: voxels, chunk: 16384, maxThreads: maxThreads, cancel: cancel) { range, _ in
-                    for v in range {
-                        let p = base + v * channels
-                        for c in 0..<channels {
-                            p[c] = neuralActivate((p[c] - mBase[c]) * iBase[c], fused)
-                        }
+        try withNeuralBuffers(mean, invStd) { mp, ip in
+            let mBase = mp.baseAddress!
+            let iBase = ip.baseAddress!
+            // One chunk of the parallel loop: normalise (+ fused activation) in place.
+            func normaliseVoxels(_ range: Range<Int>, _: Int) {
+                for v in range {
+                    let p = base + v * channels
+                    for c in 0..<channels {
+                        p[c] = neuralActivate((p[c] - mBase[c]) * iBase[c], fused)
                     }
                 }
             }
+            try NeuralParallel.forEachChunk(count: voxels, chunk: 16384, maxThreads: maxThreads, cancel: cancel, normaliseVoxels)
         }
     }
     if activation == .softmax {
@@ -287,7 +329,9 @@ struct PackedConv3D {
         let groups = (conv.outChannels + 7) / 8
         self.groups = groups
         var taps: [(Int, Int, Int)] = []
-        let cd = conv.kernel[0] / 2, ch = conv.kernel[1] / 2, cw = conv.kernel[2] / 2
+        let cd = conv.kernel[0] / 2
+        let ch = conv.kernel[1] / 2
+        let cw = conv.kernel[2] / 2
         for kd in 0..<conv.kernel[0] {
             for kh in 0..<conv.kernel[1] {
                 for kw in 0..<conv.kernel[2] {
@@ -296,7 +340,8 @@ struct PackedConv3D {
             }
         }
         self.taps = taps
-        let cin = conv.inChannels, cout = conv.outChannels
+        let cin = conv.inChannels
+        let cout = conv.outChannels
         var packed = [SIMD8<Float>](repeating: .zero, count: taps.count * cin * groups)
         for t in 0..<taps.count {
             for ic in 0..<cin {
@@ -350,104 +395,110 @@ private func convSIMD(
     maxThreads: Int,
     cancel: NeuralCancellationToken?
 ) throws {
-    let D = input.depth, H = input.height, W = input.width
-    let cin = packed.conv.inChannels, cout = packed.conv.outChannels
-    let G = packed.groups
+    let depth = input.depth
+    let height = input.height
+    let width = input.width
+    let cin = packed.conv.inChannels
+    let cout = packed.conv.outChannels
+    let groups = packed.groups
     let taps = packed.taps
-    let rows = D * H
+    let rows = depth * height
     let workerCount = max(1, min(maxThreads, ProcessInfo.processInfo.activeProcessorCount))
     // One accumulator row per worker, allocated once per layer.
-    var scratch = [SIMD8<Float>](repeating: .zero, count: workerCount * W * G)
+    var scratch = [SIMD8<Float>](repeating: .zero, count: workerCount * width * groups)
 
-    try input.data.withUnsafeBufferPointer { inBuffer in
-        try output.data.withUnsafeMutableBufferPointer { outBuffer in
-            try packed.packedWeights.withUnsafeBufferPointer { wBuffer in
-                try packed.packedBias.withUnsafeBufferPointer { bBuffer in
-                    try scratch.withUnsafeMutableBufferPointer { sBuffer in
-                        let inBase = inBuffer.baseAddress!
-                        let outBase = outBuffer.baseAddress!
-                        let wBase = wBuffer.baseAddress!
-                        let bias = bBuffer.baseAddress!
-                        let scratchBase = sBuffer.baseAddress!
-                        try NeuralParallel.forEachChunk(count: rows, chunk: 2, maxThreads: workerCount, cancel: cancel) { range, worker in
-                            let acc = scratchBase + worker * W * G
-                            let accFloats = UnsafeMutableRawPointer(acc).assumingMemoryBound(to: Float.self)
-                            for row in range {
-                                let d = row / H, h = row % H
-                                for x in 0..<W {
-                                    for g in 0..<G { acc[x * G + g] = bias[g] }
+    try withNeuralMutableBuffers(&output.data, &scratch) { outBuffer, sBuffer in
+        try withNeuralBuffers(input.data, packed.packedWeights, packed.packedBias) { inBuffer, wBuffer, bBuffer in
+            let inBase = inBuffer.baseAddress!
+            let outBase = outBuffer.baseAddress!
+            let wBase = wBuffer.baseAddress!
+            let bias = bBuffer.baseAddress!
+            let scratchBase = sBuffer.baseAddress!
+            // One chunk of the parallel loop: convolves output rows `(d, h)` in `range`
+            // using `worker`'s private accumulator row.
+            func convolveRows(_ range: Range<Int>, _ worker: Int) {
+                let acc = scratchBase + worker * width * groups
+                let accFloats = UnsafeMutableRawPointer(acc).assumingMemoryBound(to: Float.self)
+                for row in range {
+                    let d = row / height
+                    let h = row % height
+                    for x in 0..<width {
+                        for g in 0..<groups { acc[x * groups + g] = bias[g] }
+                    }
+                    for (t, tap) in taps.enumerated() {
+                        let sd = d + tap.dd
+                        let sh = h + tap.dh
+                        if sd < 0 || sd >= depth || sh < 0 || sh >= height { continue }
+                        let dx = tap.dw
+                        let x0 = max(0, -dx)
+                        let x1 = min(width, width - dx)
+                        if x0 >= x1 { continue }
+                        let inRow = inBase + (sd * height + sh) * width * cin
+                        let wTap = wBase + t * cin * groups
+                        switch groups {
+                        case 1:
+                            for x in x0..<x1 {
+                                let ip = inRow + (x + dx) * cin
+                                var a = acc[x]
+                                for ic in 0..<cin {
+                                    a += SIMD8<Float>(repeating: ip[ic]) * wTap[ic]
                                 }
-                                for (t, tap) in taps.enumerated() {
-                                    let sd = d + tap.dd, sh = h + tap.dh
-                                    if sd < 0 || sd >= D || sh < 0 || sh >= H { continue }
-                                    let dx = tap.dw
-                                    let x0 = max(0, -dx), x1 = min(W, W - dx)
-                                    if x0 >= x1 { continue }
-                                    let inRow = inBase + (sd * H + sh) * W * cin
-                                    let wTap = wBase + t * cin * G
-                                    switch G {
-                                    case 1:
-                                        for x in x0..<x1 {
-                                            let ip = inRow + (x + dx) * cin
-                                            var a = acc[x]
-                                            for ic in 0..<cin {
-                                                a += SIMD8<Float>(repeating: ip[ic]) * wTap[ic]
-                                            }
-                                            acc[x] = a
-                                        }
-                                    case 2:
-                                        for x in x0..<x1 {
-                                            let ip = inRow + (x + dx) * cin
-                                            var a0 = acc[2 * x], a1 = acc[2 * x + 1]
-                                            for ic in 0..<cin {
-                                                let v = SIMD8<Float>(repeating: ip[ic])
-                                                a0 += v * wTap[2 * ic]
-                                                a1 += v * wTap[2 * ic + 1]
-                                            }
-                                            acc[2 * x] = a0
-                                            acc[2 * x + 1] = a1
-                                        }
-                                    case 3:
-                                        for x in x0..<x1 {
-                                            let ip = inRow + (x + dx) * cin
-                                            var a0 = acc[3 * x], a1 = acc[3 * x + 1], a2 = acc[3 * x + 2]
-                                            for ic in 0..<cin {
-                                                let v = SIMD8<Float>(repeating: ip[ic])
-                                                a0 += v * wTap[3 * ic]
-                                                a1 += v * wTap[3 * ic + 1]
-                                                a2 += v * wTap[3 * ic + 2]
-                                            }
-                                            acc[3 * x] = a0
-                                            acc[3 * x + 1] = a1
-                                            acc[3 * x + 2] = a2
-                                        }
-                                    default:
-                                        for x in x0..<x1 {
-                                            let ip = inRow + (x + dx) * cin
-                                            let ap = acc + x * G
-                                            for ic in 0..<cin {
-                                                let v = SIMD8<Float>(repeating: ip[ic])
-                                                let wp = wTap + ic * G
-                                                for g in 0..<G { ap[g] += v * wp[g] }
-                                            }
-                                        }
-                                    }
+                                acc[x] = a
+                            }
+                        case 2:
+                            for x in x0..<x1 {
+                                let ip = inRow + (x + dx) * cin
+                                var a0 = acc[2 * x]
+                                var a1 = acc[2 * x + 1]
+                                for ic in 0..<cin {
+                                    let v = SIMD8<Float>(repeating: ip[ic])
+                                    a0 += v * wTap[2 * ic]
+                                    a1 += v * wTap[2 * ic + 1]
                                 }
-                                let outRow = outBase + row * W * cout
-                                for x in 0..<W {
-                                    let src = accFloats + x * G * 8
-                                    let dst = outRow + x * cout
-                                    if activation == .linear {
-                                        for oc in 0..<cout { dst[oc] = src[oc] }
-                                    } else {
-                                        for oc in 0..<cout { dst[oc] = neuralActivate(src[oc], activation) }
-                                    }
+                                acc[2 * x] = a0
+                                acc[2 * x + 1] = a1
+                            }
+                        case 3:
+                            for x in x0..<x1 {
+                                let ip = inRow + (x + dx) * cin
+                                var a0 = acc[3 * x]
+                                var a1 = acc[3 * x + 1]
+                                var a2 = acc[3 * x + 2]
+                                for ic in 0..<cin {
+                                    let v = SIMD8<Float>(repeating: ip[ic])
+                                    a0 += v * wTap[3 * ic]
+                                    a1 += v * wTap[3 * ic + 1]
+                                    a2 += v * wTap[3 * ic + 2]
+                                }
+                                acc[3 * x] = a0
+                                acc[3 * x + 1] = a1
+                                acc[3 * x + 2] = a2
+                            }
+                        default:
+                            for x in x0..<x1 {
+                                let ip = inRow + (x + dx) * cin
+                                let ap = acc + x * groups
+                                for ic in 0..<cin {
+                                    let v = SIMD8<Float>(repeating: ip[ic])
+                                    let wp = wTap + ic * groups
+                                    for g in 0..<groups { ap[g] += v * wp[g] }
                                 }
                             }
                         }
                     }
+                    let outRow = outBase + row * width * cout
+                    for x in 0..<width {
+                        let src = accFloats + x * groups * 8
+                        let dst = outRow + x * cout
+                        if activation == .linear {
+                            for oc in 0..<cout { dst[oc] = src[oc] }
+                        } else {
+                            for oc in 0..<cout { dst[oc] = neuralActivate(src[oc], activation) }
+                        }
+                    }
                 }
             }
+            try NeuralParallel.forEachChunk(count: rows, chunk: 2, maxThreads: workerCount, cancel: cancel, convolveRows)
         }
     }
 }
@@ -481,56 +532,58 @@ private func convIm2col(
     cancel: NeuralCancellationToken?
 ) throws {
     let conv = packed.conv
-    let D = input.depth, H = input.height, W = input.width
-    let cin = conv.inChannels, cout = conv.outChannels
+    let depth = input.depth
+    let height = input.height
+    let width = input.width
+    let cin = conv.inChannels
+    let cout = conv.outChannels
     let taps = packed.taps
-    let K = taps.count * cin
-    let rows = D * H
+    let patchLength = taps.count * cin
+    let rows = depth * height
     let workerCount = max(1, min(maxThreads, ProcessInfo.processInfo.activeProcessorCount))
-    var columns = [Float](repeating: 0, count: workerCount * W * K)
+    var columns = [Float](repeating: 0, count: workerCount * width * patchLength)
     let bias = conv.bias ?? [Float](repeating: 0, count: cout)
 
-    try input.data.withUnsafeBufferPointer { inBuffer in
-        try output.data.withUnsafeMutableBufferPointer { outBuffer in
-            try conv.weights.withUnsafeBufferPointer { wBuffer in
-                try bias.withUnsafeBufferPointer { bBuffer in
-                    try columns.withUnsafeMutableBufferPointer { cBuffer in
-                        let inBase = inBuffer.baseAddress!
-                        let outBase = outBuffer.baseAddress!
-                        let wBase = wBuffer.baseAddress!
-                        let bBase = bBuffer.baseAddress!
-                        let colBase = cBuffer.baseAddress!
-                        try NeuralParallel.forEachChunk(count: rows, chunk: 2, maxThreads: workerCount, cancel: cancel) { range, worker in
-                            let col = colBase + worker * W * K
-                            for row in range {
-                                let d = row / H, h = row % H
-                                // Build the [W × taps·cin] patch matrix for this output row.
-                                for (t, tap) in taps.enumerated() {
-                                    let sd = d + tap.dd, sh = h + tap.dh
-                                    let rowValid = sd >= 0 && sd < D && sh >= 0 && sh < H
-                                    let inRow = rowValid ? inBase + (sd * H + sh) * W * cin : inBase
-                                    for x in 0..<W {
-                                        let dst = col + x * K + t * cin
-                                        let sx = x + tap.dw
-                                        if rowValid && sx >= 0 && sx < W {
-                                            let src = inRow + sx * cin
-                                            for ic in 0..<cin { dst[ic] = src[ic] }
-                                        } else {
-                                            for ic in 0..<cin { dst[ic] = 0 }
-                                        }
-                                    }
-                                }
-                                let outRow = outBase + row * W * cout
-                                neuralGEMM(UnsafePointer(col), wBase, outRow, m: W, n: cout, k: K)
-                                for x in 0..<W {
-                                    let o = outRow + x * cout
-                                    for oc in 0..<cout { o[oc] = neuralActivate(o[oc] + bBase[oc], activation) }
-                                }
+    try withNeuralMutableBuffers(&output.data, &columns) { outBuffer, cBuffer in
+        try withNeuralBuffers(input.data, conv.weights, bias) { inBuffer, wBuffer, bBuffer in
+            let inBase = inBuffer.baseAddress!
+            let outBase = outBuffer.baseAddress!
+            let wBase = wBuffer.baseAddress!
+            let bBase = bBuffer.baseAddress!
+            let colBase = cBuffer.baseAddress!
+            // One chunk of the parallel loop: im2col + GEMM for output rows `(d, h)`
+            // in `range`, using `worker`'s private patch matrix.
+            func convolveRows(_ range: Range<Int>, _ worker: Int) {
+                let col = colBase + worker * width * patchLength
+                for row in range {
+                    let d = row / height
+                    let h = row % height
+                    // Build the [W × taps·cin] patch matrix for this output row.
+                    for (t, tap) in taps.enumerated() {
+                        let sd = d + tap.dd
+                        let sh = h + tap.dh
+                        let rowValid = sd >= 0 && sd < depth && sh >= 0 && sh < height
+                        let inRow = rowValid ? inBase + (sd * height + sh) * width * cin : inBase
+                        for x in 0..<width {
+                            let dst = col + x * patchLength + t * cin
+                            let sx = x + tap.dw
+                            if rowValid && sx >= 0 && sx < width {
+                                let src = inRow + sx * cin
+                                for ic in 0..<cin { dst[ic] = src[ic] }
+                            } else {
+                                for ic in 0..<cin { dst[ic] = 0 }
                             }
                         }
                     }
+                    let outRow = outBase + row * width * cout
+                    neuralGEMM(UnsafePointer(col), wBase, outRow, m: width, n: cout, k: patchLength)
+                    for x in 0..<width {
+                        let o = outRow + x * cout
+                        for oc in 0..<cout { o[oc] = neuralActivate(o[oc] + bBase[oc], activation) }
+                    }
                 }
             }
+            try NeuralParallel.forEachChunk(count: rows, chunk: 2, maxThreads: workerCount, cancel: cancel, convolveRows)
         }
     }
 }
@@ -564,41 +617,42 @@ func neuralHead(
     if let classes = foregroundClasses {
         for c in classes where c >= 0 && c < mask.count { mask[c] = true }
     }
-    try scores.data.withUnsafeBufferPointer { sBuffer in
-        try labels.withUnsafeMutableBufferPointer { lBuffer in
-            try mask.withUnsafeBufferPointer { mBuffer in
-                try foreground.withUnsafeMutableBufferPointer { fBuffer in
-                    let fgPointer: UnsafeMutablePointer<Float>? = fBuffer.isEmpty ? nil : fBuffer.baseAddress
-                    let s = sBuffer.baseAddress!, l = lBuffer.baseAddress!, m = mBuffer.baseAddress!
-                    try NeuralParallel.forEachChunk(count: voxels, chunk: 8192, maxThreads: maxThreads, cancel: cancel) { range, _ in
-                        for v in range {
-                            let p = s + v * channels
-                            if channels == 1 {
-                                let prob = alreadyProbabilities ? p[0] : 1 / (1 + Foundation.exp(-p[0]))
-                                l[v] = prob > 0.5 ? 1 : 0
-                                fgPointer?[v] = m[1] ? prob : 1 - prob
-                                continue
-                            }
-                            var best = 0
-                            var bestValue = p[0]
-                            for c in 1..<channels where p[c] > bestValue {
-                                best = c
-                                bestValue = p[c]
-                            }
-                            l[v] = UInt8(truncatingIfNeeded: best)
-                            if let fg = fgPointer {
-                                var total: Float = 0, fgSum: Float = 0
-                                for c in 0..<channels {
-                                    let e = alreadyProbabilities ? p[c] : Foundation.exp(p[c] - bestValue)
-                                    total += e
-                                    if m[c] { fgSum += e }
-                                }
-                                fg[v] = total > 0 ? fgSum / total : 0
-                            }
+    try withNeuralMutableBuffers(&labels, &foreground) { lBuffer, fBuffer in
+        try withNeuralBuffers(scores.data, mask) { sBuffer, mBuffer in
+            let fgPointer: UnsafeMutablePointer<Float>? = fBuffer.isEmpty ? nil : fBuffer.baseAddress
+            let s = sBuffer.baseAddress!
+            let l = lBuffer.baseAddress!
+            let m = mBuffer.baseAddress!
+            // One chunk of the parallel loop: argmax (+ foreground probability) per voxel.
+            func classifyVoxels(_ range: Range<Int>, _: Int) {
+                for v in range {
+                    let p = s + v * channels
+                    if channels == 1 {
+                        let prob = alreadyProbabilities ? p[0] : 1 / (1 + Foundation.exp(-p[0]))
+                        l[v] = prob > 0.5 ? 1 : 0
+                        fgPointer?[v] = m[1] ? prob : 1 - prob
+                        continue
+                    }
+                    var best = 0
+                    var bestValue = p[0]
+                    for c in 1..<channels where p[c] > bestValue {
+                        best = c
+                        bestValue = p[c]
+                    }
+                    l[v] = UInt8(truncatingIfNeeded: best)
+                    if let fg = fgPointer {
+                        var total: Float = 0
+                        var fgSum: Float = 0
+                        for c in 0..<channels {
+                            let e = alreadyProbabilities ? p[c] : Foundation.exp(p[c] - bestValue)
+                            total += e
+                            if m[c] { fgSum += e }
                         }
+                        fg[v] = total > 0 ? fgSum / total : 0
                     }
                 }
             }
+            try NeuralParallel.forEachChunk(count: voxels, chunk: 8192, maxThreads: maxThreads, cancel: cancel, classifyVoxels)
         }
     }
     return NeuralPrediction(labels: labels, foreground: foregroundClasses == nil ? nil : foreground)
