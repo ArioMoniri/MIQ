@@ -41,7 +41,6 @@ extension MIQParser {
         try descriptor.checkPixelDataSize()
 
         let geometry = DICOMGeometry(
-            columns: descriptor.columns,
             frames: descriptor.frames,
             pixelSpacing: descriptor.pixelSpacing,
             orientation: descriptor.orientation,
@@ -514,7 +513,6 @@ struct DICOMGeometry: Sendable {
     let notes: [String]
 
     init(
-        columns: Int,
         frames: Int,
         pixelSpacing: [Double]?,
         orientation: [Double]?,
@@ -545,7 +543,8 @@ struct DICOMGeometry: Sendable {
 
         var sliceVector: [Double]?
         if let positions = framePositions, positions.count == frames, frames > 1 {
-            let first = positions[0], last = positions[frames - 1]
+            let first = positions[0]
+            let last = positions[frames - 1]
             let step = (0..<3).map { (last[$0] - first[$0]) / Double(frames - 1) }
             let stepLength = DICOMVector.norm(step)
             if stepLength > 1e-6 {

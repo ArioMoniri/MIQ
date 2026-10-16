@@ -169,7 +169,7 @@ struct VolumeSummaryTests {
     func jsonIsSortedAndRoundTrips() throws {
         let summary = VolumeSummary(
             format: "NIfTI-1", dimensions: [2, 3, 4], volumes: 1, voxelSpacing: [1, 1, 2],
-            spacingUnit: "mm", datatype: "int16", orientation: "RAS", orientationSource: "sform"
+            spacingUnit: "mm", datatype: "int16", orientation: ("RAS", "sform")
         )
         let data = try summary.jsonData(prettyPrinted: false)
         let text = String(decoding: data, as: UTF8.self)
@@ -181,7 +181,7 @@ struct VolumeSummaryTests {
     func summaryTextListsFieldsAndOmitsUnknownOrientation() {
         let summary = VolumeSummary(
             format: "MGH", dimensions: [2, 3, 4], volumes: 5, voxelSpacing: [1, 1, 2],
-            spacingUnit: nil, datatype: "float32", orientation: nil, orientationSource: nil
+            spacingUnit: nil, datatype: "float32", orientation: nil
         )
         #expect(summary.summaryText == """
         Format: MGH

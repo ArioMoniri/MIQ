@@ -179,7 +179,9 @@ enum ExternalViewerSettings {
                 alert.messageText = String(localized: "Couldn’t open “\(fileName)” in \(appName).")
                 alert.informativeText = reason
                 if let window {
-                    alert.beginSheetModal(for: window) { _ in }
+                    alert.beginSheetModal(for: window) { _ in
+                        // Informational alert with a single OK button: nothing to do on dismissal.
+                    }
                 } else {
                     alert.runModal()
                 }

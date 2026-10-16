@@ -377,54 +377,68 @@ def sweep(u):
     return (30 * math.sin(a), 40 * math.sin(2 * a), 14 + 22 * math.sin(a + 1.1) * math.cos(a))
 
 
+def ellipsoid_tracks(axis, c, r, times, frames):
+    """Scale keyframes (the cross-section's size) and opacity of one ellipsoid in
+    the view slicing along ``axis``, as the crosshair sweeps."""
+    scales, shown = [], []
+    for t in times:
+        pos = sweep((t % frames) / frames)
+        d = (pos[axis] - c[axis]) / r[axis]
+        f = math.sqrt(max(0.0, 1 - d * d)) * 100
+        scales.append((t, [round(f, 2), round(f, 2)], "linear"))
+        shown.append(f > 0)
+    # A zero-size ellipse still rasterises as a dot, so also hide it
+    # (hold keyframes) while the slice misses this ellipsoid.
+    vis = [(times[i], 100 if shown[i] or (i and shown[i - 1]) or (i + 1 < len(times) and shown[i + 1])
+            else 0, "hold") for i in range(len(times))]
+    vis = [k for i, k in enumerate(vis) if i == 0 or k[1] != vis[i - 1][1]] + [(frames, vis[-1][1])]
+    opacity = kf(*vis) if len(vis) > 2 else vis[0][1]
+    return scales, opacity
+
+
+def crosshair_view(sc, th, vi, vname, view, times, frames):
+    """One tile of the crosshair scene: ellipsoid cross-sections, crosshair,
+    orientation letters and (axial only) the dragging pointer."""
+    axis, (sxa, sxs), (sya, sys_), labels = view
+    T, k = 200, 1.25  # tile size, px per mm
+    cx, cy = 130 + vi * 230, 136
+    tile = sc.add(vname + " tile", ks=transform(p=(cx, cy)),
+                  shapes=[group(rect(T, T, 8), fill(th["tile"]))])
+    for (nm, c, r, fc, sc_) in ELLIPSOIDS:
+        scales, opacity = ellipsoid_tracks(axis, c, r, times, frames)
+        items = [ellipse(2 * r[sxa] * k, 2 * r[sya] * k)]
+        if sc_:
+            items.append(stroke(sc_, 2.5))
+        items.append(fill(fc))
+        sc.add(f"{vname} {nm}", parent=tile, shapes=[group(*items)],
+               ks=transform(p=(c[sxa] * sxs * k, c[sya] * sys_ * k), s=kf(*scales), o=opacity))
+    # Crosshair: vertical line follows screen-x, horizontal follows screen-y.
+    vx = [(t, [round(sweep((t % frames) / frames)[sxa] * sxs * k, 2), 0], "linear") for t in times]
+    hy = [(t, [0, round(sweep((t % frames) / frames)[sya] * sys_ * k, 2)], "linear") for t in times]
+    sc.add(vname + " v-line", parent=tile, ks=transform(p=kf(*vx)),
+           shapes=[group(rect(1.2, T - 2, 0), fill(th["red"], 90))])
+    sc.add(vname + " h-line", parent=tile, ks=transform(p=kf(*hy)),
+           shapes=[group(rect(T - 2, 1.2, 0), fill(th["red"], 90))])
+    for (x, y, letter) in ((-T / 2 + 10, 4, labels[0]), (T / 2 - 10, 4, labels[1]),
+                           (0, -T / 2 + 14, labels[2]), (0, T / 2 - 6, labels[3])):
+        sc.text(f"{vname} {letter}", letter, 10, th["red"], (x, y), j=2, font="MIQ-Semibold", parent=tile)
+    sc.text(vname + " name", vname, 12, th["soft"], (cx, cy + T / 2 + 22), j=2, font="MIQ-Semibold")
+    if vname == "Axial":
+        # A pointer drags the crosshair in the axial view.
+        arrow = path([(0, 0), (0, 17), (4.5, 13), (7.5, 20), (10, 19), (7, 12), (12.5, 12)])
+        sc.add("pointer", parent=tile, ks=transform(p=kf(*[(t, [vx[i][1][0], hy[i][1][1]], "linear")
+                                                            for i, t in enumerate(times)])),
+               shapes=[group(arrow, stroke("#000000", 1.2), fill("#ffffff"))])
+
+
 def scene_crosshair(th):
     frames = 300
     sc = Scene("MIQ crosshair", 720, 300, frames, poster=0)
     backdrop(sc, th)
-    T, k = 200, 1.25  # tile size, px per mm
     step = 5
     times = list(range(0, frames + 1, step))
-    for vi, (vname, (axis, (sxa, sxs), (sya, sys_), labels)) in enumerate(VIEWS.items()):
-        cx, cy = 130 + vi * 230, 136
-        tile = sc.add(vname + " tile", ks=transform(p=(cx, cy)),
-                      shapes=[group(rect(T, T, 8), fill(th["tile"]))])
-        for (nm, c, r, fc, sc_) in ELLIPSOIDS:
-            scales, shown = [], []
-            for t in times:
-                pos = sweep((t % frames) / frames)
-                d = (pos[axis] - c[axis]) / r[axis]
-                f = math.sqrt(max(0.0, 1 - d * d)) * 100
-                scales.append((t, [round(f, 2), round(f, 2)], "linear"))
-                shown.append(f > 0)
-            # A zero-size ellipse still rasterises as a dot, so also hide it
-            # (hold keyframes) while the slice misses this ellipsoid.
-            vis = [(times[i], 100 if shown[i] or (i and shown[i - 1]) or (i + 1 < len(times) and shown[i + 1])
-                    else 0, "hold") for i in range(len(times))]
-            vis = [k for i, k in enumerate(vis) if i == 0 or k[1] != vis[i - 1][1]] + [(frames, vis[-1][1])]
-            opacity = kf(*vis) if len(vis) > 2 else vis[0][1]
-            items = [ellipse(2 * r[sxa] * k, 2 * r[sya] * k)]
-            if sc_:
-                items.append(stroke(sc_, 2.5))
-            items.append(fill(fc))
-            sc.add(f"{vname} {nm}", parent=tile, shapes=[group(*items)],
-                   ks=transform(p=(c[sxa] * sxs * k, c[sya] * sys_ * k), s=kf(*scales), o=opacity))
-        # Crosshair: vertical line follows screen-x, horizontal follows screen-y.
-        vx = [(t, [round(sweep((t % frames) / frames)[sxa] * sxs * k, 2), 0], "linear") for t in times]
-        hy = [(t, [0, round(sweep((t % frames) / frames)[sya] * sys_ * k, 2)], "linear") for t in times]
-        sc.add(vname + " v-line", parent=tile, ks=transform(p=kf(*vx)),
-               shapes=[group(rect(1.2, T - 2, 0), fill(th["red"], 90))])
-        sc.add(vname + " h-line", parent=tile, ks=transform(p=kf(*hy)),
-               shapes=[group(rect(T - 2, 1.2, 0), fill(th["red"], 90))])
-        for (x, y, letter) in ((-T / 2 + 10, 4, labels[0]), (T / 2 - 10, 4, labels[1]),
-                               (0, -T / 2 + 14, labels[2]), (0, T / 2 - 6, labels[3])):
-            sc.text(f"{vname} {letter}", letter, 10, th["red"], (x, y), j=2, font="MIQ-Semibold", parent=tile)
-        sc.text(vname + " name", vname, 12, th["soft"], (cx, cy + T / 2 + 22), j=2, font="MIQ-Semibold")
-        if vname == "Axial":
-            # A pointer drags the crosshair in the axial view.
-            arrow = path([(0, 0), (0, 17), (4.5, 13), (7.5, 20), (10, 19), (7, 12), (12.5, 12)])
-            sc.add("pointer", parent=tile, ks=transform(p=kf(*[(t, [vx[i][1][0], hy[i][1][1]], "linear")
-                                                                for i, t in enumerate(times)])),
-                   shapes=[group(arrow, stroke("#000000", 1.2), fill("#ffffff"))])
+    for vi, (vname, view) in enumerate(VIEWS.items()):
+        crosshair_view(sc, th, vi, vname, view, times, frames)
     return sc
 
 
@@ -648,31 +662,38 @@ class SvgWriter:
                                f'stroke-linejoin="round"' + (f' stroke-opacity="{num(o)}"' if o < 1 else ""))
         return fill_attr + stroke_attr
 
+    @staticmethod
+    def _rect(it, paint):
+        (cx, cy), (w, h), r = it["p"]["k"], it["s"]["k"], it["r"]["k"]
+        rr = f' rx="{num(r)}"' if r else ""
+        return f'<rect x="{num(cx - w / 2)}" y="{num(cy - h / 2)}" width="{num(w)}" height="{num(h)}"{rr} {paint}/>'
+
+    @staticmethod
+    def _ellipse(it, paint):
+        (cx, cy), (w, h) = it["p"]["k"], it["s"]["k"]
+        return f'<ellipse cx="{num(cx)}" cy="{num(cy)}" rx="{num(w / 2)}" ry="{num(h / 2)}" {paint}/>'
+
+    @staticmethod
+    def _path(it, paint):
+        k = it["ks"]["k"]
+        v, ti, to = k["v"], k["i"], k["o"]
+        d = [f"M{num(v[0][0])} {num(v[0][1])}"]
+        segs = list(range(1, len(v))) + ([0] if k["c"] else [])
+        for j in segs:
+            a = j - 1 if j else len(v) - 1
+            c1 = (v[a][0] + to[a][0], v[a][1] + to[a][1])
+            c2 = (v[j][0] + ti[j][0], v[j][1] + ti[j][1])
+            if to[a] == [0, 0] and ti[j] == [0, 0]:
+                d.append(f"L{num(v[j][0])} {num(v[j][1])}")
+            else:
+                d.append("C" + " ".join(num(q) for q in (*c1, *c2, v[j][0], v[j][1])))
+        if k["c"]:
+            d.append("Z")
+        return f'<path d="{"".join(d)}" {paint}/>'
+
     def _geometry(self, it, paint):
-        if it["ty"] == "rc":
-            (cx, cy), (w, h), r = it["p"]["k"], it["s"]["k"], it["r"]["k"]
-            rr = f' rx="{num(r)}"' if r else ""
-            return f'<rect x="{num(cx - w / 2)}" y="{num(cy - h / 2)}" width="{num(w)}" height="{num(h)}"{rr} {paint}/>'
-        if it["ty"] == "el":
-            (cx, cy), (w, h) = it["p"]["k"], it["s"]["k"]
-            return f'<ellipse cx="{num(cx)}" cy="{num(cy)}" rx="{num(w / 2)}" ry="{num(h / 2)}" {paint}/>'
-        if it["ty"] == "sh":
-            k = it["ks"]["k"]
-            v, ti, to = k["v"], k["i"], k["o"]
-            d = [f"M{num(v[0][0])} {num(v[0][1])}"]
-            segs = list(range(1, len(v))) + ([0] if k["c"] else [])
-            for j in segs:
-                a = j - 1 if j else len(v) - 1
-                c1 = (v[a][0] + to[a][0], v[a][1] + to[a][1])
-                c2 = (v[j][0] + ti[j][0], v[j][1] + ti[j][1])
-                if to[a] == [0, 0] and ti[j] == [0, 0]:
-                    d.append(f"L{num(v[j][0])} {num(v[j][1])}")
-                else:
-                    d.append("C" + " ".join(num(q) for q in (*c1, *c2, v[j][0], v[j][1])))
-            if k["c"]:
-                d.append("Z")
-            return f'<path d="{"".join(d)}" {paint}/>'
-        return ""
+        draw = {"rc": self._rect, "el": self._ellipse, "sh": self._path}.get(it["ty"])
+        return draw(it, paint) if draw else ""
 
     def _group(self, g):
         items = g["it"]

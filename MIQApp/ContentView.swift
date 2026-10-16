@@ -1605,9 +1605,11 @@ struct ContentView: View {
                 entries: sampleMetadata.entries,
                 order: metadataOrder.fields,
                 isVisible: { metadataVisibility.isVisible($0) },
-                isFourD: false,
-                showsValue: false,
-                staticValueText: sampleMetadata.centreValue
+                liveRows: MetadataPanelText.LiveRows(
+                    isFourD: false,
+                    showsValue: false,
+                    staticValueText: sampleMetadata.centreValue
+                )
             )
             let labelColumnX = MetadataPanelText.labelColumnOrigin(
                 for: layout.rows.map(\.label),

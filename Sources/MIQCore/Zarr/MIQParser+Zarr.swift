@@ -186,9 +186,12 @@ extension MIQParser {
             orientationFrame = nifti.orientationFrame
         }
 
-        let flavor: ZarrFlavor = store.niftiHeaderBytes != nil
-            ? .niftiZarr
-            : (store.hasMultiscales ? .omeZarr : .plainZarr)
+        let flavor: ZarrFlavor
+        if store.niftiHeaderBytes != nil {
+            flavor = .niftiZarr
+        } else {
+            flavor = store.hasMultiscales ? .omeZarr : .plainZarr
+        }
         var label: String
         switch flavor {
         case .niftiZarr: label = "NIfTI-Zarr"

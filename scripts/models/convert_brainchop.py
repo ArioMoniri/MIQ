@@ -120,49 +120,59 @@ def cmd_tiny(out_dir):
     print(f"wrote {out_dir}/model.json and tiny.bin")
 
 
+def _activation(x, name):
+    """Applies a Keras activation by name (softmax is left to the caller)."""
+    import numpy as np  # optional dependency
+    if name in ("linear", "softmax", None):
+        return x
+    if name == "relu":
+        return np.maximum(x, 0)
+    if name == "elu":
+        return np.where(x > 0, x, np.expm1(np.minimum(x, 0)))
+    if name == "gelu":
+        erf = np.vectorize(math.erf, otypes=[np.float32])
+        return 0.5 * x * (1 + erf(x / math.sqrt(2)))
+    raise SystemExit(f"activation {name} not handled")
+
+
+def _conv3d(x, c, w_arr):
+    """'same'-padded dilated Conv3D of ``x`` (D, H, W, Cin) with layer config ``c``,
+    plus bias and, for ``*_gn`` layers, per-channel normalisation (before activation)."""
+    import numpy as np  # optional dependency
+    k = w_arr[c["name"] + "/kernel"]
+    kd, kh, kw, _, cout = k.shape
+    dil = c.get("dilation_rate", [1, 1, 1])
+    pads = [(dil[i] * (k.shape[i] // 2),) * 2 for i in range(3)]
+    xp = np.pad(x, pads + [(0, 0)])
+    y = np.zeros(x.shape[:3] + (cout,), dtype=np.float32)
+    for a in range(kd):
+        for b in range(kh):
+            for e in range(kw):
+                sa, sb, se = a * dil[0], b * dil[1], e * dil[2]
+                patch = xp[sa:sa + x.shape[0], sb:sb + x.shape[1], se:se + x.shape[2], :]
+                y += patch @ k[a, b, e]
+    if c.get("use_bias", True):
+        y += w_arr[c["name"] + "/bias"]
+    if c["name"].endswith("_gn"):
+        mean = y.mean(axis=(0, 1, 2), dtype=np.float64)
+        var = y.var(axis=(0, 1, 2), dtype=np.float64)
+        y = ((y - mean) / np.sqrt(var + 1e-5)).astype(np.float32)
+    return y
+
+
 def cmd_reference(model_path, in_path, d, h, w, out_path):
     import numpy as np  # optional dependency
     model, weights = _read_weights(model_path)
     w_arr = {k: np.frombuffer(b, dtype="<f4").reshape(s) for k, (s, b) in weights.items()}
     x = np.fromfile(in_path, dtype="<f4").reshape(d, h, w, 1)
 
-    def act(x, name):
-        if name in ("linear", "softmax", None):
-            return x
-        if name == "relu":
-            return np.maximum(x, 0)
-        if name == "elu":
-            return np.where(x > 0, x, np.expm1(np.minimum(x, 0)))
-        if name == "gelu":
-            erf = np.vectorize(math.erf, otypes=[np.float32])
-            return 0.5 * x * (1 + erf(x / math.sqrt(2)))
-        raise SystemExit(f"activation {name} not handled")
-
     for layer in _layers(model):
         c = layer["config"]
         kind = layer["class_name"]
         if kind == "Conv3D":
-            k = w_arr[c["name"] + "/kernel"]
-            kd, kh, kw, cin, cout = k.shape
-            dil = c.get("dilation_rate", [1, 1, 1])
-            pads = [(dil[i] * (k.shape[i] // 2),) * 2 for i in range(3)]
-            xp = np.pad(x, pads + [(0, 0)])
-            y = np.zeros(x.shape[:3] + (cout,), dtype=np.float32)
-            for a in range(kd):
-                for b in range(kh):
-                    for e in range(kw):
-                        sa, sb, se = a * dil[0], b * dil[1], e * dil[2]
-                        patch = xp[sa:sa + x.shape[0], sb:sb + x.shape[1], se:se + x.shape[2], :]
-                        y += patch @ k[a, b, e]
-            if c.get("use_bias", True):
-                y += w_arr[c["name"] + "/bias"]
-            if c["name"].endswith("_gn"):
-                mean = y.mean(axis=(0, 1, 2), dtype=np.float64)
-                var = y.var(axis=(0, 1, 2), dtype=np.float64)
-                y = ((y - mean) / np.sqrt(var + 1e-5)).astype(np.float32)
-            x = act(y, c.get("activation"))
+            x = _activation(_conv3d(x, c, w_arr), c.get("activation"))
         elif kind == "Activation":
-            x = act(x, c["activation"])
+            x = _activation(x, c["activation"])
         elif kind in ("InputLayer", "Dropout"):
             continue
         else:

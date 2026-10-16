@@ -116,6 +116,59 @@ def diff_block(title: str, items: list[str]) -> str:
     return title + "\n" + "\n".join(f"    {line}" for line in items)
 
 
+def check_extension_claims(name: str, types: list[str], declared: dict[str, list[str]],
+                           errors: list[str]) -> None:
+    """Checks 2 and 3 for one extension, plus empty / duplicate claim lists."""
+    rel = EXTENSION_PLISTS[name]
+    if not types:
+        errors.append(f"{rel}: QLSupportedContentTypes is empty or missing")
+    duplicates = sorted({t for t in types if types.count(t) > 1})
+    if duplicates:
+        errors.append(diff_block(f"{rel}: duplicate QLSupportedContentTypes entries:", duplicates))
+
+    # 2. Claimed but undeclared.
+    for uti in sorted(set(types) & set(THIRD_PARTY_UTIS)):
+        print(f"note: {name} extension claims third-party UTI {uti} ({THIRD_PARTY_UTIS[uti]})")
+    undeclared = sorted(set(types) - set(declared) - set(SYSTEM_UTIS) - set(THIRD_PARTY_UTIS))
+    if undeclared:
+        errors.append(diff_block(
+            f"{rel}: claims UTIs that {APP_PLIST} does not declare and that are not "
+            f"allowlisted (declare them in UTImportedTypeDeclarations, or add a "
+            f"justified entry to SYSTEM_UTIS / THIRD_PARTY_UTIS):",
+            [f"+ {uti}" for uti in undeclared]))
+
+    # 3. Declared but not claimed.
+    unclaimed = sorted(set(declared) - set(types))
+    if unclaimed:
+        errors.append(diff_block(
+            f"{rel}: does not claim UTIs declared by {APP_PLIST}:",
+            [f"- {uti}" for uti in unclaimed]))
+
+
+def check_preview_matches_thumbnail(claims: dict[str, list[str]], errors: list[str]) -> None:
+    """Check 4: the preview and thumbnail extensions claim the same UTIs."""
+    preview, thumbnail = set(claims["preview"]), set(claims["thumbnail"])
+    if preview != thumbnail:
+        lines = [f"- {uti}  (preview only)" for uti in sorted(preview - thumbnail)]
+        lines += [f"+ {uti}  (thumbnail only)" for uti in sorted(thumbnail - preview)]
+        errors.append(diff_block("preview and thumbnail QLSupportedContentTypes differ:", lines))
+
+
+def check_filename_tags(declared: dict[str, list[str]], errors: list[str]) -> None:
+    """Check 5: every declared UTI has a filename extension, none shared."""
+    owner: dict[str, str] = {}
+    for uti, tags in sorted(declared.items()):
+        if not tags and uti not in TAGLESS_UTIS:
+            errors.append(f"{APP_PLIST}: {uti} declares no public.filename-extension")
+        for tag in tags:
+            tag_key = tag.lower().lstrip(".")
+            if tag_key in owner:
+                errors.append(f"{APP_PLIST}: filename extension '{tag}' declared by both "
+                              f"{owner[tag_key]} and {uti}")
+            else:
+                owner[tag_key] = uti
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=Path(__file__).resolve().parent.parent, type=Path,
@@ -144,50 +197,9 @@ def main() -> int:
         print(f"{name} extension claims {len(types)} UTI(s)")
 
     for name, types in claims.items():
-        rel = EXTENSION_PLISTS[name]
-        if not types:
-            errors.append(f"{rel}: QLSupportedContentTypes is empty or missing")
-        duplicates = sorted({t for t in types if types.count(t) > 1})
-        if duplicates:
-            errors.append(diff_block(f"{rel}: duplicate QLSupportedContentTypes entries:", duplicates))
-
-        # 2. Claimed but undeclared.
-        for uti in sorted(set(types) & set(THIRD_PARTY_UTIS)):
-            print(f"note: {name} extension claims third-party UTI {uti} ({THIRD_PARTY_UTIS[uti]})")
-        undeclared = sorted(set(types) - set(declared) - set(SYSTEM_UTIS) - set(THIRD_PARTY_UTIS))
-        if undeclared:
-            errors.append(diff_block(
-                f"{rel}: claims UTIs that {APP_PLIST} does not declare and that are not "
-                f"allowlisted (declare them in UTImportedTypeDeclarations, or add a "
-                f"justified entry to SYSTEM_UTIS / THIRD_PARTY_UTIS):",
-                [f"+ {uti}" for uti in undeclared]))
-
-        # 3. Declared but not claimed.
-        unclaimed = sorted(set(declared) - set(types))
-        if unclaimed:
-            errors.append(diff_block(
-                f"{rel}: does not claim UTIs declared by {APP_PLIST}:",
-                [f"- {uti}" for uti in unclaimed]))
-
-    # 4. Preview vs thumbnail.
-    preview, thumbnail = set(claims["preview"]), set(claims["thumbnail"])
-    if preview != thumbnail:
-        lines = [f"- {uti}  (preview only)" for uti in sorted(preview - thumbnail)]
-        lines += [f"+ {uti}  (thumbnail only)" for uti in sorted(thumbnail - preview)]
-        errors.append(diff_block("preview and thumbnail QLSupportedContentTypes differ:", lines))
-
-    # 5. Filename-extension tags.
-    owner: dict[str, str] = {}
-    for uti, tags in sorted(declared.items()):
-        if not tags and uti not in TAGLESS_UTIS:
-            errors.append(f"{APP_PLIST}: {uti} declares no public.filename-extension")
-        for tag in tags:
-            tag_key = tag.lower().lstrip(".")
-            if tag_key in owner:
-                errors.append(f"{APP_PLIST}: filename extension '{tag}' declared by both "
-                              f"{owner[tag_key]} and {uti}")
-            else:
-                owner[tag_key] = uti
+        check_extension_claims(name, types, declared, errors)
+    check_preview_matches_thumbnail(claims, errors)
+    check_filename_tags(declared, errors)
 
     return report(errors)
 

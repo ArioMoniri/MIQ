@@ -39,6 +39,8 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
     /// "mghDirectionCosines", "nrrdSpaceDirections"), or `nil` with `orientation`.
     public let orientationSource: String?
 
+    /// `orientation` pairs the three-letter code with the header field it came
+    /// from; both are absent together.
     public init(
         format: String,
         dimensions: [Int],
@@ -46,8 +48,7 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
         voxelSpacing: [Double],
         spacingUnit: String?,
         datatype: String,
-        orientation: String?,
-        orientationSource: String?
+        orientation: (code: String, source: String)?
     ) {
         self.format = format
         self.dimensions = dimensions
@@ -55,8 +56,8 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
         self.voxelSpacing = voxelSpacing
         self.spacingUnit = spacingUnit
         self.datatype = datatype
-        self.orientation = orientation
-        self.orientationSource = orientationSource
+        self.orientation = orientation?.code
+        self.orientationSource = orientation?.source
     }
 
     /// Summarises an already-parsed header. `spacingUnit` is passed in because
@@ -73,8 +74,7 @@ public struct VolumeSummary: Sendable, Hashable, Codable {
             voxelSpacing: spacing,
             spacingUnit: spacingUnit,
             datatype: header.datatypeLabel ?? header.datatype.label,
-            orientation: header.orientationFrame.map { $0.axes.map(\.letter).joined() },
-            orientationSource: header.orientationFrame?.source.rawValue
+            orientation: header.orientationFrame.map { ($0.axes.map(\.letter).joined(), $0.source.rawValue) }
         )
     }
 

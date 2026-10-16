@@ -257,11 +257,11 @@ private enum SequenceCodes {
         1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1,
     ]
 
-    // swiftlint:disable force_try
-    static let literalTable = try! FSETable.build(probabilities: literalDefault, accuracyLog: 6)
-    static let matchTable = try! FSETable.build(probabilities: matchDefault, accuracyLog: 6)
-    static let offsetTable = try! FSETable.build(probabilities: offsetDefault, accuracyLog: 5)
-    // swiftlint:enable force_try
+    // The predefined distributions are valid by construction, so these always
+    // succeed; keeping the `Result` lets a failure surface as a decode error.
+    static let literalTable = Result { try FSETable.build(probabilities: literalDefault, accuracyLog: 6) }
+    static let matchTable = Result { try FSETable.build(probabilities: matchDefault, accuracyLog: 6) }
+    static let offsetTable = Result { try FSETable.build(probabilities: offsetDefault, accuracyLog: 5) }
 }
 
 // MARK: - Stream decoder
@@ -353,7 +353,12 @@ private struct ZstdStream {
             throw MIQError.unsupportedFeature("Zstandard data compressed with a dictionary isn't supported")
         }
         ip += dictionaryBytes
-        let sizeBytes = contentSizeFlag == 0 ? (singleSegment ? 1 : 0) : [0, 2, 4, 8][contentSizeFlag]
+        let sizeBytes: Int
+        if contentSizeFlag == 0 {
+            sizeBytes = singleSegment ? 1 : 0
+        } else {
+            sizeBytes = [0, 2, 4, 8][contentSizeFlag]
+        }
         guard inputCount - ip >= sizeBytes else { throw MIQError.truncatedData }
         var contentSize: UInt64?
         if sizeBytes > 0 {
@@ -470,10 +475,11 @@ private struct ZstdStream {
     }
 
     private func sequenceTable(mode: Int, at ip: inout Int, end: Int, previous: FSETable?,
-                               predefined: FSETable, maxLog: Int, maxSymbol: Int) throws -> FSETable {
+                               predefined: Result<FSETable, any Error>, maxLog: Int,
+                               maxSymbol: Int) throws -> FSETable {
         switch mode {
         case 0:
-            return predefined
+            return try predefined.get()
         case 1:
             guard ip < end else { throw MIQError.truncatedData }
             let symbol = input![ip]
@@ -500,100 +506,130 @@ private struct ZstdStream {
         position += count
     }
 
+    /// Mutable state threaded through the sequence-execution loop.
+    private struct SequenceCursor {
+        var reader: BackwardBitReader
+        var llState: Int
+        var ofState: Int
+        var mlState: Int
+        var literalPosition = 0
+        var rep1: Int
+        var rep2: Int
+        var rep3: Int
+        var position: Int
+    }
+
+    /// Fixed bounds for one block's sequence execution.
+    private struct SequenceLimits {
+        let count: Int
+        let literalCount: Int
+        let frameStart: Int
+        let capacity: Int
+        let output: UnsafeMutablePointer<UInt8>?
+    }
+
     private mutating func executeSequences(count: Int, bitstreamStart: Int, end: Int, literalCount: Int,
                                            ll: FSETable, of: FSETable, ml: FSETable) throws {
         var reader = try BackwardBitReader(input! + bitstreamStart, count: end - bitstreamStart)
-        var llState = Int(reader.read(ll.accuracyLog))
-        var ofState = Int(reader.read(of.accuracyLog))
-        var mlState = Int(reader.read(ml.accuracyLog))
+        let llState = Int(reader.read(ll.accuracyLog))
+        let ofState = Int(reader.read(of.accuracyLog))
+        let mlState = Int(reader.read(ml.accuracyLog))
         guard reader.position >= 0 else { throw MIQError.truncatedData }
 
-        var literalPosition = 0
-        var (rep1, rep2, rep3) = repeats
-        let frameStart = self.frameStart
-        let capacity = self.capacity
-        var position = self.position
-        let output = self.output
+        let (rep1, rep2, rep3) = repeats
+        var cursor = SequenceCursor(reader: reader, llState: llState, ofState: ofState, mlState: mlState,
+                                    rep1: rep1, rep2: rep2, rep3: rep3, position: position)
+        let limits = SequenceLimits(count: count, literalCount: literalCount, frameStart: frameStart,
+                                    capacity: capacity, output: output)
 
         try literals.withUnsafeBufferPointer { lit in
             try ll.entries.withUnsafeBufferPointer { llT in
-                try of.entries.withUnsafeBufferPointer { ofT in
-                    try ml.entries.withUnsafeBufferPointer { mlT in
-                        for i in 0..<count {
-                            let llEntry = llT[llState]
-                            let ofEntry = ofT[ofState]
-                            let mlEntry = mlT[mlState]
-                            let ofCode = FSETable.symbol(ofEntry)
-                            let mlCode = FSETable.symbol(mlEntry)
-                            let llCode = FSETable.symbol(llEntry)
+                try Self.runSequences(&cursor, limits: limits, lit: lit, llT: llT, of: of, ml: ml)
+            }
+        }
+        position = cursor.position
+        repeats = (cursor.rep1, cursor.rep2, cursor.rep3)
+        guard cursor.reader.position == 0 else { throw ZstdDecoder.corrupt("sequence bitstream not fully consumed") }
+        try emitLiterals(from: cursor.literalPosition, count: literalCount - cursor.literalPosition)
+    }
 
-                            let offsetValue = (1 << ofCode) + Int(reader.read(ofCode))
-                            let matchLength = Int(SequenceCodes.matchBase[mlCode])
-                                + Int(reader.read(Int(SequenceCodes.matchBits[mlCode])))
-                            let literalLength = Int(SequenceCodes.literalBase[llCode])
-                                + Int(reader.read(Int(SequenceCodes.literalBits[llCode])))
+    /// The hot loop of `executeSequences`: decodes each sequence's codes, updates
+    /// the repeat offsets, and copies its literals and match into the output.
+    @inline(__always)
+    private static func runSequences(_ cursor: inout SequenceCursor, limits: SequenceLimits,
+                                     lit: UnsafeBufferPointer<UInt8>, llT: UnsafeBufferPointer<UInt32>,
+                                     of: FSETable, ml: FSETable) throws {
+        try of.entries.withUnsafeBufferPointer { ofT in
+            try ml.entries.withUnsafeBufferPointer { mlT in
+                for i in 0..<limits.count {
+                    let llEntry = llT[cursor.llState]
+                    let ofEntry = ofT[cursor.ofState]
+                    let mlEntry = mlT[cursor.mlState]
+                    let ofCode = FSETable.symbol(ofEntry)
+                    let mlCode = FSETable.symbol(mlEntry)
+                    let llCode = FSETable.symbol(llEntry)
 
-                            var offset: Int
-                            if offsetValue > 3 {
-                                offset = offsetValue - 3
-                                rep3 = rep2
-                                rep2 = rep1
-                                rep1 = offset
-                            } else {
-                                let index = offsetValue - 1 + (literalLength == 0 ? 1 : 0)
-                                switch index {
-                                case 0:
-                                    offset = rep1
-                                case 1:
-                                    offset = rep2
-                                    rep2 = rep1
-                                    rep1 = offset
-                                case 2:
-                                    offset = rep3
-                                    rep3 = rep2
-                                    rep2 = rep1
-                                    rep1 = offset
-                                default:
-                                    offset = rep1 - 1
-                                    rep3 = rep2
-                                    rep2 = rep1
-                                    rep1 = offset
-                                }
-                            }
+                    let offsetValue = (1 << ofCode) + Int(cursor.reader.read(ofCode))
+                    let matchLength = Int(SequenceCodes.matchBase[mlCode])
+                        + Int(cursor.reader.read(Int(SequenceCodes.matchBits[mlCode])))
+                    let literalLength = Int(SequenceCodes.literalBase[llCode])
+                        + Int(cursor.reader.read(Int(SequenceCodes.literalBits[llCode])))
 
-                            if i != count - 1 {
-                                llState = FSETable.base(llEntry) + Int(reader.read(FSETable.bitCount(llEntry)))
-                                mlState = FSETable.base(mlEntry) + Int(reader.read(FSETable.bitCount(mlEntry)))
-                                ofState = FSETable.base(ofEntry) + Int(reader.read(FSETable.bitCount(ofEntry)))
-                            }
-                            guard reader.position >= 0 else { throw MIQError.truncatedData }
-
-                            guard literalLength <= literalCount - literalPosition else {
-                                throw ZstdDecoder.corrupt("sequence uses more literals than decoded")
-                            }
-                            guard literalLength + matchLength <= capacity - position else {
-                                throw MIQError.malformedFile("Zstandard data decodes to more than the expected \(capacity) bytes")
-                            }
-                            guard offset > 0, offset <= position + literalLength - frameStart else {
-                                throw ZstdDecoder.corrupt("match offset reaches before the frame")
-                            }
-                            let out = output!
-                            if literalLength > 0 {
-                                (out + position).update(from: lit.baseAddress! + literalPosition, count: literalLength)
-                                position += literalLength
-                                literalPosition += literalLength
-                            }
-                            LZ4Decoder.copyMatch(out, at: position, offset: offset, length: matchLength)
-                            position += matchLength
+                    var offset: Int
+                    if offsetValue > 3 {
+                        offset = offsetValue - 3
+                        cursor.rep3 = cursor.rep2
+                        cursor.rep2 = cursor.rep1
+                        cursor.rep1 = offset
+                    } else {
+                        let index = offsetValue - 1 + (literalLength == 0 ? 1 : 0)
+                        switch index {
+                        case 0:
+                            offset = cursor.rep1
+                        case 1:
+                            offset = cursor.rep2
+                            cursor.rep2 = cursor.rep1
+                            cursor.rep1 = offset
+                        case 2:
+                            offset = cursor.rep3
+                            cursor.rep3 = cursor.rep2
+                            cursor.rep2 = cursor.rep1
+                            cursor.rep1 = offset
+                        default:
+                            offset = cursor.rep1 - 1
+                            cursor.rep3 = cursor.rep2
+                            cursor.rep2 = cursor.rep1
+                            cursor.rep1 = offset
                         }
                     }
+
+                    if i != limits.count - 1 {
+                        cursor.llState = FSETable.base(llEntry) + Int(cursor.reader.read(FSETable.bitCount(llEntry)))
+                        cursor.mlState = FSETable.base(mlEntry) + Int(cursor.reader.read(FSETable.bitCount(mlEntry)))
+                        cursor.ofState = FSETable.base(ofEntry) + Int(cursor.reader.read(FSETable.bitCount(ofEntry)))
+                    }
+                    guard cursor.reader.position >= 0 else { throw MIQError.truncatedData }
+
+                    guard literalLength <= limits.literalCount - cursor.literalPosition else {
+                        throw ZstdDecoder.corrupt("sequence uses more literals than decoded")
+                    }
+                    guard literalLength + matchLength <= limits.capacity - cursor.position else {
+                        throw MIQError.malformedFile("Zstandard data decodes to more than the expected \(limits.capacity) bytes")
+                    }
+                    guard offset > 0, offset <= cursor.position + literalLength - limits.frameStart else {
+                        throw ZstdDecoder.corrupt("match offset reaches before the frame")
+                    }
+                    let out = limits.output!
+                    if literalLength > 0 {
+                        (out + cursor.position).update(from: lit.baseAddress! + cursor.literalPosition, count: literalLength)
+                        cursor.position += literalLength
+                        cursor.literalPosition += literalLength
+                    }
+                    LZ4Decoder.copyMatch(out, at: cursor.position, offset: offset, length: matchLength)
+                    cursor.position += matchLength
                 }
             }
         }
-        self.position = position
-        repeats = (rep1, rep2, rep3)
-        guard reader.position == 0 else { throw ZstdDecoder.corrupt("sequence bitstream not fully consumed") }
-        try emitLiterals(from: literalPosition, count: literalCount - literalPosition)
     }
 
     // MARK: Literals

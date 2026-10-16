@@ -24,28 +24,56 @@ public struct NiftiGeometry: Sendable, Equatable {
     /// Spatial unit written to `xyzt_units` (the temporal bits are left 0).
     public var spatialUnit: MIQSpatialUnit
 
+    /// The qform part of the header: code, quaternion b, c, d and offsets x, y, z.
+    public struct QForm: Sendable, Equatable {
+        public var code: Int
+        public var quatern: [Float]
+        public var offset: [Float]
+
+        public init(code: Int = 0, quatern: [Float] = [0, 0, 0], offset: [Float] = [0, 0, 0]) {
+            self.code = code
+            self.quatern = quatern
+            self.offset = offset
+        }
+    }
+
+    /// The sform part of the header: code and the three affine rows.
+    public struct SForm: Sendable, Equatable {
+        public var code: Int
+        public var rowX: [Float]
+        public var rowY: [Float]
+        public var rowZ: [Float]
+
+        public init(
+            code: Int = 0,
+            rowX: [Float] = [0, 0, 0, 0],
+            rowY: [Float] = [0, 0, 0, 0],
+            rowZ: [Float] = [0, 0, 0, 0]
+        ) {
+            self.code = code
+            self.rowX = rowX
+            self.rowY = rowY
+            self.rowZ = rowZ
+        }
+    }
+
     public init(
         pixdim: [Float] = [1, 1, 1, 1],
-        qformCode: Int = 0,
-        quatern: [Float] = [0, 0, 0],
-        qoffset: [Float] = [0, 0, 0],
-        sformCode: Int = 0,
-        srowX: [Float] = [0, 0, 0, 0],
-        srowY: [Float] = [0, 0, 0, 0],
-        srowZ: [Float] = [0, 0, 0, 0],
+        qform: QForm = QForm(),
+        sform: SForm = SForm(),
         spatialUnit: MIQSpatialUnit = .millimeter
     ) {
         func padded(_ v: [Float], _ n: Int, _ fill: Float) -> [Float] {
             (0..<n).map { v[safe: $0] ?? fill }
         }
         self.pixdim = padded(pixdim, 4, 1)
-        self.qformCode = qformCode
-        self.quatern = padded(quatern, 3, 0)
-        self.qoffset = padded(qoffset, 3, 0)
-        self.sformCode = sformCode
-        self.srowX = padded(srowX, 4, 0)
-        self.srowY = padded(srowY, 4, 0)
-        self.srowZ = padded(srowZ, 4, 0)
+        self.qformCode = qform.code
+        self.quatern = padded(qform.quatern, 3, 0)
+        self.qoffset = padded(qform.offset, 3, 0)
+        self.sformCode = sform.code
+        self.srowX = padded(sform.rowX, 4, 0)
+        self.srowY = padded(sform.rowY, 4, 0)
+        self.srowZ = padded(sform.rowZ, 4, 0)
         self.spatialUnit = spatialUnit
     }
 
@@ -57,13 +85,17 @@ public struct NiftiGeometry: Sendable, Equatable {
         let m = affine.rows
         self.init(
             pixdim: [q.qfac, q.spacing[0], q.spacing[1], q.spacing[2]],
-            qformCode: code,
-            quatern: [q.b, q.c, q.d],
-            qoffset: [Float(m[0][3]), Float(m[1][3]), Float(m[2][3])],
-            sformCode: code,
-            srowX: m[0].map { Float($0) },
-            srowY: m[1].map { Float($0) },
-            srowZ: m[2].map { Float($0) },
+            qform: QForm(
+                code: code,
+                quatern: [q.b, q.c, q.d],
+                offset: [Float(m[0][3]), Float(m[1][3]), Float(m[2][3])]
+            ),
+            sform: SForm(
+                code: code,
+                rowX: m[0].map { Float($0) },
+                rowY: m[1].map { Float($0) },
+                rowZ: m[2].map { Float($0) }
+            ),
             spatialUnit: spatialUnit
         )
     }
@@ -84,13 +116,12 @@ public struct NiftiGeometry: Sendable, Equatable {
         if let raw = NIfTIRawFields(image: volume.image) {
             self.init(
                 pixdim: [Float(raw.qfac)] + spacing,
-                qformCode: raw.qformCode,
-                quatern: [Float(raw.quaternB), Float(raw.quaternC), Float(raw.quaternD)],
-                qoffset: [Float(raw.qoffset.0), Float(raw.qoffset.1), Float(raw.qoffset.2)],
-                sformCode: header.sformCode,
-                srowX: header.srowX,
-                srowY: header.srowY,
-                srowZ: header.srowZ,
+                qform: QForm(
+                    code: raw.qformCode,
+                    quatern: [Float(raw.quaternB), Float(raw.quaternC), Float(raw.quaternD)],
+                    offset: [Float(raw.qoffset.0), Float(raw.qoffset.1), Float(raw.qoffset.2)]
+                ),
+                sform: SForm(code: header.sformCode, rowX: header.srowX, rowY: header.srowY, rowZ: header.srowZ),
                 spatialUnit: header.acquisition.spatialUnit ?? .millimeter
             )
             return
@@ -115,7 +146,11 @@ public struct NiftiGeometry: Sendable, Equatable {
             let usable = n.isFinite && n > 0
             spacing[c] = usable ? n : 1
             for row in 0..<3 {
-                r[row][c] = usable ? m[row][c] / n : (row == c ? 1 : 0)
+                if usable {
+                    r[row][c] = m[row][c] / n
+                } else {
+                    r[row][c] = row == c ? 1 : 0
+                }
             }
         }
         let det = r[0][0] * (r[1][1] * r[2][2] - r[1][2] * r[2][1])
@@ -127,7 +162,9 @@ public struct NiftiGeometry: Sendable, Equatable {
             for row in 0..<3 { r[row][2] = -r[row][2] }
         }
         var a = r[0][0] + r[1][1] + r[2][2] + 1
-        var b: Double, c: Double, d: Double
+        var b: Double
+        var c: Double
+        var d: Double
         if a > 0.5 {
             a = 0.5 * a.squareRoot()
             b = 0.25 * (r[2][1] - r[1][2]) / a
@@ -184,6 +221,19 @@ public enum NiftiWriter {
             case .dimensionTooLarge: return "The volume is too large for a NIfTI-1 file."
             case .compressionFailed(let status): return "Compressing the file failed (zlib status \(status))."
             }
+        }
+    }
+
+    /// Free-text and display fields stamped into the header by `writeUInt8`.
+    public struct Annotations: Sendable, Equatable {
+        /// Written to `descrip` (ASCII, truncated to 79 bytes).
+        public var description: String
+        /// `cal_min`/`cal_max` display range; `0...1` suits a binary mask.
+        public var calibration: ClosedRange<Float>?
+
+        public init(description: String = "", calibration: ClosedRange<Float>? = 0...1) {
+            self.description = description
+            self.calibration = calibration
         }
     }
 
@@ -253,17 +303,18 @@ public enum NiftiWriter {
 
     /// Encodes and writes `voxels` to `url`, gzip-compressed when the path ends in
     /// `.gz` (e.g. `sub-01_desc-brain_mask.nii.gz`). Written atomically.
+    /// `annotations` carries the `descrip` text and `cal_min`/`cal_max` range,
+    /// as for `encodeUInt8`.
     public static func writeUInt8(
         _ voxels: [UInt8],
         width: Int, height: Int, depth: Int,
         geometry: NiftiGeometry,
         to url: URL,
-        description: String = "",
-        calibration: ClosedRange<Float>? = 0...1
+        annotations: Annotations = Annotations()
     ) throws {
         var data = try encodeUInt8(
             voxels, width: width, height: height, depth: depth,
-            geometry: geometry, description: description, calibration: calibration
+            geometry: geometry, description: annotations.description, calibration: annotations.calibration
         )
         if url.pathExtension.lowercased() == "gz" {
             data = try gzip(data)

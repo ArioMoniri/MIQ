@@ -1450,20 +1450,20 @@ public struct MIQVolume: Sendable {
                             let o = yzOff + xOffsets[x]
                             if let background {
                                 if v <= background {
-                                    if seenForeground[o], !(pendingFloor[o] <= v) { pendingFloor[o] = v }
+                                    if seenForeground[o], pendingFloor[o].isNaN || pendingFloor[o] > v { pendingFloor[o] = v }
                                     continue
                                 }
                                 let pending = pendingFloor[o]
                                 if !pending.isNaN {
-                                    if !(acc[o] <= pending) { acc[o] = pending }
+                                    if acc[o].isNaN || acc[o] > pending { acc[o] = pending }
                                     pendingFloor[o] = .nan
                                 }
                                 seenForeground[o] = true
                             }
                             let current = acc[o]
-                            // NaN-safe: an untouched (NaN) pixel fails both
-                            // comparisons, so the first finite voxel always lands.
-                            if isMax ? !(current >= v) : !(current <= v) {
+                            // NaN-safe: an untouched (NaN) pixel is replaced
+                            // explicitly, so the first finite voxel always lands.
+                            if current.isNaN || (isMax ? current < v : current > v) {
                                 acc[o] = v
                             }
                         }

@@ -53,29 +53,44 @@ struct ZarrChunkReader {
             let origin = (0..<rank).map { grid[$0] * chunk[$0] }
             let counts = (0..<rank).map { Swift.min(chunk[$0], extents[$0] - origin[$0]) }
             let dstBase = (0..<rank).reduce(0) { $0 + origin[$1] * outputStrides[$1] }
-            let last = rank - 1
-            let runIsContiguous = localStrides[last] == 1 && outputStrides[last] == 1
 
             bytes.withUnsafeBytes { src in
-                // Odometer over every axis except the innermost, which is a run.
-                let outer = Array(counts.dropLast())
-                forEachIndexNoThrow(outer) { local in
-                    var srcIndex = 0
-                    var dstIndex = dstBase
-                    for d in 0..<local.count {
-                        srcIndex += local[d] * localStrides[d]
-                        dstIndex += local[d] * outputStrides[d]
-                    }
-                    let run = counts[last]
-                    if runIsContiguous {
-                        (output.baseAddress! + dstIndex * elementSize)
-                            .copyMemory(from: src.baseAddress! + srcIndex * elementSize, byteCount: run * elementSize)
-                    } else {
-                        for i in 0..<run {
-                            (output.baseAddress! + (dstIndex + i * outputStrides[last]) * elementSize)
-                                .copyMemory(from: src.baseAddress! + (srcIndex + i * localStrides[last]) * elementSize, byteCount: elementSize)
-                        }
-                    }
+                Self.copyChunk(src, into: output, counts: counts, dstBase: dstBase,
+                               localStrides: localStrides, outputStrides: outputStrides, elementSize: elementSize)
+            }
+        }
+    }
+
+    /// Copies the `counts`-sized corner of one decoded chunk (`src`, laid out with
+    /// `localStrides`) into `output` at element offset `dstBase`.
+    private static func copyChunk(
+        _ src: UnsafeRawBufferPointer,
+        into output: UnsafeMutableRawBufferPointer,
+        counts: [Int],
+        dstBase: Int,
+        localStrides: [Int],
+        outputStrides: [Int],
+        elementSize: Int
+    ) {
+        let last = counts.count - 1
+        let runIsContiguous = localStrides[last] == 1 && outputStrides[last] == 1
+        // Odometer over every axis except the innermost, which is a run.
+        let outer = Array(counts.dropLast())
+        forEachIndexNoThrow(outer) { local in
+            var srcIndex = 0
+            var dstIndex = dstBase
+            for d in 0..<local.count {
+                srcIndex += local[d] * localStrides[d]
+                dstIndex += local[d] * outputStrides[d]
+            }
+            let run = counts[last]
+            if runIsContiguous {
+                (output.baseAddress! + dstIndex * elementSize)
+                    .copyMemory(from: src.baseAddress! + srcIndex * elementSize, byteCount: run * elementSize)
+            } else {
+                for i in 0..<run {
+                    (output.baseAddress! + (dstIndex + i * outputStrides[last]) * elementSize)
+                        .copyMemory(from: src.baseAddress! + (srcIndex + i * localStrides[last]) * elementSize, byteCount: elementSize)
                 }
             }
         }
