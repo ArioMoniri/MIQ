@@ -37,6 +37,10 @@ CONTRACT_VERSION = 1
 # display picks the same physical slice as one that does not.
 NX, NY, NZ = 5, 7, 9
 
+# On-disk names of the NIfTI cases (each case has its own directory).
+NIFTI_FILENAME = "image.nii"
+NIFTI_GZ_FILENAME = "image.nii.gz"
+
 
 def f32(x):
     """Round a Python float to IEEE float32 (the readers' value type)."""
@@ -272,52 +276,52 @@ def build_cases():
     def add(case, data):
         cases.append((case, data))
 
-    c = Case("nifti1_ras_float32", "image.nii", "nifti1",
+    c = Case("nifti1_ras_float32", NIFTI_FILENAME, "nifti1",
              "NIfTI-1 float32, sform (code 2) diagonal RAS with anisotropic spacing 1x2x3 mm.",
              D, 1, [1.0, 2.0, 3.0], "float32", "RAS", lambda x, y, z, t: pattern(x, y, z) + 0.5)
     add(c, nifti1(c, sform_code=2, srow=[[1, 0, 0, -2], [0, 2, 0, -6], [0, 0, 3, -12]]))
 
-    c = Case("nifti1_las_int16", "image.nii", "nifti1",
+    c = Case("nifti1_las_int16", NIFTI_FILENAME, "nifti1",
              "NIfTI-1 int16, sform diagonal with negative x: LAS.",
              D, 1, [1.0, 1.0, 1.0], "int16", "LAS", lambda x, y, z, t: pattern(x, y, z) - 400)
     add(c, nifti1(c, sform_code=1, srow=[[-1, 0, 0, 2], [0, 1, 0, -3], [0, 0, 1, -4]]))
 
-    c = Case("nifti1_lps_uint8_gz", "image.nii.gz", "nifti1",
+    c = Case("nifti1_lps_uint8_gz", NIFTI_GZ_FILENAME, "nifti1",
              "Gzip'd NIfTI-1 uint8, sform diagonal with negative x and y: LPS (DICOM-like).",
              D, 1, [1.0, 1.0, 1.0], "uint8", "LPS", lambda x, y, z, t: pattern(x, y, z) % 256)
     add(c, gz(nifti1(c, sform_code=1, srow=[[-1, 0, 0, 2], [0, -1, 0, 3], [0, 0, 1, -4]])))
 
     cos60, sin60 = 0.5, math.sqrt(3) / 2
-    c = Case("nifti1_oblique_sform", "image.nii", "nifti1",
+    c = Case("nifti1_oblique_sform", NIFTI_FILENAME, "nifti1",
              "NIfTI-1 float32, sform rotated 60 degrees about x: j is mostly +S, k mostly -P, so the "
              "dominant-axis code is RSP.",
              D, 1, [1.0, 1.0, 1.0], "float32", "RSP", lambda x, y, z, t: pattern(x, y, z))
     add(c, nifti1(c, sform_code=1, srow=[[1, 0, 0, 0], [0, cos60, -sin60, 0], [0, sin60, cos60, 0]]))
 
-    c = Case("nifti1_qform_only", "image.nii", "nifti1",
+    c = Case("nifti1_qform_only", NIFTI_FILENAME, "nifti1",
              "NIfTI-1 int16, sform_code 0 (its RAS rows must be ignored), qform_code 1 with quaternion "
              "(b,c,d)=(0,0,1) i.e. 180 degrees about z, and qfac (pixdim[0]) = -1: LPI.",
              D, 1, [1.0, 1.0, 1.0], "int16", "LPI", lambda x, y, z, t: pattern(x, y, z))
     add(c, nifti1(c, sform_code=0, srow=[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]],
                   qform_code=1, quatern=(0.0, 0.0, 1.0), qfac=-1.0))
 
-    c = Case("nifti1_no_orientation", "image.nii", "nifti1",
+    c = Case("nifti1_no_orientation", NIFTI_FILENAME, "nifti1",
              "NIfTI-1 int16 with qform_code = sform_code = 0: orientation is unknown, and the "
              "neurological slices fall back to the stored ones.",
              D, 1, [1.0, 1.0, 1.0], "int16", "unknown", lambda x, y, z, t: pattern(x, y, z))
     add(c, nifti1(c))
 
-    c = Case("nifti2_4d_float64", "image.nii", "nifti2",
+    c = Case("nifti2_4d_float64", NIFTI_FILENAME, "nifti2",
              "NIfTI-2 float64, 4D with 3 volumes, sform RAS at 1.5 mm isotropic.",
              D, 3, [1.5, 1.5, 1.5], "float64", "RAS", lambda x, y, z, t: pattern(x, y, z, t) + 0.25)
     add(c, nifti2(c, srow=[[1.5, 0, 0, 0], [0, 1.5, 0, 0], [0, 0, 1.5, 0]]))
 
-    c = Case("nifti1_int16_scaled_gz", "image.nii.gz", "nifti1",
+    c = Case("nifti1_int16_scaled_gz", NIFTI_GZ_FILENAME, "nifti1",
              "Gzip'd NIfTI-1 int16 with scl_slope 0.5 and scl_inter -10 (values are exact in float32).",
              D, 1, [1.0, 1.0, 1.0], "int16", "RAS", lambda x, y, z, t: pattern(x, y, z), slope=0.5, inter=-10.0)
     add(c, gz(nifti1(c, sform_code=1, srow=[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]], slope=0.5, inter=-10.0)))
 
-    c = Case("nifti1_uint8_labels_gz", "image.nii.gz", "nifti1",
+    c = Case("nifti1_uint8_labels_gz", NIFTI_GZ_FILENAME, "nifti1",
              "Gzip'd NIfTI-1 uint8 label map (27 blocky labels, background 0), sform RAS.",
              D, 1, [1.0, 1.0, 1.0], "uint8", "RAS",
              lambda x, y, z, t: 0 if x == 0 else 1 + (x - 1) // 2 + 3 * (y // 3) + 9 * (z // 4))

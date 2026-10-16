@@ -54,6 +54,45 @@ def smooth(n, dtype, seed, noise=0.6):
     return base.astype(dtype)
 
 
+def add_blosc_sweep(add):
+    """Every Blosc compressor × shuffle × typesize combination, on smooth data."""
+    dtypes = {1: np.uint8, 2: np.uint16, 4: np.uint32, 8: np.float64}
+    for cname in ("blosclz", "lz4", "lz4hc", "zlib", "zstd"):
+        for shuffle in ((1,) if cname == "lz4hc" else (0, 1, 2)):  # lz4hc shares the LZ4 decoder
+            for ts, dt in dtypes.items():
+                raw = smooth(301, dt, 10 + ts, noise=0.3).tobytes()
+                enc = Blosc(cname=cname, clevel=5, shuffle=shuffle, blocksize=256).encode(raw)
+                add(f"blosc_{cname}_s{shuffle}_t{ts}", "blosc", raw, enc)
+
+
+def write_stores(manifest):
+    """Small OME-Zarr v2/v3 stores written by zarr-python, listed in ``manifest``."""
+    data = (np.arange(6 * 20 * 24, dtype=np.uint16).reshape(6, 20, 24) * 7) % 4099
+    axes = [{"name": n, "type": "space", "unit": "micrometer"} for n in "zyx"]
+    transforms = [{"type": "scale", "scale": [2.0, 0.5, 0.25]},
+                  {"type": "translation", "translation": [10.0, 20.0, 30.0]}]
+    multiscales = [{"version": "0.4", "axes": axes, "datasets": [{"path": "0", "coordinateTransformations": transforms}]}]
+    stores = [
+        ("v2_blosc.ome.zarr", 2, {"compressors": Blosc()}),          # zarr-python 2 default
+        ("v2_zstd.ome.zarr", 2, {}),                                  # zarr-python 3 default for v2
+        ("v3_zstd.ome.zarr", 3, {}),                                  # zarr-python 3 default
+        ("v3_blosc.ome.zarr", 3, {"compressors": zarr.codecs.BloscCodec(cname="zstd", shuffle="bitshuffle")}),
+    ]
+    for name, fmt, kwargs in stores:
+        path = os.path.join(ROOT, name)
+        group = zarr.open_group(path, mode="w", zarr_format=fmt)
+        array = group.create_array("0", shape=data.shape, chunks=(4, 8, 16), dtype=data.dtype, **kwargs)
+        array[:] = data
+        if fmt == 2:
+            group.attrs["multiscales"] = multiscales
+        else:
+            ms = json.loads(json.dumps(multiscales))
+            del ms[0]["version"]
+            group.attrs["ome"] = {"version": "0.5", "multiscales": ms}
+        manifest["stores"].append({"store": name, "shape": list(data.shape), "sha256": sha(data.astype("<u2").tobytes()),
+                                   "origin_mm": [0.030, 0.020, 0.010], "spacing_mm": [0.00025, 0.0005, 0.002]})
+
+
 def main():
     if os.path.isdir(ROOT):
         shutil.rmtree(ROOT)
@@ -100,13 +139,7 @@ def main():
     add("multiframe", "zst", b"".join(parts), multi)
 
     # --- Blosc -----------------------------------------------------------
-    dtypes = {1: np.uint8, 2: np.uint16, 4: np.uint32, 8: np.float64}
-    for cname in ("blosclz", "lz4", "lz4hc", "zlib", "zstd"):
-        for shuffle in ((1,) if cname == "lz4hc" else (0, 1, 2)):  # lz4hc shares the LZ4 decoder
-            for ts, dt in dtypes.items():
-                raw = smooth(301, dt, 10 + ts, noise=0.3).tobytes()
-                enc = Blosc(cname=cname, clevel=5, shuffle=shuffle, blocksize=256).encode(raw)
-                add(f"blosc_{cname}_s{shuffle}_t{ts}", "blosc", raw, enc)
+    add_blosc_sweep(add)
     raw = rng.integers(0, 256, 3000, dtype=np.uint8).tobytes()
     add("blosc_memcpyed", "blosc", raw, Blosc(cname="lz4", clevel=0, shuffle=0).encode(raw))
     raw = smooth(3_000, np.uint16, 7).tobytes()
@@ -116,30 +149,7 @@ def main():
     add("numcodecs_lz4", "lz4", text[:20_000], LZ4().encode(text[:20_000]))
 
     # --- zarr-python stores ------------------------------------------------
-    data = (np.arange(6 * 20 * 24, dtype=np.uint16).reshape(6, 20, 24) * 7) % 4099
-    axes = [{"name": n, "type": "space", "unit": "micrometer"} for n in "zyx"]
-    transforms = [{"type": "scale", "scale": [2.0, 0.5, 0.25]},
-                  {"type": "translation", "translation": [10.0, 20.0, 30.0]}]
-    multiscales = [{"version": "0.4", "axes": axes, "datasets": [{"path": "0", "coordinateTransformations": transforms}]}]
-    stores = [
-        ("v2_blosc.ome.zarr", 2, {"compressors": Blosc()}),          # zarr-python 2 default
-        ("v2_zstd.ome.zarr", 2, {}),                                  # zarr-python 3 default for v2
-        ("v3_zstd.ome.zarr", 3, {}),                                  # zarr-python 3 default
-        ("v3_blosc.ome.zarr", 3, {"compressors": zarr.codecs.BloscCodec(cname="zstd", shuffle="bitshuffle")}),
-    ]
-    for name, fmt, kwargs in stores:
-        path = os.path.join(ROOT, name)
-        group = zarr.open_group(path, mode="w", zarr_format=fmt)
-        array = group.create_array("0", shape=data.shape, chunks=(4, 8, 16), dtype=data.dtype, **kwargs)
-        array[:] = data
-        if fmt == 2:
-            group.attrs["multiscales"] = multiscales
-        else:
-            ms = json.loads(json.dumps(multiscales))
-            del ms[0]["version"]
-            group.attrs["ome"] = {"version": "0.5", "multiscales": ms}
-        manifest["stores"].append({"store": name, "shape": list(data.shape), "sha256": sha(data.astype("<u2").tobytes()),
-                                   "origin_mm": [0.030, 0.020, 0.010], "spacing_mm": [0.00025, 0.0005, 0.002]})
+    write_stores(manifest)
 
     with open(os.path.join(ROOT, "manifest.json"), "w") as f:
         json.dump(manifest, f, indent=1, sort_keys=True)
