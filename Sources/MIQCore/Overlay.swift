@@ -62,7 +62,8 @@ public struct VoxelAffine: Sendable, Hashable {
 
     /// `self ∘ other`: apply `other` first, then `self`.
     public func concatenating(_ other: VoxelAffine) -> VoxelAffine {
-        let a = rows, b = other.rows
+        let a = rows
+        let b = other.rows
         var out = [[Double]](repeating: [0, 0, 0, 0], count: 3)
         for r in 0..<3 {
             for c in 0..<4 {
@@ -143,12 +144,20 @@ struct NIfTIRawFields {
     /// The qform affine (NIfTI-1 spec method 2), or `nil` when the quaternion is
     /// unusable.
     func qformAffine(pixdim: [Float]) -> VoxelAffine? {
-        let b = quaternB, c = quaternC, d = quaternD
+        let b = quaternB
+        let c = quaternC
+        let d = quaternD
         guard b.isFinite, c.isFinite, d.isFinite else { return nil }
         let a = max(0, 1 - b * b - c * c - d * d).squareRoot()
-        let r00 = a * a + b * b - c * c - d * d, r01 = 2 * (b * c - a * d), r02 = 2 * (b * d + a * c)
-        let r10 = 2 * (b * c + a * d), r11 = a * a + c * c - b * b - d * d, r12 = 2 * (c * d - a * b)
-        let r20 = 2 * (b * d - a * c), r21 = 2 * (c * d + a * b), r22 = a * a + d * d - b * b - c * c
+        let r00 = a * a + b * b - c * c - d * d
+        let r01 = 2 * (b * c - a * d)
+        let r02 = 2 * (b * d + a * c)
+        let r10 = 2 * (b * c + a * d)
+        let r11 = a * a + c * c - b * b - d * d
+        let r12 = 2 * (c * d - a * b)
+        let r20 = 2 * (b * d - a * c)
+        let r21 = 2 * (c * d + a * b)
+        let r22 = a * a + d * d - b * b - c * c
         let sx = Double(sanitizedSpacing(pixdim[safe: 1] ?? 1))
         let sy = Double(sanitizedSpacing(pixdim[safe: 2] ?? 1))
         let sz = Double(sanitizedSpacing(pixdim[safe: 3] ?? 1)) * qfac
@@ -251,7 +260,9 @@ extension MIQVolume {
     /// pixels aligned 1:1 with `reference.slice(…)`. `nil` when `values.count`
     /// doesn't match the reference's spatial size.
     public static func derivedVolume(values: [Float], onGridOf reference: MIQVolume) -> MIQVolume? {
-        let w = reference.width, h = reference.height, d = reference.depth
+        let w = reference.width
+        let h = reference.height
+        let d = reference.depth
         guard values.count == w * h * d, !values.isEmpty else { return nil }
         let affine = reference.voxelToWorld
         let header = reference.image.header
@@ -332,7 +343,9 @@ public enum OverlayResampler {
         maxVoxels: Int = defaultMaxVoxels,
         isCancelled: () -> Bool = { false }
     ) -> [Float]? {
-        let rw = reference.width, rh = reference.height, rd = reference.depth
+        let rw = reference.width
+        let rh = reference.height
+        let rd = reference.depth
         let (refCount, o1) = rw.multipliedReportingOverflow(by: rh)
         let (refTotal, o2) = refCount.multipliedReportingOverflow(by: rd)
         guard !o1, !o2, refTotal > 0, refTotal <= maxVoxels,
@@ -342,8 +355,12 @@ public enum OverlayResampler {
         guard m.allSatisfy({ $0.allSatisfy(\.isFinite) }) else { return nil }
         guard let src = overlay.decodedValues(volumeIndex: volumeIndex, isCancelled: isCancelled) else { return nil }
 
-        let ow = overlay.width, oh = overlay.height, od = overlay.depth
-        let owD = Double(ow), ohD = Double(oh), odD = Double(od)
+        let ow = overlay.width
+        let oh = overlay.height
+        let od = overlay.depth
+        let owD = Double(ow)
+        let ohD = Double(oh)
+        let odD = Double(od)
         var out = [Float](repeating: outsideValue, count: refTotal)
         var n = 0
         src.withUnsafeBufferPointer { s in
@@ -391,12 +408,24 @@ public enum OverlayResampler {
         let x = min(Double(w - 1), max(0, px))
         let y = min(Double(h - 1), max(0, py))
         let z = min(Double(d - 1), max(0, pz))
-        let x0 = Int(x), y0 = Int(y), z0 = Int(z)
-        let x1 = min(w - 1, x0 + 1), y1 = min(h - 1, y0 + 1), z1 = min(d - 1, z0 + 1)
-        let fx = Float(x - Double(x0)), fy = Float(y - Double(y0)), fz = Float(z - Double(z0))
+        let x0 = Int(x)
+        let y0 = Int(y)
+        let z0 = Int(z)
+        let x1 = min(w - 1, x0 + 1)
+        let y1 = min(h - 1, y0 + 1)
+        let z1 = min(d - 1, z0 + 1)
+        let fx = Float(x - Double(x0))
+        let fy = Float(y - Double(y0))
+        let fz = Float(z - Double(z0))
         @inline(__always) func at(_ xi: Int, _ yi: Int, _ zi: Int) -> Float { s[(zi * h + yi) * w + xi] }
-        let c000 = at(x0, y0, z0), c100 = at(x1, y0, z0), c010 = at(x0, y1, z0), c110 = at(x1, y1, z0)
-        let c001 = at(x0, y0, z1), c101 = at(x1, y0, z1), c011 = at(x0, y1, z1), c111 = at(x1, y1, z1)
+        let c000 = at(x0, y0, z0)
+        let c100 = at(x1, y0, z0)
+        let c010 = at(x0, y1, z0)
+        let c110 = at(x1, y1, z0)
+        let c001 = at(x0, y0, z1)
+        let c101 = at(x1, y0, z1)
+        let c011 = at(x0, y1, z1)
+        let c111 = at(x1, y1, z1)
         let c00 = c000 + (c100 - c000) * fx
         let c10 = c010 + (c110 - c010) * fx
         let c01 = c001 + (c101 - c001) * fx
@@ -405,7 +434,9 @@ public enum OverlayResampler {
         let c1 = c01 + (c11 - c01) * fy
         let v = c0 + (c1 - c0) * fz
         if v.isFinite { return v }
-        let xn = Int(x.rounded()), yn = Int(y.rounded()), zn = Int(z.rounded())
+        let xn = Int(x.rounded())
+        let yn = Int(y.rounded())
+        let zn = Int(z.rounded())
         return at(xn, yn, zn)
     }
 

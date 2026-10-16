@@ -19,6 +19,29 @@ import Foundation
 /// error falls back to the CPU path, so a GPU problem can't break the preview.
 public enum VolumeRenderer {
 
+    /// Output frame size in pixels, for the entry points that take one bundled.
+    public struct Size: Sendable, Hashable {
+        public var width: Int
+        public var height: Int
+
+        public init(width: Int = 256, height: Int = 256) {
+            self.width = width
+            self.height = height
+        }
+    }
+
+    /// How `render(volume:…)` builds its `VolumeRenderGrid`: which volume of a
+    /// 4D series and the grid's longest-axis cap (see `VolumeRenderGrid.init`).
+    public struct GridOptions: Sendable, Hashable {
+        public var volumeIndex: Int
+        public var maxDimension: Int
+
+        public init(volumeIndex: Int = 0, maxDimension: Int = 128) {
+            self.volumeIndex = volumeIndex
+            self.maxDimension = maxDimension
+        }
+    }
+
     /// Renders `grid` as an opaque `width × height` RGBA8 bitmap.
     /// `window` nil → `grid.suggestedWindow` (ignored by `.labels`).
     /// Throws `CancellationError` when the calling task is cancelled.
@@ -59,23 +82,21 @@ public enum VolumeRenderer {
     /// `VolumeRenderGrid` once and call `render(grid:…)` instead.
     public static func render(
         volume: MIQVolume,
-        volumeIndex: Int = 0,
-        maxGridDimension: Int = 128,
+        gridOptions: GridOptions = GridOptions(),
         camera: VolumeRenderCamera = .anterior,
         mode: VolumeRenderMode,
         window: MIQIntensityWindowBounds?,
-        width: Int = 256,
-        height: Int = 256,
+        size: Size = Size(),
         options: VolumeRenderOptions = VolumeRenderOptions()
     ) async throws -> RGBABitmap {
         try Task.checkCancellation()
         let grid = VolumeRenderGrid(
-            volume: volume, volumeIndex: volumeIndex,
-            maxDimension: maxGridDimension, asLabels: mode == .labels
+            volume: volume, volumeIndex: gridOptions.volumeIndex,
+            maxDimension: gridOptions.maxDimension, asLabels: mode == .labels
         )
         return try await render(
             grid: grid, camera: camera, mode: mode, window: window,
-            width: width, height: height, options: options
+            width: size.width, height: size.height, options: options
         )
     }
 
@@ -87,14 +108,13 @@ public enum VolumeRenderer {
         camera: VolumeRenderCamera = .anterior,
         mode: VolumeRenderMode,
         window: MIQIntensityWindowBounds?,
-        width: Int = 256,
-        height: Int = 256,
+        size: Size = Size(),
         options: VolumeRenderOptions = VolumeRenderOptions(),
         isCancelled: @Sendable () -> Bool = { false }
     ) throws -> RGBABitmap {
         let setup = try VolumeRenderSetup(
             grid: grid, camera: camera, mode: mode, window: window,
-            width: width, height: height, options: options
+            width: size.width, height: size.height, options: options
         )
         if isCancelled() { throw CancellationError() }
         if let bitmap = try metalRender(setup: setup, grid: grid, backend: options.backend, isCancelled: isCancelled) {

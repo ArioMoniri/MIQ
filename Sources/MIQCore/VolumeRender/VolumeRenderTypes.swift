@@ -72,7 +72,14 @@ public enum VolumeColormap: String, Sendable, Hashable, CaseIterable {
         case .bone:
             // Matplotlib-style "bone": grayscale with a blue tint in the mids.
             let r = t < 0.75 ? t * 0.875 : 0.65625 + (t - 0.75) * 1.375
-            let g = t < 0.375 ? t * 0.875 : (t < 0.75 ? 0.328125 + (t - 0.375) * 1.208333 : 0.78125 + (t - 0.75) * 0.875)
+            let g: Float
+            if t < 0.375 {
+                g = t * 0.875
+            } else if t < 0.75 {
+                g = 0.328125 + (t - 0.375) * 1.208333
+            } else {
+                g = 0.78125 + (t - 0.75) * 0.875
+            }
             let b = t < 0.375 ? t * 1.208333 : 0.453125 + (t - 0.375) * 0.875
             return (min(1, r), min(1, g), min(1, b))
         }

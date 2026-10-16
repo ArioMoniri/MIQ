@@ -190,10 +190,14 @@ public struct VolumeRenderGrid: Sendable {
             taps[a] = axisTaps
         }
 
-        let nx = outDims[0], ny = outDims[1], nz = outDims[2]
+        let nx = outDims[0]
+        let ny = outDims[1]
+        let nz = outDims[2]
         let plane = nx * ny
         var raw = [Float](repeating: 0, count: plane * nz)
-        let tapsX = taps[0], tapsY = taps[1], tapsZ = taps[2]
+        let tapsX = taps[0]
+        let tapsY = taps[1]
+        let tapsZ = taps[2]
         // Storage axis k reads RAS coordinate inv[k].
         var inv = [0, 1, 2]
         for a in 0..<3 { inv[rasToStorage[a]] = a }
@@ -252,10 +256,16 @@ public struct VolumeRenderGrid: Sendable {
 
     /// Output grid geometry and per-axis source taps for `fill`.
     private struct FillPlan: Sendable {
-        let nx: Int, ny: Int, nz: Int
-        let tapsX: [(Int, Int)], tapsY: [(Int, Int)], tapsZ: [(Int, Int)]
+        let nx: Int
+        let ny: Int
+        let nz: Int
+        let tapsX: [(Int, Int)]
+        let tapsY: [(Int, Int)]
+        let tapsZ: [(Int, Int)]
         /// Storage axis 0/1/2 reads RAS coordinate i0/i1/i2.
-        let i0: Int, i1: Int, i2: Int
+        let i0: Int
+        let i1: Int
+        let i2: Int
         let labels: Bool
     }
 
@@ -302,7 +312,11 @@ public struct VolumeRenderGrid: Sendable {
     /// Selects the RAS coordinate (r, a or s) that storage axis reads.
     @inline(__always)
     private static func pick(_ which: Int, _ r: Int, _ a: Int, _ s: Int) -> Int {
-        which == 0 ? r : (which == 1 ? a : s)
+        switch which {
+        case 0: r
+        case 1: a
+        default: s
+        }
     }
 }
 
@@ -343,7 +357,9 @@ private struct RawVoxelSource: GridVoxelSource, @unchecked Sendable {
     let littleEndian: Bool
     let slope: Float
     let intercept: Float
-    let strideX: Int, strideY: Int, strideZ: Int
+    let strideX: Int
+    let strideY: Int
+    let strideZ: Int
     let timeOffset: Int
 
     static func kind(of datatype: MIQDatatype) -> Kind? {

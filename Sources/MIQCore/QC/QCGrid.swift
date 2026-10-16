@@ -58,7 +58,9 @@ struct QCGrid: Sendable {
     static func sample(volume: MIQVolume, volumeIndex: Int, maxDimension: Int) throws -> QCGrid? {
         let header = volume.image.header
         if header.datatype == .rgb24 || header.datatype == .rgba32 { return nil }
-        let w = volume.width, h = volume.height, d = volume.depth
+        let w = volume.width
+        let h = volume.height
+        let d = volume.depth
         guard w > 0, h > 0, d > 0 else { return nil }
         let t = min(max(0, volumeIndex), volume.volumes - 1)
 

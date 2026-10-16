@@ -195,7 +195,8 @@ enum QCMetricsCalculator {
         var cnr: Double?
         var cjv: Double?
         if let classes {
-            let a = classes[1], b = classes[2]
+            let a = classes[1]
+            let b = classes[2]
             let delta = abs(b.mean - a.mean)
             if delta > 0 {
                 // MRIQC `cnr`: |μ_WM − μ_GM| / √(σ_air² + σ_WM² + σ_GM²)
@@ -296,7 +297,8 @@ enum QCMetricsCalculator {
         }
         var centers = [20.0, 50.0, 80.0].map { Double(QCStats.percentile(sorted: sorted, $0)) }
         for _ in 0..<50 {
-            var sums = [0.0, 0.0, 0.0], counts = [0.0, 0.0, 0.0]
+            var sums = [0.0, 0.0, 0.0]
+            var counts = [0.0, 0.0, 0.0]
             for b in 0..<bins where hist[b] > 0 {
                 let x = Double(lo) + (Double(b) + 0.5) * width
                 let k = nearest(x, centers)

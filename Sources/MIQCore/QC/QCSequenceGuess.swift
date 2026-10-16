@@ -209,7 +209,8 @@ enum QCContentClassifier {
             for y in 0..<grid.height {
                 let row = grid.index(0, y, z)
                 for x in 0..<(grid.width - 1) {
-                    let a = grid.values[row + x], b = grid.values[row + x + 1]
+                    let a = grid.values[row + x]
+                    let b = grid.values[row + x + 1]
                     if a != 0 && b != 0 && !(a == mode && b == mode) {
                         pairs += 1
                         if a == b { equal += 1 }
@@ -227,7 +228,8 @@ enum QCContentClassifier {
     /// with soft tissue (−100…200 HU, ≥ 5%). MRI magnitude is non-negative; MRI phase spreads
     /// roughly uniformly and fails the air-mode test.
     static func looksLikeCT(grid: QCGrid) -> Bool {
-        var air = 0, soft = 0
+        var air = 0
+        var soft = 0
         for v in grid.values {
             if v >= -1100 && v <= -900 { air += 1 } else if v >= -100 && v <= 200 { soft += 1 }
         }

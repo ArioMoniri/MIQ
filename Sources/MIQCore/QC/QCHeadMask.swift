@@ -133,12 +133,11 @@ enum QCMorphology {
         for z in 0..<s.d {
             for y in 0..<s.h {
                 for x in 0..<s.w {
-                    if m[i] == 0 {
-                        if (x > 0 && m[i - 1] != 0) || (x < s.w - 1 && m[i + 1] != 0)
-                            || (y > 0 && m[i - s.w] != 0) || (y < s.h - 1 && m[i + s.w] != 0)
-                            || (z > 0 && m[i - plane] != 0) || (z < s.d - 1 && m[i + plane] != 0) {
-                            out[i] = 1
-                        }
+                    if m[i] == 0,
+                       (x > 0 && m[i - 1] != 0) || (x < s.w - 1 && m[i + 1] != 0)
+                        || (y > 0 && m[i - s.w] != 0) || (y < s.h - 1 && m[i + s.w] != 0)
+                        || (z > 0 && m[i - plane] != 0) || (z < s.d - 1 && m[i + plane] != 0) {
+                        out[i] = 1
                     }
                     i += 1
                 }
@@ -156,12 +155,11 @@ enum QCMorphology {
         for z in 0..<s.d {
             for y in 0..<s.h {
                 for x in 0..<s.w {
-                    if m[i] != 0 {
-                        if (x > 0 && m[i - 1] == 0) || (x < s.w - 1 && m[i + 1] == 0)
-                            || (y > 0 && m[i - s.w] == 0) || (y < s.h - 1 && m[i + s.w] == 0)
-                            || (z > 0 && m[i - plane] == 0) || (z < s.d - 1 && m[i + plane] == 0) {
-                            out[i] = 0
-                        }
+                    if m[i] != 0,
+                       (x > 0 && m[i - 1] == 0) || (x < s.w - 1 && m[i + 1] == 0)
+                        || (y > 0 && m[i - s.w] == 0) || (y < s.h - 1 && m[i + s.w] == 0)
+                        || (z > 0 && m[i - plane] == 0) || (z < s.d - 1 && m[i + plane] == 0) {
+                        out[i] = 0
                     }
                     i += 1
                 }
